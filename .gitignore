@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+pb_data
+.claude/settings.local.json
+.vs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

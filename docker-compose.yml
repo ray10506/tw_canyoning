@@ -11,4 +11,16 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - VITE_PB_URL=http://localhost:8090
     command: npm run dev
+    depends_on:
+      - pocketbase
+
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: pocketbase
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./pb_data:/pb_data
+    restart: unless-stopped

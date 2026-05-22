@@ -1,12 +1,13 @@
 <template>
   <aside class="sidebar">
-    <h2 class="title">路線探索</h2>
+    <div class="title-row">
+      <h2 class="title">路線探索</h2>
+      <button class="close-sidebar-btn" @click="$emit('close')" title="收合">&#9664;</button>
+    </div>
+
+    <DifficultyGuide v-if="showGuide" :records="difficultyRecords" @close="showGuide = false" />
 
     <div class="type-tabs">
-      <button
-        :class="['type-tab', { active: selectedType === null }]"
-        @click="$emit('filterType', null)"
-      >全部</button>
       <button
         v-for="t in routeTypes"
         :key="t.value"
@@ -25,28 +26,40 @@
       />
     </div>
 
-    <div class="filter-section">
-      <p class="filter-label">難度篩選</p>
-      <div class="filter-buttons">
-        <button
-          :class="['filter-btn', { active: selectedDifficulty === null }]"
-          @click="$emit('filter', null)"
-        >全部</button>
-        <button
-          v-for="d in [1, 2, 3, 4, 5]"
-          :key="d"
-          :class="['filter-btn', { active: selectedDifficulty === d }]"
-          @click="$emit('filter', d)"
-        >Lv.{{ d }}</button>
+    <!-- 溪降篩選 -->
+    <div v-if="selectedType === '溪降'" class="route-filters">
+      <div class="filter-row">
+        <select v-model="filterV" @change="emitRouteFilter" class="filter-select">
+          <option value="">V 全部</option>
+          <option v-for="v in vOptions" :key="v" :value="v">{{ v }}</option>
+        </select>
+        <select v-model="filterA" @change="emitRouteFilter" class="filter-select">
+          <option value="">A 全部</option>
+          <option v-for="a in aOptions" :key="a" :value="a">{{ a }}</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select v-model="filterT" @change="emitRouteFilter" class="filter-select">
+          <option value="">T 全部</option>
+          <option v-for="t in tOptions" :key="t" :value="t">{{ t }}</option>
+        </select>
+        <select v-model="filterDrop" @change="emitRouteFilter" class="filter-select">
+          <option value="">落差 全部</option>
+          <option value="≤20">≤ 20m</option>
+          <option value="21-40">21–40m</option>
+          <option value="41-60">41–60m</option>
+          <option value=">60">> 60m</option>
+        </select>
       </div>
     </div>
 
-    <ul class="canyon-list">
+    <!-- 一般路線列表 -->
+    <ul v-if="selectedType !== '溪降'" class="canyon-list">
       <li
         v-for="canyon in canyons"
         :key="canyon.id"
         :class="['canyon-item', { active: selectedId === canyon.id }]"
-        @click="$emit('select', canyon.id)"
+        @click.stop="emit('select', canyon.id); emit('showDetail', { kind: 'canyon', data: canyon })"
       >
         <div class="canyon-header">
           <span class="canyon-name">{{ canyon.name }}</span>
@@ -60,32 +73,93 @@
       </li>
       <li v-if="canyons.length === 0" class="empty">查無符合的地點</li>
     </ul>
+
+    <!-- 溪降路線列表 -->
+    <ul v-else class="canyon-list">
+      <li class="guide-row">
+        <button class="guide-btn" @click.stop="openGuide">難度說明</button>
+      </li>
+      <li v-if="routesLoading" class="empty">載入中...</li>
+      <template v-else>
+        <li
+          v-for="route in canyonRoutes"
+          :key="route.id"
+          class="canyon-item"
+          @click.stop="emit('showDetail', { kind: 'route', data: route })"
+        >
+          <div class="canyon-header">
+            <span class="canyon-name">{{ route.name }}</span>
+            <span class="type-badge type-badge--canyon">{{ route.grading || '—' }}</span>
+          </div>
+          <div class="canyon-meta">
+            <span class="canyon-location">{{ route.region }}</span>
+            <span class="route-rappel">{{ route.max_drop || '' }}</span>
+          </div>
+          <div class="route-meta">
+            <span v-if="route.approach">接近 {{ route.approach }}</span>
+            <span v-if="route.total_time">全程 {{ route.total_time }}</span>
+          </div>
+        </li>
+        <li v-if="canyonRoutes.length === 0" class="empty">查無符合的路線</li>
+      </template>
+    </ul>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Canyon, RouteType } from '../data/canyon'
+import DifficultyGuide from './DifficultyGuide.vue'
+import { pb } from '../lib/pb'
+
+const showGuide = ref(false)
+const difficultyRecords = ref<any[]>([])
+const difficultyLoaded = ref(false)
+
+async function openGuide() {
+  showGuide.value = true
+  if (!difficultyLoaded.value) {
+    difficultyRecords.value = await pb.collection('difficulty_levels').getFullList({ sort: 'sort_order' })
+    difficultyLoaded.value = true
+  }
+}
 
 defineProps<{
   canyons: Canyon[]
-  selectedId: number | null
+  canyonRoutes: any[]
+  routesLoading: boolean
+  selectedId: string | null
   selectedDifficulty: number | null
   selectedType: RouteType | null
 }>()
 
-defineEmits<{
-  select: [id: number]
+const emit = defineEmits<{
+  select: [id: string]
   filter: [difficulty: number | null]
   filterType: [type: RouteType | null]
   search: [query: string]
+  close: []
+  showDetail: [item: { kind: 'canyon' | 'route', data: any }]
+  routeFilter: [f: { v: string, a: string, t: string, drop: string }]
 }>()
 
 const searchQuery = ref('')
+const filterV    = ref('')
+const filterA    = ref('')
+const filterT    = ref('')
+const filterDrop = ref('')
+
+const vOptions = ['V1','V2','V3','V4','V5','V6','V7']
+const aOptions = ['A1','A2','A3','A4','A5','A6','A7']
+const tOptions = ['I','II','III','IV','V','VI']
+
+function emitRouteFilter() {
+  emit('routeFilter', { v: filterV.value, a: filterA.value, t: filterT.value, drop: filterDrop.value })
+}
 
 const routeTypes = [
-  { value: '溯溪' as RouteType, key: 'river' },
   { value: '溪降' as RouteType, key: 'canyon' },
+  { value: '溯溪' as RouteType, key: 'river' },
   { value: '野溪溫泉' as RouteType, key: 'hotspring' },
 ]
 
@@ -96,8 +170,8 @@ function typeKey(type: RouteType) {
 
 <style scoped>
 .sidebar {
-  width: 280px;
-  min-width: 280px;
+  width: 100%;
+  min-width: 0;
   height: 100vh;
   background: #1a1a2e;
   color: #e0e0e0;
@@ -106,13 +180,76 @@ function typeKey(type: RouteType) {
   overflow: hidden;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
 .title {
   font-size: 1.1rem;
   font-weight: 700;
-  padding: 20px 16px 12px;
-  border-bottom: 1px solid #2a2a4a;
   color: #fff;
 }
+
+.route-filters {
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a4a;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-select {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #3a3a5a;
+  background: #12122a;
+  color: #ccc;
+  font-size: 0.78rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.filter-select:focus { border-color: #6c8ef5; }
+
+.guide-row {
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a4a;
+  list-style: none;
+}
+
+.guide-btn {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid #3a3a5a;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.guide-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
+
+.close-sidebar-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.close-sidebar-btn:hover { color: #aaa; }
 
 /* Type tabs */
 .type-tabs {
@@ -252,6 +389,15 @@ function typeKey(type: RouteType) {
 .canyon-location { font-size: 0.75rem; color: #888; }
 .canyon-difficulty { font-size: 0.75rem; color: #f0a030; letter-spacing: 1px; }
 .canyon-season { font-size: 0.75rem; color: #6abf8a; }
+
+.route-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: #6abf8a;
+}
+
+.route-rappel { font-size: 0.75rem; color: #f5a030; }
 
 .empty {
   padding: 20px 16px;

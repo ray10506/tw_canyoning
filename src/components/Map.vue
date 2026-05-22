@@ -15,7 +15,7 @@ import type { Canyon } from '../data/canyon'
 
 const props = defineProps<{
   canyons: Canyon[]
-  selectedId: number | null
+  selectedId: string | null
 }>()
 
 let map: L.Map | null = null
