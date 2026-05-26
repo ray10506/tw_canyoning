@@ -16,11 +16,14 @@
           :canyon-routes="filteredRoutes"
           :routes-loading="routesLoading"
           :selected-id="selectedId"
+          :selected-route-id="selectedRouteId"
           :selected-difficulty="selectedDifficulty"
           :selected-type="selectedType"
+          :selected-region="selectedRegion"
           @select="selectedId = $event"
           @filter="onFilter"
           @filter-type="onFilterType"
+          @filter-region="toggleRegion($event)"
           @search="onSearch"
           @close="sidebarOpen = false"
           @show-detail="detailItem = $event"
@@ -35,11 +38,13 @@
         <Map
           :canyons="selectedType === '溪降' ? [] : filteredCanyons"
           :selected-id="selectedId"
+          :focus-point="routeFocusPoint"
         />
       </div>
       <RouteDetail
         v-if="detailItem"
         :item="detailItem"
+        :init-pos="cardInitPos"
         @close="detailItem = null"
       />
     </template>
@@ -57,6 +62,36 @@ import type { Canyon, RouteType } from './data/canyon'
 const sidebarOpen  = ref(true)
 const detailItem   = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
 const sidebarWidth = ref(280)
+
+const routeFocusPoint = computed((): [number, number] | null => {
+  if (detailItem.value?.kind !== 'route') return null
+  const gps = detailItem.value.data.gps?.trim()
+  if (!gps) return null
+  const parts = gps.split(/[,\s]+/).map(Number)
+  if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+    return [parts[0], parts[1]]
+  return null
+})
+
+const cardInitPos = computed((): { x: number; y: number } | null => {
+  if (detailItem.value?.kind !== 'route') return null
+  const gps = detailItem.value.data.gps?.trim()
+  if (!gps) return null
+
+  const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0
+  const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2
+  const mapCenterY = window.innerHeight / 2
+  const cardW = 380
+  const cardH = 420
+  const gap = 24
+
+  const x = mapCenterX + gap + cardW <= window.innerWidth
+    ? mapCenterX + gap
+    : mapCenterX - gap - cardW
+
+  const y = Math.min(mapCenterY + gap, window.innerHeight - cardH - gap)
+  return { x, y }
+})
 const isResizing   = ref(false)
 
 function startResize(e: MouseEvent) {
@@ -88,6 +123,31 @@ const selectedDifficulty = ref<number | null>(null)
 const selectedType = ref<RouteType | null>('溪降')
 const selectedId = ref<string | null>(null)
 const searchQuery = ref('')
+const selectedRegion = ref<string[]>([])
+
+const REGION_KEYWORDS: Record<string, string[]> = {
+  '北部': ['台北', '臺北', '新北', '基隆', '桃園', '新竹', '宜蘭'],
+  '中部': ['苗栗', '台中', '臺中', '彰化', '南投', '雲林'],
+  '南部': ['嘉義', '台南', '臺南', '高雄', '屏東', '澎湖'],
+  '東部': ['花蓮', '台東', '臺東'],
+}
+
+function toggleRegion(region: string) {
+  const i = selectedRegion.value.indexOf(region)
+  if (i === -1) selectedRegion.value.push(region)
+  else selectedRegion.value.splice(i, 1)
+}
+
+function matchRegion(text: string, regions: string[]): boolean {
+  if (regions.length === 0) return true
+  return regions.some(r => (REGION_KEYWORDS[r] ?? []).some(k => text.includes(k)))
+}
+
+const selectedRouteId = computed(() =>
+  detailItem.value?.kind === 'route' ? detailItem.value.data.id : null
+)
+
+watch(detailItem, item => { if (!item) selectedId.value = null })
 
 onMounted(async () => {
   routesLoading.value = true
@@ -124,6 +184,9 @@ const filteredRoutes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   const { v, a, t, drop } = routeFilter.value
   return canyonRoutes.value.filter(r => {
+    const hasGps = r['gps']?.trim()
+    if (!hasGps) return false
+    if (!matchRegion(r['region'] ?? '', selectedRegion.value)) return false
     const matchSearch = !q || r['name']?.toLowerCase().includes(q) || r['region']?.toLowerCase().includes(q)
     const grading = (r['grading'] ?? '').split(/\s+/)
     const matchV = !v || grading.some((p: string) => p === v)
@@ -145,7 +208,7 @@ const filteredCanyons = computed(() => {
     const matchDifficulty = selectedDifficulty.value === null || c.difficulty === selectedDifficulty.value
     const q = searchQuery.value.trim().toLowerCase()
     const matchSearch = !q || c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q)
-    return matchType && matchDifficulty && matchSearch
+    return matchType && matchDifficulty && matchSearch && matchRegion(c.location, selectedRegion.value)
   })
 })
 
@@ -157,7 +220,7 @@ function onFilter(difficulty: number | null) {
 async function onFilterType(type: RouteType | null) {
   selectedType.value = type
   selectedId.value = null
-  if (type === '溪降' && !routesLoaded.value) {
+  if (type === '溪降' && !routesLoaded.value && !routesLoading.value) {
     routesLoading.value = true
     try {
       canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name' })

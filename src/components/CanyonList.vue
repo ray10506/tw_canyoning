@@ -1,11 +1,20 @@
 <template>
   <aside class="sidebar">
     <div class="title-row">
-      <h2 class="title">路線探索</h2>
+      <h2 class="title">台灣溪谷路線探索</h2>
       <button class="close-sidebar-btn" @click="$emit('close')" title="收合">&#9664;</button>
     </div>
 
-    <DifficultyGuide v-if="showGuide" :records="difficultyRecords" @close="showGuide = false" />
+    <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
+
+    <div class="region-tabs">
+      <button
+        v-for="r in regions"
+        :key="r.value"
+        :class="['region-tab', { active: selectedRegion.includes(r.value) }]"
+        @click="$emit('filterRegion', r.value)"
+      >{{ r.label }}</button>
+    </div>
 
     <div class="type-tabs">
       <button
@@ -17,13 +26,16 @@
     </div>
 
     <div class="search-section">
-      <input
-        v-model="searchQuery"
-        class="search-input"
-        type="text"
-        placeholder="搜尋地點名稱或縣市..."
-        @input="$emit('search', searchQuery)"
-      />
+      <div class="search-wrap">
+        <input
+          v-model="searchQuery"
+          class="search-input"
+          type="text"
+          placeholder="搜尋地點名稱或縣市..."
+          @input="$emit('search', searchQuery)"
+        />
+        <button v-if="searchQuery" class="search-clear" @click="clearSearch">✕</button>
+      </div>
     </div>
 
     <!-- 溪降篩選 -->
@@ -84,7 +96,7 @@
         <li
           v-for="route in canyonRoutes"
           :key="route.id"
-          class="canyon-item"
+          :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
           @click.stop="emit('showDetail', { kind: 'route', data: route })"
         >
           <div class="canyon-header">
@@ -107,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { Canyon, RouteType } from '../data/canyon'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
@@ -115,28 +127,37 @@ import { pb } from '../lib/pb'
 const showGuide = ref(false)
 const difficultyRecords = ref<any[]>([])
 const difficultyLoaded = ref(false)
+const difficultyLoading = ref(false)
 
 async function openGuide() {
   showGuide.value = true
   if (!difficultyLoaded.value) {
-    difficultyRecords.value = await pb.collection('difficulty_levels').getFullList({ sort: 'sort_order' })
-    difficultyLoaded.value = true
+    difficultyLoading.value = true
+    try {
+      difficultyRecords.value = await pb.collection('difficulty_levels').getFullList({ sort: 'sort_order' })
+      difficultyLoaded.value = true
+    } finally {
+      difficultyLoading.value = false
+    }
   }
 }
 
-defineProps<{
+const props = defineProps<{
   canyons: Canyon[]
   canyonRoutes: any[]
   routesLoading: boolean
   selectedId: string | null
+  selectedRouteId: string | null
   selectedDifficulty: number | null
   selectedType: RouteType | null
+  selectedRegion: string[]
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
   filter: [difficulty: number | null]
   filterType: [type: RouteType | null]
+  filterRegion: [region: string]
   search: [query: string]
   close: []
   showDetail: [item: { kind: 'canyon' | 'route', data: any }]
@@ -153,14 +174,36 @@ const vOptions = ['V1','V2','V3','V4','V5','V6','V7']
 const aOptions = ['A1','A2','A3','A4','A5','A6','A7']
 const tOptions = ['I','II','III','IV','V','VI']
 
+function clearSearch() {
+  searchQuery.value = ''
+  emit('search', '')
+}
+
 function emitRouteFilter() {
   emit('routeFilter', { v: filterV.value, a: filterA.value, t: filterT.value, drop: filterDrop.value })
 }
+
+watch(() => props.selectedType, () => {
+  searchQuery.value = ''
+  filterV.value = ''
+  filterA.value = ''
+  filterT.value = ''
+  filterDrop.value = ''
+  emit('search', '')
+  emit('routeFilter', { v: '', a: '', t: '', drop: '' })
+})
 
 const routeTypes = [
   { value: '溪降' as RouteType, key: 'canyon' },
   { value: '溯溪' as RouteType, key: 'river' },
   { value: '野溪溫泉' as RouteType, key: 'hotspring' },
+]
+
+const regions = [
+  { value: '北部', label: '北部' },
+  { value: '中部', label: '中部' },
+  { value: '南部', label: '南部' },
+  { value: '東部', label: '東部' },
 ]
 
 function typeKey(type: RouteType) {
@@ -251,6 +294,28 @@ function typeKey(type: RouteType) {
 }
 .close-sidebar-btn:hover { color: #aaa; }
 
+/* Region tabs */
+.region-tabs {
+  display: flex;
+  padding: 8px 12px;
+  gap: 6px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
+.region-tab {
+  flex: 1;
+  padding: 5px 4px;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  background: transparent;
+  color: #888;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.region-tab:hover { border-color: #6c8ef5; color: #ccc; }
+.region-tab.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; font-weight: 600; }
+
 /* Type tabs */
 .type-tabs {
   display: flex;
@@ -288,9 +353,15 @@ function typeKey(type: RouteType) {
   border-bottom: 1px solid #2a2a4a;
 }
 
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .search-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 32px 8px 12px;
   border-radius: 8px;
   border: 1px solid #3a3a5a;
   background: #12122a;
@@ -303,6 +374,21 @@ function typeKey(type: RouteType) {
 
 .search-input::placeholder { color: #555; }
 .search-input:focus { border-color: #6c8ef5; }
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.search-clear:hover { color: #aaa; }
 
 /* Difficulty filter */
 .filter-section {

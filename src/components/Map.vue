@@ -11,15 +11,23 @@
 <script setup lang="ts">
 import { onMounted, watch, ref } from 'vue'
 import L from 'leaflet'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { Canyon } from '../data/canyon'
+
+delete (L.Icon.Default.prototype as any)._getIconUrl
+L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
 const props = defineProps<{
   canyons: Canyon[]
   selectedId: string | null
+  focusPoint: [number, number] | null
 }>()
 
 let map: L.Map | null = null
 let markers: L.Marker[] = []
+let focusMarker: L.Marker | null = null
 
 // 三層溪流圖層，依 zoom 分別顯示
 let layerRiver: L.GeoJSON | null = null   // 主要河流，zoom >= 8
@@ -89,10 +97,33 @@ function updateRiverVisibility() {
   }
 }
 
+const CACHE_KEY = 'tw-rivers-v1'
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000  // 7 天
+
+function buildLayers(river: any[], canal: any[], stream: any[]) {
+  const toGeoJSON = (features: any[]) => ({ type: 'FeatureCollection' as const, features })
+  layerRiver  = L.geoJSON(toGeoJSON(river),  { style: { color: '#1d6fa4', weight: 2.5, opacity: 1    } })
+  layerCanal  = L.geoJSON(toGeoJSON(canal),  { style: { color: '#2a8fbf', weight: 1.8, opacity: 0.9  } })
+  layerStream = L.geoJSON(toGeoJSON(stream), { style: { color: '#3aa8d8', weight: 1,   opacity: 0.75 } })
+  updateRiverVisibility()
+}
+
 async function loadRivers() {
   if (!map) return
   loadingRivers.value = true
   try {
+    // 先查 localStorage 快取
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { ts, river, canal, stream } = JSON.parse(cached)
+        if (Date.now() - ts < CACHE_TTL) {
+          buildLayers(river, canal, stream)
+          return
+        }
+      }
+    } catch {}
+
     const query = `
       [out:json][timeout:60];
       area["ISO3166-1"="TW"][admin_level=2]->.tw;
@@ -105,13 +136,14 @@ async function loadRivers() {
     `
     const res = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
-      body: query
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
     })
     const data = await res.json()
 
-    const riverFeatures: any[] = []
-    const canalFeatures: any[] = []
-    const streamFeatures: any[] = []
+    const river: any[] = []
+    const canal: any[] = []
+    const stream: any[] = []
 
     for (const el of data.elements) {
       if (!el.geometry || el.geometry.length < 2) continue
@@ -124,19 +156,17 @@ async function loadRivers() {
         properties: { name: el.tags?.name ?? '' }
       }
       const w = el.tags?.waterway
-      if (w === 'river')       riverFeatures.push(feature)
-      else if (w === 'canal')  canalFeatures.push(feature)
-      else                     streamFeatures.push(feature)
+      if (w === 'river')      river.push(feature)
+      else if (w === 'canal') canal.push(feature)
+      else                    stream.push(feature)
     }
 
-    const toGeoJSON = (features: any[]) =>
-      ({ type: 'FeatureCollection' as const, features })
+    // 存入快取
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), river, canal, stream }))
+    } catch {}
 
-    layerRiver  = L.geoJSON(toGeoJSON(riverFeatures),  { style: { color: '#1d6fa4', weight: 2.5, opacity: 1    } })
-    layerCanal  = L.geoJSON(toGeoJSON(canalFeatures),  { style: { color: '#2a8fbf', weight: 1.8, opacity: 0.9  } })
-    layerStream = L.geoJSON(toGeoJSON(streamFeatures), { style: { color: '#3aa8d8', weight: 1,   opacity: 0.75 } })
-
-    updateRiverVisibility()
+    buildLayers(river, canal, stream)
   } finally {
     loadingRivers.value = false
   }
@@ -167,12 +197,21 @@ onMounted(async () => {
 watch(() => props.canyons, renderMarkers)
 
 watch(() => props.selectedId, (id) => {
-  if (!id || !map) return
+  if (!map) return
+  if (!id) { map.closePopup(); return }
   const idx = props.canyons.findIndex(c => c.id === id)
   if (idx === -1) return
   const canyon = props.canyons[idx]
   map.flyTo(canyon.coordinates, 13, { duration: 1 })
-  setTimeout(() => markers[idx]?.openPopup(), 1000)
+  map.once('moveend', () => markers[idx]?.openPopup())
+})
+
+watch(() => props.focusPoint, (coords) => {
+  focusMarker?.remove()
+  focusMarker = null
+  if (!coords || !map) return
+  map.flyTo(coords, 14, { duration: 1 })
+  focusMarker = L.marker(coords).addTo(map)
 })
 </script>
 

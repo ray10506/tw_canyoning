@@ -85,7 +85,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{ records: any[] }>()
+const props = defineProps<{ records: any[], loading: boolean }>()
 defineEmits<{ close: [] }>()
 
 const ropeLevel  = computed(() => props.records.filter(r => r['type'] === 'rope'))
@@ -98,7 +98,6 @@ const starLevel  = computed(() =>
     desc:  r['items']?.[0] ?? '',
   }))
 )
-const loading = computed(() => props.records.length === 0)
 </script>
 
 <style scoped>

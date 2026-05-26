@@ -11,7 +11,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_PB_URL=http://localhost:8090
+      - VITE_PB_URL=https://raych-pocketbase.fly.dev
     command: npm run dev
     depends_on:
       - pocketbase

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const PB_URL    = 'http://localhost:8090'
+const PB_URL    = process.env.PB_URL ?? 'http://localhost:8090'
 
 const args         = process.argv.slice(2)
 const adminEmail   = args[0]
@@ -91,9 +91,11 @@ async function main() {
         { name: 'region',     type: 'text' },
         { name: 'name',       type: 'text', required: true },
         { name: 'grading',    type: 'text' },
-        { name: 'max_rappel', type: 'text' },
+        { name: 'max_drop',   type: 'text' },
         { name: 'approach',   type: 'text' },
         { name: 'total_time', type: 'text' },
+        { name: 'gps',        type: 'text' },
+        { name: 'note',       type: 'text' },
       ],
     }),
   })
@@ -101,6 +103,23 @@ async function main() {
     const err = await colRes.json()
     const isDup = JSON.stringify(err).includes('already exists') || JSON.stringify(err).includes('not_unique') || JSON.stringify(err).includes('name_exists') || JSON.stringify(err).includes('unique')
     isDup ? console.log('collection 已存在，略過') : (console.error('建立失敗', err), process.exit(1))
+  }
+
+  // 2b. 確保 max_drop 欄位存在（相容舊版 schema 含 max_rappel 的資料庫）
+  const colInfoRes = await fetch(`${PB_URL}/api/collections/canyon_routes`, { headers })
+  const colInfo = await colInfoRes.json()
+  const existingFields = colInfo.fields ?? []
+  const missingFields = ['max_drop', 'gps', 'note'].filter(
+    n => !existingFields.some(f => f.name === n)
+  )
+  if (missingFields.length > 0) {
+    console.log(`偵測到舊 schema，新增欄位：${missingFields.join(', ')}...`)
+    const additions = missingFields.map(name => ({ name, type: 'text' }))
+    await fetch(`${PB_URL}/api/collections/${colInfo.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ fields: [...existingFields, ...additions] }),
+    })
   }
 
   // 3. 取得 CSV
@@ -137,33 +156,48 @@ async function main() {
     region:     col('Region')   !== -1 ? col('Region')   : col('鄉鎮'),
     name:       col('Name')     !== -1 ? col('Name')     : col('溪流'),
     grading:    col('Grading')  !== -1 ? col('Grading')  : col('分級'),
-    maxRappel:  col('最短繩長'),
+    maxDrop:    col('Drop') !== -1 ? col('Drop') : col('最高落差') !== -1 ? col('最高落差') : col('最短繩長'),
     approach:   col('Approach') !== -1 ? col('Approach') : col('接近'),
     totalTime:  col('Total')    !== -1 ? col('Total')    : col('全部時間'),
   }
 
   // 5. 寫入
   const dataRows = rows.slice(headerIdx + 1).filter(r => r[I.name]?.trim().length > 0)
-  console.log(`找到 ${dataRows.length} 筆資料，開始寫入...`)
+  console.log(`找到 ${dataRows.length} 筆資料，讀取現有資料...`)
 
-  let success = 0, fail = 0
+  // 讀取現有記錄（分頁直到全部取完），建立 name -> id 對應表（用於 upsert）
+  const existingMap = new Map()
+  let page = 1
+  while (true) {
+    const res = await fetch(`${PB_URL}/api/collections/canyon_routes/records?perPage=500&page=${page}`, { headers })
+    const data = await res.json()
+    for (const r of (data.items ?? [])) existingMap.set(r.name, r.id)
+    if (!data.totalPages || page >= data.totalPages) break
+    page++
+  }
+  console.log(`現有 ${existingMap.size} 筆，開始寫入...`)
+
+  let created = 0, updated = 0, fail = 0
   for (const row of dataRows) {
     const record = {
       region:     row[I.region]    ?? '',
       name:       row[I.name]      ?? '',
       grading:    row[I.grading]   ?? '',
-      max_rappel: row[I.maxRappel] ?? '',
+      max_drop:   row[I.maxDrop]   ?? '',
       approach:   row[I.approach]  ?? '',
       total_time: row[I.totalTime] ?? '',
     }
 
-    const r = await fetch(`${PB_URL}/api/collections/canyon_routes/records`, {
-      method: 'POST', headers,
-      body: JSON.stringify(record),
-    })
+    const existingId = existingMap.get(record.name)
+    const r = await fetch(
+      existingId
+        ? `${PB_URL}/api/collections/canyon_routes/records/${existingId}`
+        : `${PB_URL}/api/collections/canyon_routes/records`,
+      { method: existingId ? 'PATCH' : 'POST', headers, body: JSON.stringify(record) }
+    )
     if (r.ok) {
-      success++
-      if (success % 10 === 0) console.log(`  ... ${success} 筆已匯入`)
+      existingId ? updated++ : created++
+      if ((created + updated) % 10 === 0) console.log(`  ... ${created + updated} 筆已處理`)
     } else {
       const err = await r.json()
       console.log(`  ✗ ${record.region} ${record.name}: ${JSON.stringify(err)}`)
@@ -171,8 +205,8 @@ async function main() {
     }
   }
 
-  console.log(`\n完成！成功 ${success} 筆，失敗 ${fail} 筆`)
-  if (fail === 0) console.log('全部匯入成功 ✓')
+  console.log(`\n完成！新增 ${created} 筆，更新 ${updated} 筆，失敗 ${fail} 筆`)
+  if (fail === 0) console.log('全部處理成功 ✓')
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

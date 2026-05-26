@@ -3,7 +3,7 @@
  * node scripts/seed.mjs <admin-email> <admin-password>
  */
 
-const PB_URL = 'http://localhost:8090'
+const PB_URL = process.env.PB_URL ?? 'http://localhost:8090'
 const [, , adminEmail, adminPassword] = process.argv
 
 if (!adminEmail || !adminPassword) {

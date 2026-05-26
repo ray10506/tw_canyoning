@@ -1,8 +1,13 @@
 <template>
   <Teleport to="body">
-    <div class="panel" @click.stop>
-
-        <div class="panel-header">
+    <div
+      ref="panelRef"
+      class="panel"
+      :class="{ dragging: isDragging }"
+      :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', transform: 'none' } : {}"
+      @click.stop
+    >
+        <div class="panel-header" @mousedown.prevent="startDrag">
           <div class="header-left">
             <span class="route-name">{{ title }}</span>
             <span :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
@@ -39,42 +44,57 @@
             </div>
             <div class="row">
               <span class="row-label">GPS 座標</span>
-              <span class="row-value coord">{{ d.coordinates?.[0] }}, {{ d.coordinates?.[1] }}</span>
+              <a
+                v-if="d.coordinates?.[0] != null && d.coordinates?.[1] != null"
+                class="row-value coord gps-link"
+                :href="`https://www.google.com/maps/search/?api=1&query=${d.coordinates[0]},${d.coordinates[1]}`"
+                target="_blank" rel="noopener"
+              >{{ d.coordinates[0] }}, {{ d.coordinates[1] }} ↗</a>
+              <span v-else class="row-value coord">—</span>
             </div>
           </template>
 
           <!-- Canyon Route（溪降）-->
           <template v-else>
-            <div class="row">
+            <div v-if="d.region" class="row">
               <span class="row-label">地區</span>
-              <span class="row-value">{{ d.region || '—' }}</span>
+              <span class="row-value">{{ d.region }}</span>
             </div>
             <div v-if="d.grading" class="row">
               <span class="row-label">分級</span>
               <span class="row-value">
-                <span class="grade-tag rope">{{ ropeGrade }}</span>
-                <span class="grade-tag water">{{ waterGrade }}</span>
-                <span class="grade-tag time">{{ timeGrade }}</span>
+                <span v-if="ropeGrade !== '—'" class="grade-tag rope">{{ ropeGrade }}</span>
+                <span v-if="waterGrade !== '—'" class="grade-tag water">{{ waterGrade }}</span>
+                <span v-if="timeGrade !== '—'" class="grade-tag time">{{ timeGrade }}</span>
+                <span v-if="gradingStars" class="grade-stars">{{ gradingStars }}</span>
               </span>
             </div>
-            <div class="row">
-              <span class="row-label">最高落差</span>
-              <span class="row-value">{{ d.max_drop || '—' }}</span>
+            <div v-if="d.max_drop" class="row">
+              <span class="row-label">最高瀑高</span>
+              <span class="row-value">{{ d.max_drop }}</span>
             </div>
-            <div class="row">
+            <div v-if="d.approach" class="row">
               <span class="row-label">接近時間</span>
-              <span class="row-value">{{ d.approach || '—' }}</span>
+              <span class="row-value">{{ d.approach }}</span>
             </div>
-            <div class="row">
+            <div v-if="d.total_time" class="row">
               <span class="row-label">全程時間</span>
-              <span class="row-value">{{ d.total_time || '—' }}</span>
+              <span class="row-value">{{ d.total_time }}</span>
+            </div>
+            <div v-if="d.gps" class="row">
+              <span class="row-label">GPS</span>
+              <a
+                class="row-value coord gps-link"
+                :href="`https://www.google.com/maps/search/?api=1&query=${d.gps.trim()}`"
+                target="_blank" rel="noopener"
+              >{{ d.gps }} ↗</a>
             </div>
             <div v-if="d.note" class="row">
               <span class="row-label">附註</span>
               <span class="row-value">
                 <template v-for="(seg, i) in parseNote(d.note)" :key="i">
                   <a v-if="seg.isUrl" :href="seg.text" target="_blank" rel="noopener" class="note-link">
-                    開啟連結 ↗
+                    {{ seg.isYoutube ? '路線影片' : '路線 gpx' }} ↗
                   </a>
                   <span v-else>{{ seg.text }}</span>
                 </template>
@@ -88,12 +108,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
+  initPos?: { x: number; y: number } | null
 }>()
 defineEmits<{ close: [] }>()
+
+const panelRef = ref<HTMLElement | null>(null)
+const pos = ref<{ x: number; y: number } | null>(props.initPos ?? null)
+const isDragging = ref(false)
+
+watch(() => props.item, () => { pos.value = props.initPos ?? null })
+
+function startDrag(e: MouseEvent) {
+  if (!panelRef.value) return
+  if (!pos.value) {
+    const r = panelRef.value.getBoundingClientRect()
+    pos.value = { x: r.left, y: r.top }
+  }
+  isDragging.value = true
+  const offset = { x: e.clientX - pos.value.x, y: e.clientY - pos.value.y }
+
+  function onMove(ev: MouseEvent) {
+    pos.value = { x: ev.clientX - offset.x, y: ev.clientY - offset.y }
+  }
+  function onUp() {
+    isDragging.value = false
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
 
 const d = computed(() => props.item.data)
 
@@ -101,14 +149,16 @@ const title     = computed(() => d.value.name)
 const kindLabel = computed(() => props.item.kind === 'canyon' ? d.value.type : '溪降')
 
 const URL_RE = /https?:\/\/[^\s]+/gi
+const YT_RE  = /youtu(?:be\.com|\.be)\//
 
 function parseNote(val: string) {
-  const segments: { text: string, isUrl: boolean }[] = []
+  const segments: { text: string, isUrl: boolean, isYoutube?: boolean }[] = []
   let last = 0
   for (const m of val.matchAll(URL_RE)) {
+    const url = m[0].replace(/[.,;:!?）)】\]'"]+$/, '')
     if (m.index! > last) segments.push({ text: val.slice(last, m.index), isUrl: false })
-    segments.push({ text: m[0], isUrl: true })
-    last = m.index! + m[0].length
+    segments.push({ text: url, isUrl: true, isYoutube: YT_RE.test(url) })
+    last = m.index! + url.length
   }
   if (last < val.length) segments.push({ text: val.slice(last), isUrl: false })
   return segments
@@ -120,6 +170,12 @@ function parseGradePart(grading: string, pattern: RegExp) {
 const ropeGrade  = computed(() => parseGradePart(d.value.grading, /^V\d/))
 const waterGrade = computed(() => parseGradePart(d.value.grading, /^A\d/))
 const timeGrade  = computed(() => parseGradePart(d.value.grading, /^(I{1,3}|IV|VI?)$/))
+
+const gradingStars = computed(() =>
+  (d.value.grading ?? '')
+    .replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '')
+    .trim()
+)
 
 
 </script>
@@ -145,7 +201,11 @@ const timeGrade  = computed(() => parseGradePart(d.value.grading, /^(I{1,3}|IV|V
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #2a2a4a;
+  cursor: grab;
 }
+
+.panel.dragging .panel-header { cursor: grabbing; }
+.panel.dragging { user-select: none; }
 
 .header-left {
   display: flex;
@@ -214,12 +274,33 @@ const timeGrade  = computed(() => parseGradePart(d.value.grading, /^(I{1,3}|IV|V
 
 .coord { font-family: monospace; font-size: 0.82rem; color: #6abf8a; }
 
+.gps-link { text-decoration: none; }
+.gps-link:hover { text-decoration: underline; }
+
 .note-link {
   color: #6c8ef5;
   text-decoration: none;
   font-size: 0.88rem;
 }
 .note-link:hover { text-decoration: underline; }
+
+.grade-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.grade-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade-stars {
+  font-size: 0.72rem;
+  color: #f0a030;
+  letter-spacing: 1px;
+}
 
 .grading-wrap { display: flex; gap: 6px; }
 .grade-tag {

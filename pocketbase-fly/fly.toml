@@ -1,0 +1,16 @@
+app = "raych-pocketbase"
+primary_region = "nrt"
+
+[build]
+  image = "ghcr.io/muchobien/pocketbase:latest"
+
+[http_service]
+  internal_port = 8090
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "pb_data"
+  destination = "/pb_data"
