@@ -56,6 +56,10 @@
 
           <!-- Canyon Route（溪降）-->
           <template v-else>
+            <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要')" class="tag-row">
+              <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? '有深潭' : d.deep_pool === '無' ? '無深潭' : d.deep_pool }}</span>
+              <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">需要 AB 車</span>
+            </div>
             <div v-if="d.region" class="row">
               <span class="row-label">地區</span>
               <span class="row-value">{{ d.region }}</span>
@@ -82,7 +86,7 @@
               <span class="row-value">{{ d.total_time }}</span>
             </div>
             <div v-if="d.gps" class="row">
-              <span class="row-label">GPS</span>
+              <span class="row-label">停車點 GPS</span>
               <a
                 class="row-value coord gps-link"
                 :href="`https://www.google.com/maps/search/?api=1&query=${d.gps.trim()}`"
@@ -102,13 +106,34 @@
             </div>
           </template>
 
+          <!-- Elevation profile (shown for route kind when gpx_track has elevation) -->
+          <div v-if="elevationData" class="elevation-section">
+            <div class="ele-header">
+              <span class="ele-title">海拔高度變化</span>
+              <div class="ele-stats">
+                <span class="ele-up">↑ {{ elevationData.gain }}m</span>
+                <span class="ele-down">↓ {{ elevationData.loss }}m</span>
+              </div>
+            </div>
+            <div class="ele-chart-wrap">
+              <div class="ele-y-labels">
+                <span>{{ elevationData.maxEle }}m</span>
+                <span>{{ elevationData.minEle }}m</span>
+              </div>
+              <svg class="ele-svg" viewBox="0 0 280 60" preserveAspectRatio="none">
+                <polygon :points="elePolygon" fill="rgba(230,57,70,0.18)" />
+                <polyline :points="elePolyline" fill="none" stroke="#e63946" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+
         </div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
@@ -120,7 +145,25 @@ const panelRef = ref<HTMLElement | null>(null)
 const pos = ref<{ x: number; y: number } | null>(props.initPos ?? null)
 const isDragging = ref(false)
 
-watch(() => props.item, () => { pos.value = props.initPos ?? null })
+const MARGIN = 10
+
+async function clampToViewport() {
+  await nextTick()
+  if (!pos.value || !panelRef.value) return
+  const w = panelRef.value.offsetWidth
+  const h = panelRef.value.offsetHeight
+  pos.value = {
+    x: Math.max(MARGIN, Math.min(pos.value.x, window.innerWidth - w - MARGIN)),
+    y: Math.max(MARGIN, Math.min(pos.value.y, window.innerHeight - h - MARGIN)),
+  }
+}
+
+onMounted(clampToViewport)
+
+watch(() => props.item, async () => {
+  pos.value = props.initPos ?? null
+  await clampToViewport()
+})
 
 function startDrag(e: MouseEvent) {
   if (!panelRef.value) return
@@ -132,7 +175,12 @@ function startDrag(e: MouseEvent) {
   const offset = { x: e.clientX - pos.value.x, y: e.clientY - pos.value.y }
 
   function onMove(ev: MouseEvent) {
-    pos.value = { x: ev.clientX - offset.x, y: ev.clientY - offset.y }
+    const w = panelRef.value?.offsetWidth ?? 380
+    const h = panelRef.value?.offsetHeight ?? 420
+    pos.value = {
+      x: Math.max(MARGIN, Math.min(ev.clientX - offset.x, window.innerWidth - w - MARGIN)),
+      y: Math.max(MARGIN, Math.min(ev.clientY - offset.y, window.innerHeight - h - MARGIN)),
+    }
   }
   function onUp() {
     isDragging.value = false
@@ -177,6 +225,51 @@ const gradingStars = computed(() =>
     .trim()
 )
 
+const elevationData = computed(() => {
+  if (props.item.kind !== 'route' || !d.value.gpx_track) return null
+  try {
+    const parsed = JSON.parse(d.value.gpx_track)
+    // Support flat [lat,lon,ele][] and segmented [lat,lon,ele][][]
+    const isSegmented = parsed.length > 0 && Array.isArray(parsed[0][0])
+    const allPts: number[][] = isSegmented ? (parsed as number[][][]).flat() : parsed
+    const eles = allPts.map((p: number[]) => p[2]).filter((e: number) => e != null && !isNaN(e))
+    if (eles.length < 2) return null
+    const minEle = Math.min(...eles)
+    const maxEle = Math.max(...eles)
+    let gain = 0, loss = 0
+    for (let i = 1; i < eles.length; i++) {
+      const diff = eles[i] - eles[i - 1]
+      if (diff > 3) gain += diff
+      else if (diff < -3) loss += Math.abs(diff)
+    }
+    return { eles, minEle, maxEle, gain: Math.round(gain), loss: Math.round(loss) }
+  } catch { return null }
+})
+
+const elePolyline = computed(() => {
+  if (!elevationData.value) return ''
+  const { eles, minEle, maxEle } = elevationData.value
+  const W = 280, H = 54, padT = 3
+  const rangeEle = maxEle - minEle || 1
+  return eles.map((e, i) => {
+    const x = (i / (eles.length - 1)) * W
+    const y = padT + (1 - (e - minEle) / rangeEle) * H
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+})
+
+const elePolygon = computed(() => {
+  if (!elevationData.value) return ''
+  const { eles, minEle, maxEle } = elevationData.value
+  const W = 280, H = 54, padT = 3
+  const rangeEle = maxEle - minEle || 1
+  const pts = eles.map((e, i) => {
+    const x = (i / (eles.length - 1)) * W
+    const y = padT + (1 - (e - minEle) / rangeEle) * H
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  return `${pts.join(' ')} ${W},${padT + H} 0,${padT + H}`
+})
 
 </script>
 
@@ -312,4 +405,73 @@ const gradingStars = computed(() =>
 .grade-tag.rope  { background: #1e2d6b; color: #6c8ef5; }
 .grade-tag.water { background: #0e2a3a; color: #38bdf8; }
 .grade-tag.time  { background: #2a1e0e; color: #f5a030; }
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #1e1e38;
+}
+
+.info-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.info-tag.pool    { background: #0e2a3a; color: #38bdf8; }
+.info-tag.shuttle { background: #1a2e1a; color: #6abf8a; }
+
+.elevation-section {
+  padding: 12px 20px 16px;
+  border-top: 1px solid #1e1e38;
+}
+
+.ele-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ele-title {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.ele-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ele-up   { color: #e63946; }
+.ele-down { color: #38bdf8; }
+
+.ele-chart-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.ele-y-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: #555;
+  text-align: right;
+  width: 34px;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+
+.ele-svg {
+  flex: 1;
+  height: 70px;
+  display: block;
+}
 </style>

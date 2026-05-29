@@ -96,6 +96,8 @@ async function main() {
         { name: 'total_time', type: 'text' },
         { name: 'gps',        type: 'text' },
         { name: 'note',       type: 'text' },
+        { name: 'deep_pool',  type: 'text' },
+        { name: 'ab_shuttle', type: 'text' },
       ],
     }),
   })
@@ -109,7 +111,7 @@ async function main() {
   const colInfoRes = await fetch(`${PB_URL}/api/collections/canyon_routes`, { headers })
   const colInfo = await colInfoRes.json()
   const existingFields = colInfo.fields ?? []
-  const missingFields = ['max_drop', 'gps', 'note'].filter(
+  const missingFields = ['max_drop', 'gps', 'note', 'deep_pool', 'ab_shuttle'].filter(
     n => !existingFields.some(f => f.name === n)
   )
   if (missingFields.length > 0) {
@@ -159,6 +161,8 @@ async function main() {
     maxDrop:    col('Drop') !== -1 ? col('Drop') : col('最高落差') !== -1 ? col('最高落差') : col('最短繩長'),
     approach:   col('Approach') !== -1 ? col('Approach') : col('接近'),
     totalTime:  col('Total')    !== -1 ? col('Total')    : col('全部時間'),
+    deepPool:   col('深潭')     !== -1 ? col('深潭')     : col('Deep Pool'),
+    abShuttle:  col('AB車')    !== -1 ? col('AB車')    : col('AB Shuttle'),
   }
 
   // 5. 寫入
@@ -186,6 +190,8 @@ async function main() {
       max_drop:   row[I.maxDrop]   ?? '',
       approach:   row[I.approach]  ?? '',
       total_time: row[I.totalTime] ?? '',
+      deep_pool:  I.deepPool  !== -1 ? (row[I.deepPool]  ?? '') : '',
+      ab_shuttle: I.abShuttle !== -1 ? (row[I.abShuttle] ?? '') : '',
     }
 
     const existingId = existingMap.get(record.name)

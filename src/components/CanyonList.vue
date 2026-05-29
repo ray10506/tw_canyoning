@@ -87,7 +87,7 @@
     </ul>
 
     <!-- 溪降路線列表 -->
-    <ul v-else class="canyon-list">
+    <ul v-else ref="routeListRef" class="canyon-list">
       <li class="guide-row">
         <button class="guide-btn" @click.stop="openGuide">難度說明</button>
       </li>
@@ -119,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { Canyon, RouteType } from '../data/canyon'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
@@ -163,6 +163,14 @@ const emit = defineEmits<{
   showDetail: [item: { kind: 'canyon' | 'route', data: any }]
   routeFilter: [f: { v: string, a: string, t: string, drop: string }]
 }>()
+
+const routeListRef = ref<HTMLElement | null>(null)
+
+watch(() => props.selectedRouteId, async (id) => {
+  if (!id || !routeListRef.value) return
+  await nextTick()
+  routeListRef.value.querySelector('.canyon-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+})
 
 const searchQuery = ref('')
 const filterV    = ref('')

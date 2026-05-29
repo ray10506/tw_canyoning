@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout" @click="detailItem = null">
+  <div class="app-layout">
     <div v-if="loading" class="loading-overlay">
       <span>載入資料中...</span>
     </div>
@@ -39,6 +39,10 @@
           :canyons="selectedType === '溪降' ? [] : filteredCanyons"
           :selected-id="selectedId"
           :focus-point="routeFocusPoint"
+          :route-track="routeTrack"
+          :canyon-route-markers="canyonRouteMarkers"
+          :selected-route-id="selectedRouteId"
+          @select-route="onSelectRoute"
         />
       </div>
       <RouteDetail
@@ -85,11 +89,12 @@ const cardInitPos = computed((): { x: number; y: number } | null => {
   const cardH = 420
   const gap = 24
 
-  const x = mapCenterX + gap + cardW <= window.innerWidth
+  const rawX = mapCenterX + gap + cardW <= window.innerWidth
     ? mapCenterX + gap
     : mapCenterX - gap - cardW
 
-  const y = Math.min(mapCenterY + gap, window.innerHeight - cardH - gap)
+  const x = Math.max(0, Math.min(rawX, window.innerWidth - cardW))
+  const y = Math.max(0, Math.min(mapCenterY + gap, window.innerHeight - cardH - gap))
   return { x, y }
 })
 const isResizing   = ref(false)
@@ -124,6 +129,42 @@ const selectedType = ref<RouteType | null>('溪降')
 const selectedId = ref<string | null>(null)
 const searchQuery = ref('')
 const selectedRegion = ref<string[]>([])
+
+const routeTrack = computed(() => {
+  if (detailItem.value?.kind !== 'route') return null
+  const d = detailItem.value.data
+  if (!d.gpx_track) return null
+  try {
+    const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0
+    const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2
+    const cardW = 380
+    const gap = 24
+    const cardOnRight = mapCenterX + gap + cardW <= window.innerWidth
+    return {
+      track: JSON.parse(d.gpx_track),
+      waypoints: d.gpx_waypoints ? JSON.parse(d.gpx_waypoints) : [],
+      pad: cardOnRight
+        ? { paddingTopLeft: [40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
+        : { paddingTopLeft: [cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] },
+    }
+  } catch { return null }
+})
+
+const canyonRouteMarkers = computed(() => {
+  if (selectedType.value !== '溪降') return []
+  return filteredRoutes.value.flatMap(r => {
+    const gps = r['gps']?.trim()
+    if (!gps) return []
+    const parts = gps.split(/[,\s]+/).map(Number)
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return []
+    return [{ id: r['id'], lat: parts[0], lon: parts[1], name: r['name'] }]
+  })
+})
+
+function onSelectRoute(id: string) {
+  const route = canyonRoutes.value.find(r => r.id === id)
+  if (route) detailItem.value = { kind: 'route', data: route }
+}
 
 const REGION_KEYWORDS: Record<string, string[]> = {
   '北部': ['台北', '臺北', '新北', '基隆', '桃園', '新竹', '宜蘭'],

@@ -19,15 +19,32 @@ import type { Canyon } from '../data/canyon'
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
+interface WaypointData { lat: number; lon: number; name: string; seq?: number; time?: string }
+interface RouteTrack {
+  track: [number, number][] | [number, number][][]
+  waypoints: WaypointData[]
+  pad?: { paddingTopLeft: [number, number]; paddingBottomRight: [number, number] }
+}
+
+interface RouteMarker { id: string; lat: number; lon: number; name: string }
+
 const props = defineProps<{
   canyons: Canyon[]
   selectedId: string | null
   focusPoint: [number, number] | null
+  routeTrack: RouteTrack | null
+  canyonRouteMarkers: RouteMarker[]
+  selectedRouteId: string | null
 }>()
+
+const emit = defineEmits<{ selectRoute: [id: string] }>()
 
 let map: L.Map | null = null
 let markers: L.Marker[] = []
 let focusMarker: L.Marker | null = null
+let trackLayer: L.Polyline | null = null
+let waypointMarkers: L.Marker[] = []
+let routeMarkerLayers: L.Marker[] = []
 
 // 三層溪流圖層，依 zoom 分別顯示
 let layerRiver: L.GeoJSON | null = null   // 主要河流，zoom >= 8
@@ -42,7 +59,7 @@ const tileOptions = [
 ]
 
 let currentTile: L.TileLayer | null = null
-const selectedTile = ref('carto')
+const selectedTile = ref('topo')
 const loadingRivers = ref(false)
 
 function onTileChange(e: Event) {
@@ -184,13 +201,14 @@ onMounted(async () => {
     minZoom: 8,
   }).setView([23.9871, 121.6015], 9)
 
-  const defaultTile = tileOptions.find(t => t.key === 'carto')!
+  const defaultTile = tileOptions.find(t => t.key === 'topo')!
   currentTile = L.tileLayer(defaultTile.url, { attribution: defaultTile.attribution, maxZoom: 19 })
   currentTile.addTo(map)
 
   map.on('zoomend', updateRiverVisibility)
 
   renderMarkers()
+  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
   await loadRivers()
 })
 
@@ -213,6 +231,60 @@ watch(() => props.focusPoint, (coords) => {
   map.flyTo(coords, 14, { duration: 1 })
   focusMarker = L.marker(coords).addTo(map)
 })
+
+watch(() => props.routeTrack, (data) => {
+  trackLayer?.remove(); trackLayer = null
+  waypointMarkers.forEach(m => m.remove()); waypointMarkers = []
+  if (!data || !map) return
+
+  // Support both flat [lat,lon][] and segmented [lat,lon][][] formats
+  const isPoint = (value: unknown): value is [number, number] =>
+    Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number'
+  const rawTrack = data.track
+  const segments = Array.isArray(rawTrack)
+    ? rawTrack.some(isPoint)
+      ? [rawTrack as [number, number][]]
+      : rawTrack as [number, number][][]
+    : []
+  if (segments.some(segment => segment.some(isPoint))) {
+    trackLayer = L.polyline(segments, { color: '#e63946', weight: 3, opacity: 0.85 }).addTo(map)
+    map.fitBounds(trackLayer.getBounds(), {
+      ...(data.pad ?? { padding: [40, 40] }),
+      maxZoom: 15,
+    })
+  }
+
+  waypointMarkers = data.waypoints.map(wp => {
+    const label = wp.seq != null ? String(wp.seq).padStart(2, '0') : (wp.name.match(/^\d+/)?.[0] ?? '·')
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:22px;height:22px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)">${label}</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    })
+    return L.marker([wp.lat, wp.lon], { icon })
+      .addTo(map!)
+      .bindTooltip(wp.name, { permanent: false, direction: 'top', offset: [0, -12] })
+  })
+})
+
+function renderRouteMarkers(routeMarkers: RouteMarker[], selId: string | null) {
+  routeMarkerLayers.forEach(m => m.remove())
+  routeMarkerLayers = []
+  if (!map) return
+  routeMarkerLayers = routeMarkers.map(r => {
+    const marker = L.marker([r.lat, r.lon])
+      .addTo(map!)
+      .bindTooltip(Object.assign(document.createElement('span'), { textContent: r.name }), { direction: 'top', offset: [0, -6] })
+      .on('click', () => emit('selectRoute', r.id))
+    if (r.id === selId) (marker as any).setZIndexOffset(1000)
+    return marker
+  })
+}
+
+watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeMarkers, selId]) => {
+  renderRouteMarkers(routeMarkers, selId)
+}, { deep: true })
 </script>
 
 <style scoped>
