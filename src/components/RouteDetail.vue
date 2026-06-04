@@ -67,10 +67,10 @@
             <div v-if="d.grading" class="row">
               <span class="row-label">分級</span>
               <span class="row-value">
-                <span v-if="ropeGrade !== '—'" class="grade-tag rope">{{ ropeGrade }}</span>
-                <span v-if="waterGrade !== '—'" class="grade-tag water">{{ waterGrade }}</span>
-                <span v-if="timeGrade !== '—'" class="grade-tag time">{{ timeGrade }}</span>
-                <span v-if="gradingStars" class="grade-stars">{{ gradingStars }}</span>
+                <span v-if="ropeGrade !== '—'" class="grade-tag rope" :data-tooltip="ROPE_TIPS[ropeGrade]">{{ ropeGrade }}</span>
+                <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="WATER_TIPS[waterGrade]">{{ waterGrade }}</span>
+                <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="TIME_TIPS[timeGrade]">{{ timeGrade }}</span>
+                <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined">{{ gradingStars }}</span>
               </span>
             </div>
             <div v-if="d.max_drop" class="row">
@@ -224,6 +224,41 @@ const gradingStars = computed(() =>
     .replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '')
     .trim()
 )
+
+const ROPE_TIPS: Record<string, string> = {
+  V1: '垂降 V1｜落差小、確保點明確，適合入門',
+  V2: '垂降 V2｜中等落差，需熟練下降技術',
+  V3: '垂降 V3｜落差大或地形複雜，需豐富垂降經驗',
+  V4: '垂降 V4｜需雙繩下降或技術性確保',
+  V5: '垂降 V5｜極高難度，專業垂降技術',
+}
+const WATER_TIPS: Record<string, string> = {
+  A0: '水域 A0｜無需游泳，全程可涉水通過',
+  A1: '水域 A1｜靜水或緩流，簡單泳渡',
+  A2: '水域 A2｜流動水域，需具備游泳能力',
+  A3: '水域 A3｜激流或深潭，需繩索輔助或強游泳技術',
+  A4: '水域 A4｜危險激流，需高水平技術與保護',
+}
+const TIME_TIPS: Record<string, string> = {
+  I:   '整體 I｜非常容易，適合溪降新手',
+  II:  '整體 II｜容易，需基本溪降技術',
+  III: '整體 III｜中等，需具備溪降技術與經驗',
+  IV:  '整體 IV｜困難，需豐富溪降經驗',
+  V:   '整體 V｜非常困難，專業級路線',
+  VI:  '整體 VI｜極限路線，頂尖技術',
+}
+
+const STAR_TIPS: Record<number, string> = {
+  1: '★ 一般｜具基本可玩性',
+  2: '★★ 不錯｜值得一遊',
+  3: '★★★ 優秀｜強烈推薦',
+  4: '★★★★ 精彩｜必訪路線',
+  5: '★★★★★ 經典｜台灣溪降聖地',
+}
+const starTip = computed(() => {
+  const count = (gradingStars.value.match(/★/g) ?? []).length
+  return STAR_TIPS[count] ?? null
+})
 
 const elevationData = computed(() => {
   if (props.item.kind !== 'route' || !d.value.gpx_track) return null
@@ -394,6 +429,27 @@ const elePolygon = computed(() => {
   color: #f0a030;
   letter-spacing: 1px;
 }
+.grade-stars[data-tooltip] { position: relative; cursor: default; }
+.grade-stars[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: #1a1a2e;
+  color: #e0e0f0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #2e2e52;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 9999;
+}
+.grade-stars[data-tooltip]:hover::after { opacity: 1; }
 
 .grading-wrap { display: flex; gap: 6px; }
 .grade-tag {
@@ -405,6 +461,28 @@ const elePolygon = computed(() => {
 .grade-tag.rope  { background: #1e2d6b; color: #6c8ef5; }
 .grade-tag.water { background: #0e2a3a; color: #38bdf8; }
 .grade-tag.time  { background: #2a1e0e; color: #f5a030; }
+
+.grade-tag[data-tooltip] { position: relative; cursor: default; }
+.grade-tag[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: #1a1a2e;
+  color: #e0e0f0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #2e2e52;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 9999;
+}
+.grade-tag[data-tooltip]:hover::after { opacity: 1; }
 
 .tag-row {
   display: flex;
