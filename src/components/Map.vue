@@ -4,6 +4,13 @@
     <select class="map-mode-select" :value="selectedTile" @change="onTileChange">
       <option v-for="t in tileOptions" :key="t.key" :value="t.key">{{ t.label }}</option>
     </select>
+    <button
+      class="layer-toggle-btn"
+      :class="{ active: showWaterStations }"
+      @click="showWaterStations = !showWaterStations"
+    >
+      💧 水位站
+    </button>
     <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
   </div>
 </template>
@@ -15,6 +22,8 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { Canyon } from '../data/canyon'
+import waterStations from '../data/water-stations.json'
+import type { WaterStation } from '../lib/waterLevel'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
@@ -37,7 +46,7 @@ const props = defineProps<{
   selectedRouteId: string | null
 }>()
 
-const emit = defineEmits<{ selectRoute: [id: string] }>()
+const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation] }>()
 
 let map: L.Map | null = null
 let markers: L.Marker[] = []
@@ -45,6 +54,7 @@ let focusMarker: L.Marker | null = null
 let trackLayer: L.Polyline | null = null
 let waypointMarkers: L.Marker[] = []
 let routeMarkerLayers: L.Marker[] = []
+let waterStationLayer: L.LayerGroup | null = null
 
 // 三層溪流圖層，依 zoom 分別顯示
 let layerRiver: L.GeoJSON | null = null   // 主要河流，zoom >= 8
@@ -61,6 +71,31 @@ const tileOptions = [
 let currentTile: L.TileLayer | null = null
 const selectedTile = ref('topo')
 const loadingRivers = ref(false)
+const showWaterStations = ref(false)
+
+const waterStationIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+})
+
+function renderWaterStations() {
+  if (!map) return
+  waterStationLayer = L.layerGroup(
+    (waterStations as WaterStation[]).map(s =>
+      L.marker([s.lat, s.lon], { icon: waterStationIcon })
+        .bindTooltip(Object.assign(document.createElement('span'), { textContent: `${s.name}（${s.river}）` }), { direction: 'top', offset: [0, -6] })
+        .on('click', () => emit('selectWaterStation', s))
+    )
+  )
+}
+
+watch(showWaterStations, (show) => {
+  if (!map || !waterStationLayer) return
+  if (show) waterStationLayer.addTo(map)
+  else waterStationLayer.remove()
+})
 
 function onTileChange(e: Event) {
   if (!map) return
@@ -209,6 +244,7 @@ onMounted(async () => {
 
   renderMarkers()
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
+  renderWaterStations()
   await loadRivers()
 })
 
@@ -313,6 +349,28 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   outline: none;
+}
+
+.layer-toggle-btn {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 1000;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #333;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  outline: none;
+}
+
+.layer-toggle-btn.active {
+  background: #2563eb;
+  color: #fff;
 }
 
 .river-loading {

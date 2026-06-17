@@ -27,6 +27,10 @@ The app will be available at [http://localhost:5174](http://localhost:5174).
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 
+## Configuration
+
+- `VITE_WRA_API_BASE` - Base URL for WRA HydroInfoMobile requests. Defaults to `/api/wra` during Vite dev and `https://gweb.wra.gov.tw/HydroInfoMobile` in production builds. Set this to a production proxy URL if direct WRA requests are blocked by CORS.
+
 ## Project Structure
 
 ```

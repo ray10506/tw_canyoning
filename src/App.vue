@@ -43,6 +43,7 @@
           :canyon-route-markers="canyonRouteMarkers"
           :selected-route-id="selectedRouteId"
           @select-route="onSelectRoute"
+          @select-water-station="waterStationPicker = $event"
         />
       </div>
       <RouteDetail
@@ -50,6 +51,18 @@
         :item="detailItem"
         :init-pos="cardInitPos"
         @close="detailItem = null"
+      />
+      <WaterStationPeriodPicker
+        v-if="waterStationPicker"
+        :station="waterStationPicker"
+        @select="onSelectWaterPeriod"
+        @close="waterStationPicker = null"
+      />
+      <WaterStationDetail
+        v-if="waterStationDetail"
+        :station="waterStationDetail.station"
+        :days="waterStationDetail.days"
+        @close="waterStationDetail = null"
       />
     </template>
   </div>
@@ -60,12 +73,23 @@ import { ref, computed, onMounted, watch } from 'vue'
 import Map from './components/Map.vue'
 import CanyonList from './components/CanyonList.vue'
 import RouteDetail from './components/RouteDetail.vue'
+import WaterStationDetail from './components/WaterStationDetail.vue'
+import WaterStationPeriodPicker from './components/WaterStationPeriodPicker.vue'
 import { pb } from './lib/pb'
 import type { Canyon, RouteType } from './data/canyon'
+import type { WaterStation } from './lib/waterLevel'
 
 const sidebarOpen  = ref(true)
 const detailItem   = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
 const sidebarWidth = ref(280)
+const waterStationPicker = ref<WaterStation | null>(null)
+const waterStationDetail = ref<{ station: WaterStation; days: number } | null>(null)
+
+function onSelectWaterPeriod(days: number) {
+  if (!waterStationPicker.value) return
+  waterStationDetail.value = { station: waterStationPicker.value, days }
+  waterStationPicker.value = null
+}
 
 const routeFocusPoint = computed((): [number, number] | null => {
   if (detailItem.value?.kind !== 'route') return null
