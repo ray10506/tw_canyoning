@@ -38,7 +38,7 @@ export async function fetchWaterLevel(stationId: string, days = 7): Promise<Wate
   const sdate = new Date(edate.getTime() - days * 24 * 60 * 60 * 1000)
 
   const params = new URLSearchParams({
-    containerID: 'rtle_main_0',
+    containerID: 'chart-single-rtle',
     category: 'rtLE',
     stno: stationId,
     sYear: String(sdate.getFullYear()),

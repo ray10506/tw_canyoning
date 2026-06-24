@@ -4,20 +4,39 @@
     <select class="map-mode-select" :value="selectedTile" @change="onTileChange">
       <option v-for="t in tileOptions" :key="t.key" :value="t.key">{{ t.label }}</option>
     </select>
-    <button
-      class="layer-toggle-btn"
-      :class="{ active: showWaterStations }"
-      @click="showWaterStations = !showWaterStations"
-    >
-      💧 水位站
+    <button class="layers-fab" @click="showLayersPanel = !showLayersPanel" :class="{ active: showLayersPanel }">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
     </button>
-    <button
-      class="layer-toggle-btn rainfall-btn"
-      :class="{ active: showRainfallStations }"
-      @click="showRainfallStations = !showRainfallStations"
-    >
-      🌧 雨量站
-    </button>
+    <div v-if="showLayersPanel" class="layers-panel">
+      <div class="layers-header">
+        <span class="layers-title">圖層</span>
+        <button class="layers-close" @click="showLayersPanel = false">✕</button>
+      </div>
+      <div class="layers-list">
+        <div class="layer-row">
+          <span class="layer-icon">💧</span>
+          <span class="layer-label">水位站 River Level</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="showWaterStations" />
+            <span class="toggle-track" :class="{ on: showWaterStations }">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+        <div class="layer-row">
+          <span class="layer-icon">🌂</span>
+          <span class="layer-label">雨量站 Rain Gauge</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="showRainfallStations" />
+            <span class="toggle-track" :class="{ on: showRainfallStations }">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
     <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
   </div>
 </template>
@@ -31,7 +50,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { Canyon } from '../data/canyon'
 import waterStations from '../data/water-stations.json'
 import type { WaterStation } from '../lib/waterLevel'
-import { rainfallStations } from '../lib/rainfall'
+import { rainfallStations, type RainfallStation } from '../lib/rainfall'
 import 'leaflet.markercluster'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
@@ -57,7 +76,7 @@ const props = defineProps<{
   selectedRouteId: string | null
 }>()
 
-const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation] }>()
+const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation]; selectRainfallStation: [station: RainfallStation] }>()
 
 let map: L.Map | null = null
 let markers: L.Marker[] = []
@@ -85,21 +104,20 @@ const selectedTile = ref('topo')
 const loadingRivers = ref(false)
 const showWaterStations = ref(false)
 const showRainfallStations = ref(false)
+const showLayersPanel = ref(false)
 
 const waterStationIcon = L.divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;border-radius:50%;background:#7c3aed;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  html: '<div style="width:28px;height:28px;background:rgba(255,255,255,0.92);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">💧</div>',
+  iconSize: [28, 26],
+  iconAnchor: [14, 26],
 })
 
 const rainfallStationIcon = L.divIcon({
   className: '',
-  html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#0891b2" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))">
-    <path d="M12 2C7 2 2.5 6 2 11h10v7c0 1.1.9 2 2 2s2-.9 2-2v-1h-1v1c0 .55-.45 1-1 1s-1-.45-1-1v-7h10c-.5-5-5-9-10-9z"/>
-  </svg>`,
-  iconSize: [24, 24],
-  iconAnchor: [12, 24],
+  html: '<div style="width:28px;height:28px;background:rgba(255,255,255,0.92);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">🌂</div>',
+  iconSize: [28, 26],
+  iconAnchor: [14, 26],
 })
 
 function renderWaterStations() {
@@ -151,6 +169,7 @@ function renderRainfallStations() {
   rainfallStations.forEach(s => {
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
       .bindTooltip(`${s.name}（${s.county}${s.town}）`, { direction: 'top', offset: [0, -6] })
+      .on('click', () => emit('selectRainfallStation', s))
       .addTo(rainfallStationLayer!)
   })
 }
@@ -418,44 +437,119 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   outline: none;
 }
 
-.layer-toggle-btn {
+.layers-fab {
   position: absolute;
   top: 56px;
   right: 12px;
   z-index: 1000;
-  width: 88px;
-  padding: 7px 0;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   border: none;
   background: rgba(255, 255, 255, 0.92);
-  color: #333;
-  font-size: 0.82rem;
-  font-weight: 600;
+  color: #444;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   outline: none;
-  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+.layers-fab:hover { background: #f0f0f0; }
+.layers-fab.active { background: #1a1a2e; color: #fff; }
+
+.layers-panel {
+  position: absolute;
+  top: 56px;
+  right: 56px;
+  z-index: 1000;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  min-width: 240px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  overflow: hidden;
 }
 
-.layer-toggle-btn.active {
-  background: #7c3aed;
+.layers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
+.layers-title {
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #fff;
 }
 
-.layer-toggle-btn.rainfall-btn {
-  top: 100px;
+.layers-close {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.layers-close:hover { background: #2a2a4a; color: #fff; }
+
+.layers-list {
+  padding: 6px 0;
 }
 
-.layer-toggle-btn.rainfall-btn.active {
-  background: #0891b2;
-  color: #fff;
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  transition: background 0.12s;
 }
+.layer-row:hover { background: #252545; }
+
+.layer-icon { font-size: 1rem; flex-shrink: 0; }
+
+.layer-label {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #ccc;
+}
+
+.toggle-switch { flex-shrink: 0; cursor: pointer; }
+.toggle-switch input { display: none; }
+
+.toggle-track {
+  display: block;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #3a3a5a;
+  position: relative;
+  transition: background 0.2s;
+}
+.toggle-track.on { background: #6c8ef5; }
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: left 0.2s;
+}
+.toggle-track.on .toggle-thumb { left: 21px; }
 
 :global(.water-cluster) {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(124, 58, 237, 0.85);
+  background: rgba(8, 145, 178, 0.85);
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   display: flex;
@@ -470,7 +564,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(8, 145, 178, 0.85);
+  background: rgba(124, 58, 237, 0.85);
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   display: flex;

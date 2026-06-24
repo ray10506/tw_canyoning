@@ -8,13 +8,16 @@ export default async function handler(req, res) {
     const upstream = await fetch(target, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Referer': 'https://gweb.wra.gov.tw/',
+        'Referer': 'https://gweb.wra.gov.tw/HydroInfoMobile',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
       },
     })
 
     const body = await upstream.text()
+    console.log('[wra] status:', upstream.status)
+    console.log('[wra] content-type:', upstream.headers.get('Content-Type'))
+    console.log('[wra] body preview:', body.slice(0, 500))
     res.status(upstream.status)
       .setHeader('Content-Type', upstream.headers.get('Content-Type') ?? 'text/html')
       .send(body)
