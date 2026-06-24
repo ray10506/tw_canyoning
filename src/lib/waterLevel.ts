@@ -25,13 +25,12 @@ export interface WaterLevelSeries {
   points: WaterLevelPoint[]
 }
 
-const WRA_DEV_API_BASE = '/api/wra'
-const WRA_DIRECT_API_BASE = 'https://gweb.wra.gov.tw/HydroInfoMobile'
+const WRA_API_BASE = '/api/wra'
 
 function getWraApiBase() {
   const configuredBase = import.meta.env.VITE_WRA_API_BASE?.trim()
   if (configuredBase) return configuredBase.replace(/\/+$/, '')
-  return import.meta.env.DEV ? WRA_DEV_API_BASE : WRA_DIRECT_API_BASE
+  return WRA_API_BASE
 }
 
 export async function fetchWaterLevel(stationId: string, days = 7): Promise<WaterLevelSeries> {

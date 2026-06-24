@@ -11,6 +11,13 @@
     >
       💧 水位站
     </button>
+    <button
+      class="layer-toggle-btn rainfall-btn"
+      :class="{ active: showRainfallStations }"
+      @click="showRainfallStations = !showRainfallStations"
+    >
+      🌧 雨量站
+    </button>
     <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
   </div>
 </template>
@@ -24,6 +31,10 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import type { Canyon } from '../data/canyon'
 import waterStations from '../data/water-stations.json'
 import type { WaterStation } from '../lib/waterLevel'
+import { rainfallStations } from '../lib/rainfall'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
@@ -54,7 +65,8 @@ let focusMarker: L.Marker | null = null
 let trackLayer: L.Polyline | null = null
 let waypointMarkers: L.Marker[] = []
 let routeMarkerLayers: L.Marker[] = []
-let waterStationLayer: L.LayerGroup | null = null
+let waterStationLayer: L.MarkerClusterGroup | null = null
+let rainfallStationLayer: L.MarkerClusterGroup | null = null
 
 // 三層溪流圖層，依 zoom 分別顯示
 let layerRiver: L.GeoJSON | null = null   // 主要河流，zoom >= 8
@@ -72,29 +84,85 @@ let currentTile: L.TileLayer | null = null
 const selectedTile = ref('topo')
 const loadingRivers = ref(false)
 const showWaterStations = ref(false)
+const showRainfallStations = ref(false)
 
 const waterStationIcon = L.divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>',
+  html: '<div style="width:14px;height:14px;border-radius:50%;background:#7c3aed;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>',
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 })
 
+const rainfallStationIcon = L.divIcon({
+  className: '',
+  html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#0891b2" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))">
+    <path d="M12 2C7 2 2.5 6 2 11h10v7c0 1.1.9 2 2 2s2-.9 2-2v-1h-1v1c0 .55-.45 1-1 1s-1-.45-1-1v-7h10c-.5-5-5-9-10-9z"/>
+  </svg>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 24],
+})
+
 function renderWaterStations() {
   if (!map) return
-  waterStationLayer = L.layerGroup(
-    (waterStations as WaterStation[]).map(s =>
-      L.marker([s.lat, s.lon], { icon: waterStationIcon })
-        .bindTooltip(Object.assign(document.createElement('span'), { textContent: `${s.name}（${s.river}）` }), { direction: 'top', offset: [0, -6] })
-        .on('click', () => emit('selectWaterStation', s))
-    )
-  )
+  waterStationLayer = L.markerClusterGroup({
+    maxClusterRadius: 80,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount()
+      return L.divIcon({
+        className: '',
+        html: `<div class="water-cluster">${count}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      })
+    },
+  })
+  ;(waterStations as WaterStation[]).forEach(s => {
+    L.marker([s.lat, s.lon], { icon: waterStationIcon })
+      .bindTooltip(Object.assign(document.createElement('span'), { textContent: `${s.name}（${s.river}）` }), { direction: 'top', offset: [0, -6] })
+      .on('click', () => emit('selectWaterStation', s))
+      .addTo(waterStationLayer!)
+  })
 }
 
 watch(showWaterStations, (show) => {
-  if (!map || !waterStationLayer) return
-  if (show) waterStationLayer.addTo(map)
-  else waterStationLayer.remove()
+  if (!map) return
+  if (show) {
+    if (!waterStationLayer) renderWaterStations()
+    waterStationLayer?.addTo(map)
+  } else {
+    waterStationLayer?.remove()
+  }
+})
+
+function renderRainfallStations() {
+  if (!map) return
+  rainfallStationLayer = L.markerClusterGroup({
+    maxClusterRadius: 80,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount()
+      return L.divIcon({
+        className: '',
+        html: `<div class="rainfall-cluster">${count}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      })
+    },
+  })
+  rainfallStations.forEach(s => {
+    L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
+      .bindTooltip(`${s.name}（${s.county}${s.town}）`, { direction: 'top', offset: [0, -6] })
+      .addTo(rainfallStationLayer!)
+  })
+}
+
+watch(showRainfallStations, (show) => {
+  if (!map) return
+  if (show) {
+    if (!rainfallStationLayer) renderRainfallStations()
+    rainfallStationLayer?.addTo(map)
+  } else {
+    rainfallStationLayer?.remove()
+  }
 })
 
 function onTileChange(e: Event) {
@@ -244,7 +312,6 @@ onMounted(async () => {
 
   renderMarkers()
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
-  renderWaterStations()
   await loadRivers()
 })
 
@@ -356,7 +423,8 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   top: 56px;
   right: 12px;
   z-index: 1000;
-  padding: 7px 12px;
+  width: 88px;
+  padding: 7px 0;
   border-radius: 8px;
   border: none;
   background: rgba(255, 255, 255, 0.92);
@@ -366,10 +434,50 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   outline: none;
+  text-align: center;
 }
 
 .layer-toggle-btn.active {
-  background: #2563eb;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.layer-toggle-btn.rainfall-btn {
+  top: 100px;
+}
+
+.layer-toggle-btn.rainfall-btn.active {
+  background: #0891b2;
+  color: #fff;
+}
+
+:global(.water-cluster) {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(124, 58, 237, 0.85);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+:global(.rainfall-cluster) {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(8, 145, 178, 0.85);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: #fff;
 }
 

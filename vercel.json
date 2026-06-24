@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/wra/:path*",
+      "destination": "https://gweb.wra.gov.tw/HydroInfoMobile/:path*"
+    }
+  ]
+}
