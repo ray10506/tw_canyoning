@@ -9,6 +9,7 @@
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
       </svg>
     </button>
+    <div v-if="showLayersPanel" class="panel-overlay" @click="showLayersPanel = false"></div>
     <div v-if="showLayersPanel" class="layers-panel">
       <div class="layers-header">
         <span class="layers-title">圖層</span>
@@ -35,6 +36,38 @@
             </span>
           </label>
         </div>
+        <div class="layer-divider"></div>
+        <div class="layer-row">
+          <span class="layer-icon">📍</span>
+          <span class="layer-label">地點 Locations</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="showLocationMarkers" />
+            <span class="toggle-track" :class="{ on: showLocationMarkers }">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+        <div class="layer-divider"></div>
+        <div class="layer-row">
+          <span class="layer-icon">〰️</span>
+          <span class="layer-label">河川 River</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="showRivers" />
+            <span class="toggle-track" :class="{ on: showRivers }">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+        <template v-if="showRivers">
+          <div class="slider-row">
+            <span class="slider-label">寬度 {{ riverWidth.toFixed(1) }}</span>
+            <input type="range" min="0.2" max="3" step="0.1" v-model.number="riverWidth" class="slider" />
+          </div>
+          <div class="slider-row">
+            <span class="slider-label">透明度 {{ riverOpacity.toFixed(2) }}</span>
+            <input type="range" min="0" max="1" step="0.05" v-model.number="riverOpacity" class="slider" />
+          </div>
+        </template>
       </div>
     </div>
     <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
@@ -76,7 +109,7 @@ const props = defineProps<{
   selectedRouteId: string | null
 }>()
 
-const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation]; selectRainfallStation: [station: RainfallStation] }>()
+const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation]; selectRainfallStation: [station: RainfallStation, pos: { x: number; y: number }] }>()
 
 let map: L.Map | null = null
 let markers: L.Marker[] = []
@@ -105,6 +138,10 @@ const loadingRivers = ref(false)
 const showWaterStations = ref(false)
 const showRainfallStations = ref(false)
 const showLayersPanel = ref(false)
+const showRivers = ref(true)
+const riverOpacity = ref(1.0)
+const riverWidth = ref(1.0)
+const showLocationMarkers = ref(true)
 
 const waterStationIcon = L.divIcon({
   className: '',
@@ -169,10 +206,27 @@ function renderRainfallStations() {
   rainfallStations.forEach(s => {
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
       .bindTooltip(`${s.name}（${s.county}${s.town}）`, { direction: 'top', offset: [0, -6] })
-      .on('click', () => emit('selectRainfallStation', s))
+      .on('click', (e: L.LeafletMouseEvent) => {
+        const rect = document.getElementById('map')!.getBoundingClientRect()
+        const pt = map!.latLngToContainerPoint(e.latlng)
+        emit('selectRainfallStation', s, { x: rect.left + pt.x, y: rect.top + pt.y })
+      })
       .addTo(rainfallStationLayer!)
   })
 }
+
+watch(showRivers, (show) => {
+  if (!map) return
+  if (show) {
+    updateRiverVisibility()
+  } else {
+    layerRiver?.remove()
+    layerCanal?.remove()
+    layerStream?.remove()
+  }
+})
+
+watch([riverOpacity, riverWidth], () => updateRiverStyle())
 
 watch(showRainfallStations, (show) => {
   if (!map) return
@@ -201,9 +255,8 @@ function onTileChange(e: Event) {
 function renderMarkers() {
   if (!map) return
   markers.forEach(m => m.remove())
-  markers = props.canyons.map(canyon =>
-    L.marker(canyon.coordinates)
-      .addTo(map!)
+  markers = props.canyons.map(canyon => {
+    const m = L.marker(canyon.coordinates)
       .bindPopup(`
         <div>
           <h3><strong>${canyon.name}</strong></h3>
@@ -213,11 +266,19 @@ function renderMarkers() {
           <p>${canyon.description}</p>
         </div>
       `)
-  )
+    if (showLocationMarkers.value || canyon.id === props.selectedId) m.addTo(map!)
+    return m
+  })
+}
+
+function updateRiverStyle() {
+  layerRiver?.setStyle({ color: '#1d6fa4', weight: 2.5 * riverWidth.value, opacity: riverOpacity.value })
+  layerCanal?.setStyle({ color: '#2a8fbf', weight: 1.8 * riverWidth.value, opacity: riverOpacity.value * 0.9 })
+  layerStream?.setStyle({ color: '#3aa8d8', weight: 1.0 * riverWidth.value, opacity: riverOpacity.value * 0.75 })
 }
 
 function updateRiverVisibility() {
-  if (!map) return
+  if (!map || !showRivers.value) return
   const zoom = map.getZoom()
 
   // 主要河流：隨時顯示
@@ -336,8 +397,30 @@ onMounted(async () => {
 
 watch(() => props.canyons, renderMarkers)
 
-watch(() => props.selectedId, (id) => {
+watch(showLocationMarkers, (show) => {
   if (!map) return
+  if (show) {
+    markers.forEach(m => m.addTo(map!))
+  } else {
+    markers.forEach((m, i) => {
+      if (props.canyons[i]?.id !== props.selectedId) m.remove()
+    })
+  }
+  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
+})
+
+watch(() => props.selectedId, (id, prevId) => {
+  if (!map) return
+  if (!showLocationMarkers.value) {
+    if (prevId) {
+      const pi = props.canyons.findIndex(c => c.id === prevId)
+      if (pi !== -1) markers[pi]?.remove()
+    }
+    if (id) {
+      const ni = props.canyons.findIndex(c => c.id === id)
+      if (ni !== -1) markers[ni]?.addTo(map!)
+    }
+  }
   if (!id) { map.closePopup(); return }
   const idx = props.canyons.findIndex(c => c.id === id)
   if (idx === -1) return
@@ -396,10 +479,10 @@ function renderRouteMarkers(routeMarkers: RouteMarker[], selId: string | null) {
   if (!map) return
   routeMarkerLayers = routeMarkers.map(r => {
     const marker = L.marker([r.lat, r.lon])
-      .addTo(map!)
       .bindTooltip(Object.assign(document.createElement('span'), { textContent: r.name }), { direction: 'top', offset: [0, -6] })
       .on('click', () => emit('selectRoute', r.id))
     if (r.id === selId) (marker as any).setZIndexOffset(1000)
+    if (showLocationMarkers.value || r.id === selId) marker.addTo(map!)
     return marker
   })
 }
@@ -435,6 +518,12 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   outline: none;
+}
+
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
 }
 
 .layers-fab {
@@ -516,6 +605,34 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   flex: 1;
   font-size: 0.82rem;
   color: #ccc;
+}
+
+.layer-divider {
+  height: 1px;
+  background: #2a2a4a;
+  margin: 2px 0;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 4px 40px;
+  gap: 10px;
+}
+
+.slider-label {
+  font-size: 0.72rem;
+  color: #888;
+  white-space: nowrap;
+  min-width: 72px;
+}
+
+.slider {
+  flex: 1;
+  accent-color: #6c8ef5;
+  cursor: pointer;
+  height: 4px;
 }
 
 .toggle-switch { flex-shrink: 0; cursor: pointer; }

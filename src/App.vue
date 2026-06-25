@@ -44,7 +44,7 @@
           :selected-route-id="selectedRouteId"
           @select-route="onSelectRoute"
           @select-water-station="waterStationPicker = $event"
-          @select-rainfall-station="rainfallStationDetail = $event"
+          @select-rainfall-station="(s, p) => rainfallStationDetail = { station: s, pos: p }"
         />
       </div>
       <RouteDetail
@@ -67,7 +67,8 @@
       />
       <RainfallStationDetail
         v-if="rainfallStationDetail"
-        :station="rainfallStationDetail"
+        :station="rainfallStationDetail.station"
+        :pos="rainfallStationDetail.pos"
         @close="rainfallStationDetail = null"
       />
     </template>
@@ -92,7 +93,7 @@ const detailItem   = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
 const sidebarWidth = ref(280)
 const waterStationPicker = ref<WaterStation | null>(null)
 const waterStationDetail = ref<{ station: WaterStation; days: number } | null>(null)
-const rainfallStationDetail = ref<RainfallStation | null>(null)
+const rainfallStationDetail = ref<{ station: RainfallStation; pos: { x: number; y: number } } | null>(null)
 
 function onSelectWaterPeriod(days: number) {
   if (!waterStationPicker.value) return

@@ -1,50 +1,45 @@
-export interface RainfallPoint {
-  time: number
-  mm: number
-}
-
 export interface RainfallData {
   stationName: string
-  data24h: RainfallPoint[]
-  todayTotal: number
-  last3hTotal: number
-}
-
-function extractArray(text: string, varName: string): RainfallPoint[] {
-  const idx = text.indexOf(`${varName} =`)
-  if (idx === -1) return []
-  const start = text.indexOf('[', idx)
-  if (start === -1) return []
-  let depth = 0, end = start
-  for (; end < text.length; end++) {
-    if (text[end] === '[') depth++
-    else if (text[end] === ']') { if (--depth === 0) break }
-  }
-  try {
-    const raw: [number, number | null][] = JSON.parse(text.slice(start, end + 1))
-    return raw.map(([time, mm]) => ({ time, mm: mm ?? 0 }))
-  } catch { return [] }
+  past10min: number
+  past1hr: number
+  past3hr: number
+  past6hr: number
+  past12hr: number
+  past24hr: number
+  past2days: number
+  past3days: number
+  updateTime: string
 }
 
 export async function fetchRainfallData(stationId: string): Promise<RainfallData> {
-  const res = await fetch(`/api/cwa/rainfall/${stationId}?_=${Date.now()}`)
+  const res = await fetch(`/api/cwa/rainfall/${stationId}`)
   if (!res.ok) throw new Error(`雨量 API 錯誤 (${res.status})`)
-  const text = await res.text()
+  const json = await res.json()
 
-  const nameMatch = text.match(/ST_Name\s*=\s*["']([^"']+)["']/)
-  const stationName = nameMatch?.[1] ?? stationId
+  const station = json.records?.Station?.[0]
+  if (!station) throw new Error('查無雨量資料')
 
-  const data24h = extractArray(text, 'Rain_Data')
+  const el = station.RainfallElement ?? {}
+  const get = (key: string): number => {
+    const v = parseFloat(el[key]?.Precipitation ?? '-1')
+    return !Number.isFinite(v) || v < 0 ? 0 : Math.round(v * 10) / 10
+  }
 
-  const midnight = new Date()
-  midnight.setHours(0, 0, 0, 0)
-  const todayTotal = Math.round(
-    data24h.filter(p => p.time >= midnight.getTime()).reduce((s, p) => s + p.mm, 0) * 10
-  ) / 10
+  const rawTime = station.ObsTime?.DateTime ?? ''
+  const updateTime = rawTime
+    ? new Date(rawTime).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : ''
 
-  const last3hTotal = Math.round(
-    data24h.slice(-3).reduce((s, p) => s + p.mm, 0) * 10
-  ) / 10
-
-  return { stationName, data24h, todayTotal, last3hTotal }
+  return {
+    stationName: station.StationName ?? stationId,
+    past10min: get('Past10Min'),
+    past1hr: get('Past1hr'),
+    past3hr: get('Past3hr'),
+    past6hr: get('Past6hr'),
+    past12hr: get('Past12hr'),
+    past24hr: get('Past24hr'),
+    past2days: get('Past2days'),
+    past3days: get('Past3days'),
+    updateTime,
+  }
 }
