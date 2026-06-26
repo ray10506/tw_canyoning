@@ -32,6 +32,18 @@ export default async function handler(req, res) {
       .setHeader('Content-Type', contentType)
       .send(body)
   } catch (err) {
-    res.status(502).json({ error: String(err) })
+    console.error('[wra/Chart] fetch error:', err)
+    res.status(502).json({
+      error: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.name : undefined,
+      cause: err instanceof Error && err.cause instanceof Error
+        ? {
+            name: err.cause.name,
+            message: err.cause.message,
+            code: err.cause.code,
+          }
+        : undefined,
+      target,
+    })
   }
 }
