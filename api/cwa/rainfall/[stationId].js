@@ -16,6 +16,10 @@ export default async function handler(req, res) {
       headers: { 'Accept': 'application/json' },
     })
     const body = await upstream.text()
+    const contentType = upstream.headers.get('Content-Type') ?? ''
+    if (!contentType.includes('json')) {
+      return res.status(502).json({ error: `CWA API 回傳非 JSON 內容 (HTTP ${upstream.status}): ${body.slice(0, 200)}` })
+    }
     res.status(upstream.status)
       .setHeader('Content-Type', 'application/json; charset=utf-8')
       .send(body)

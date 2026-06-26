@@ -26,3 +26,4 @@ pb_data
 *.njsproj
 *.sln
 *.sw?
+.vercel

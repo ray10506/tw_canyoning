@@ -59,7 +59,7 @@ export async function fetchWaterLevel(stationId: string, days = 7): Promise<Wate
   const html = await res.text()
 
   const m = html.match(/<input id="chart-data"[^>]*value='([^']*)'/)
-  if (!m || !m[1] || m[1] === 'null') throw new Error(`查無水位資料｜HTML: ${html.slice(0, 300)}`)
+  if (!m || !m[1] || m[1] === 'null') throw new Error('查無水位資料')
 
   const data = JSON.parse(m[1].replace(/&amp;/g, '&'))
   const series = data.series?.[0]
