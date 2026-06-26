@@ -13,8 +13,23 @@ export default async function handler(req, res) {
     })
 
     const body = await upstream.text()
+    const contentType = upstream.headers.get('Content-Type') ?? 'text/html'
+    console.log('[wra/Chart] target:', target)
+    console.log('[wra/Chart] status:', upstream.status)
+    console.log('[wra/Chart] content-type:', contentType)
+    console.log('[wra/Chart] body preview:', body.slice(0, 500))
+
+    if (!upstream.ok) {
+      return res.status(502).json({
+        error: 'WRA upstream request failed',
+        upstreamStatus: upstream.status,
+        upstreamContentType: contentType,
+        upstreamBodyPreview: body.slice(0, 500),
+      })
+    }
+
     res.status(upstream.status)
-      .setHeader('Content-Type', upstream.headers.get('Content-Type') ?? 'text/html')
+      .setHeader('Content-Type', contentType)
       .send(body)
   } catch (err) {
     res.status(502).json({ error: String(err) })
