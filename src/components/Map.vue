@@ -433,7 +433,7 @@ watch(() => props.focusPoint, (coords) => {
   focusMarker?.remove()
   focusMarker = null
   if (!coords || !map) return
-  map.flyTo(coords, 14, { duration: 1 })
+  map.flyTo(coords, 14, { duration: 1.2 })
   focusMarker = L.marker(coords).addTo(map)
 })
 
@@ -453,9 +453,10 @@ watch(() => props.routeTrack, (data) => {
     : []
   if (segments.some(segment => segment.some(isPoint))) {
     trackLayer = L.polyline(segments, { color: '#e63946', weight: 3, opacity: 0.85 }).addTo(map)
-    map.fitBounds(trackLayer.getBounds(), {
+    map.flyToBounds(trackLayer.getBounds(), {
       ...(data.pad ?? { padding: [40, 40] }),
       maxZoom: 15,
+      duration: 1.2,
     })
   }
 

@@ -101,12 +101,17 @@ function onSelectWaterPeriod(days: number) {
   waterStationPicker.value = null
 }
 
+function isValidLatLng(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
 const routeFocusPoint = computed((): [number, number] | null => {
   if (detailItem.value?.kind !== 'route') return null
   const gps = detailItem.value.data.gps?.trim()
   if (!gps) return null
   const parts = gps.split(/[,\s]+/).map(Number)
-  if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+  if (parts.length >= 2 && isValidLatLng(parts[0], parts[1]))
     return [parts[0], parts[1]]
   return null
 })
@@ -181,7 +186,10 @@ const routeTrack = computed(() => {
         ? { paddingTopLeft: [40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
         : { paddingTopLeft: [cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] },
     }
-  } catch { return null }
+  } catch (e) {
+    console.warn('[routeTrack] failed to parse gpx data for route', d.id, e)
+    return null
+  }
 })
 
 const canyonRouteMarkers = computed(() => {
@@ -190,7 +198,7 @@ const canyonRouteMarkers = computed(() => {
     const gps = r['gps']?.trim()
     if (!gps) return []
     const parts = gps.split(/[,\s]+/).map(Number)
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return []
+    if (parts.length < 2 || !isValidLatLng(parts[0], parts[1])) return []
     return [{ id: r['id'], lat: parts[0], lon: parts[1], name: r['name'] }]
   })
 })
@@ -226,7 +234,7 @@ watch(detailItem, item => { if (!item) selectedId.value = null })
 
 onMounted(async () => {
   routesLoading.value = true
-  pb.collection('canyon_routes').getFullList({ sort: 'name' }).then(records => {
+  pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" }).then(records => {
     canyonRoutes.value = records
     routesLoaded.value = true
   }).finally(() => { routesLoading.value = false })
@@ -298,7 +306,7 @@ async function onFilterType(type: RouteType | null) {
   if (type === '溪降' && !routesLoaded.value && !routesLoading.value) {
     routesLoading.value = true
     try {
-      canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name' })
+      canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" })
       routesLoaded.value = true
     } finally {
       routesLoading.value = false

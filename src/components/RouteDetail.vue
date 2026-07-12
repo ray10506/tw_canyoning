@@ -47,7 +47,7 @@
               <a
                 v-if="d.coordinates?.[0] != null && d.coordinates?.[1] != null"
                 class="row-value coord gps-link"
-                :href="`https://www.google.com/maps/search/?api=1&query=${d.coordinates[0]},${d.coordinates[1]}`"
+                :href="mapsUrl(`${d.coordinates[0]},${d.coordinates[1]}`)"
                 target="_blank" rel="noopener"
               >{{ d.coordinates[0] }}, {{ d.coordinates[1] }} ↗</a>
               <span v-else class="row-value coord">—</span>
@@ -89,7 +89,7 @@
               <span class="row-label">停車點 GPS</span>
               <a
                 class="row-value coord gps-link"
-                :href="`https://www.google.com/maps/search/?api=1&query=${d.gps.trim()}`"
+                :href="mapsUrl(d.gps.trim())"
                 target="_blank" rel="noopener"
               >{{ d.gps }} ↗</a>
             </div>
@@ -199,17 +199,29 @@ const kindLabel = computed(() => props.item.kind === 'canyon' ? d.value.type : '
 const URL_RE = /https?:\/\/[^\s]+/gi
 const YT_RE  = /youtu(?:be\.com|\.be)\//
 
+function isSafeHttpUrl(url: string): boolean {
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol)
+  } catch {
+    return false
+  }
+}
+
 function parseNote(val: string) {
   const segments: { text: string, isUrl: boolean, isYoutube?: boolean }[] = []
   let last = 0
   for (const m of val.matchAll(URL_RE)) {
     const url = m[0].replace(/[.,;:!?）)】\]'"]+$/, '')
     if (m.index! > last) segments.push({ text: val.slice(last, m.index), isUrl: false })
-    segments.push({ text: url, isUrl: true, isYoutube: YT_RE.test(url) })
+    segments.push({ text: url, isUrl: isSafeHttpUrl(url), isYoutube: YT_RE.test(url) })
     last = m.index! + url.length
   }
   if (last < val.length) segments.push({ text: val.slice(last), isUrl: false })
   return segments
+}
+
+function mapsUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 function parseGradePart(grading: string, pattern: RegExp) {

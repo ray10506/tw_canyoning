@@ -203,7 +203,6 @@ watch(() => props.selectedType, () => {
 
 const routeTypes = [
   { value: '溪降' as RouteType, key: 'canyon' },
-  { value: '溯溪' as RouteType, key: 'river' },
   { value: '野溪溫泉' as RouteType, key: 'hotspring' },
 ]
 
