@@ -49,7 +49,9 @@ const waypoints = [...gpx.matchAll(/<wpt lat="([^"]+)" lon="([^"]+)">(.*?)<\/wpt
     const body = m[3]
     const nameM = body.match(/<name>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/name>/)
     const timeM = body.match(/<time>([^<]+)<\/time>/)
-    return { lat, lon, name: nameM?.[1]?.trim() ?? '', time: timeM?.[1] ?? '' }
+    const eleM  = body.match(/<ele>([^<]+)<\/ele>/)
+    const ele   = eleM ? Math.round(parseFloat(eleM[1])) : null
+    return { lat, lon, name: nameM?.[1]?.trim() ?? '', time: timeM?.[1] ?? '', ...(ele !== null ? { ele } : {}) }
   })
   .sort((a, b) => a.time.localeCompare(b.time))
   .map((wp, i) => ({ ...wp, seq: i + 1 }))

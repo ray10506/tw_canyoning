@@ -282,6 +282,18 @@ const filteredRoutes = computed(() => {
       || (drop === '41-60' && d > 40 && d <= 60)
       || (drop === '>60'  && d > 60)
     return matchSearch && matchV && matchA && matchT && matchDrop
+  }).sort((a, b) => {
+    const ag = a['grading'] ?? ''
+    const bg = b['grading'] ?? ''
+    const vA = parseInt(ag.match(/V(\d+)/)?.[1] ?? '999')
+    const vB = parseInt(bg.match(/V(\d+)/)?.[1] ?? '999')
+    if (vA !== vB) return vA - vB
+    const aA = parseInt(ag.match(/A(\d+)/)?.[1] ?? '999')
+    const aB = parseInt(bg.match(/A(\d+)/)?.[1] ?? '999')
+    if (aA !== aB) return aA - aB
+    const T_ORDER: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6 }
+    const findT = (g: string) => T_ORDER[g.split(/\s+/).find(p => /^(I{1,3}|IV|VI?)$/.test(p)) ?? ''] ?? 999
+    return findT(ag) - findT(bg)
   })
 })
 

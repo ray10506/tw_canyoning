@@ -71,11 +71,38 @@
       </div>
     </div>
     <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
+
+    <Teleport to="body">
+    <div v-if="selectedWp" class="wp-card" @click.stop>
+      <div class="wp-card-top">
+        <div class="wp-badge">{{ selectedWp.seq != null ? String(selectedWp.seq).padStart(2, '0') : '·' }}</div>
+        <button class="wp-close" @click="selectedWpIndex = null">✕</button>
+      </div>
+      <div class="wp-name">
+        <span v-if="selectedWp.time" class="wp-time">{{ fmtTime(selectedWp.time) }} | </span>{{ selectedWp.name }}
+      </div>
+      <div class="wp-meta">
+        <span v-if="selectedWp.ele != null">H {{ selectedWp.ele }} m</span>
+        <span v-if="selectedWp.ele != null" class="wp-sep">|</span>
+        <span class="wp-coords">({{ selectedWp.lat.toFixed(5) }}, {{ selectedWp.lon.toFixed(5) }})</span>
+      </div>
+      <div class="wp-footer">
+        <button class="wp-copy-btn" @click="copyCoords">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          複製座標
+        </button>
+        <div class="wp-nav">
+          <button class="wp-nav-btn" :disabled="selectedWpIndex === 0" @click="goPrev">&lt;</button>
+          <button class="wp-nav-btn" :disabled="selectedWpIndex === currentWaypoints.length - 1" @click="goNext">&gt;</button>
+        </div>
+      </div>
+    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref } from 'vue'
+import { onMounted, watch, ref, computed } from 'vue'
 import L from 'leaflet'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -91,7 +118,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
-interface WaypointData { lat: number; lon: number; name: string; seq?: number; time?: string }
+interface WaypointData { lat: number; lon: number; name: string; seq?: number; time?: string; ele?: number }
 interface RouteTrack {
   track: [number, number][] | [number, number][][]
   waypoints: WaypointData[]
@@ -142,6 +169,61 @@ const showRivers = ref(true)
 const riverOpacity = ref(1.0)
 const riverWidth = ref(1.0)
 const showLocationMarkers = ref(true)
+
+const selectedWpIndex = ref<number | null>(null)
+const currentWaypoints = ref<WaypointData[]>([])
+const selectedWp = computed(() =>
+  selectedWpIndex.value !== null ? currentWaypoints.value[selectedWpIndex.value] ?? null : null
+)
+
+function fmtTime(iso: string) {
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+function copyCoords() {
+  if (!selectedWp.value) return
+  navigator.clipboard.writeText(`${selectedWp.value.lat.toFixed(5)}, ${selectedWp.value.lon.toFixed(5)}`)
+}
+function wpIcon(label: string, focused: boolean) {
+  return L.divIcon({
+    className: '',
+    html: focused
+      ? `<div style="width:26px;height:26px;border-radius:50%;background:#e63946;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 0 0 3px #e63946,0 2px 6px rgba(0,0,0,.5)">${label}</div>`
+      : `<div style="width:22px;height:22px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)">${label}</div>`,
+    iconSize: focused ? [26, 26] : [22, 22],
+    iconAnchor: focused ? [13, 13] : [11, 11],
+  })
+}
+
+watch(selectedWpIndex, (next, prev) => {
+  if (prev !== null && waypointMarkers[prev]) {
+    const wp = currentWaypoints.value[prev]
+    const label = wp?.seq != null ? String(wp.seq).padStart(2, '0') : (wp?.name.match(/^\d+/)?.[0] ?? '·')
+    waypointMarkers[prev].setIcon(wpIcon(label, false))
+  }
+  if (next !== null && waypointMarkers[next]) {
+    const wp = currentWaypoints.value[next]
+    const label = wp?.seq != null ? String(wp.seq).padStart(2, '0') : (wp?.name.match(/^\d+/)?.[0] ?? '·')
+    waypointMarkers[next].setIcon(wpIcon(label, true))
+  }
+})
+
+function panToWp(index: number) {
+  const wp = currentWaypoints.value[index]
+  if (wp && map) map.panTo([wp.lat, wp.lon])
+}
+function goPrev() {
+  if (selectedWpIndex.value !== null && selectedWpIndex.value > 0) {
+    selectedWpIndex.value--
+    panToWp(selectedWpIndex.value)
+  }
+}
+function goNext() {
+  if (selectedWpIndex.value !== null && selectedWpIndex.value < currentWaypoints.value.length - 1) {
+    selectedWpIndex.value++
+    panToWp(selectedWpIndex.value)
+  }
+}
 
 const waterStationIcon = L.divIcon({
   className: '',
@@ -389,6 +471,7 @@ onMounted(async () => {
   currentTile.addTo(map)
 
   map.on('zoomend', updateRiverVisibility)
+  map.on('click', () => { selectedWpIndex.value = null })
 
   renderMarkers()
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
@@ -440,7 +523,10 @@ watch(() => props.focusPoint, (coords) => {
 watch(() => props.routeTrack, (data) => {
   trackLayer?.remove(); trackLayer = null
   waypointMarkers.forEach(m => m.remove()); waypointMarkers = []
+  selectedWpIndex.value = null
+  currentWaypoints.value = []
   if (!data || !map) return
+  currentWaypoints.value = data.waypoints
 
   // Support both flat [lat,lon][] and segmented [lat,lon][][] formats
   const isPoint = (value: unknown): value is [number, number] =>
@@ -460,17 +546,12 @@ watch(() => props.routeTrack, (data) => {
     })
   }
 
-  waypointMarkers = data.waypoints.map(wp => {
+  waypointMarkers = data.waypoints.map((wp, i) => {
     const label = wp.seq != null ? String(wp.seq).padStart(2, '0') : (wp.name.match(/^\d+/)?.[0] ?? '·')
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="width:22px;height:22px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)">${label}</div>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-    })
-    return L.marker([wp.lat, wp.lon], { icon })
+    return L.marker([wp.lat, wp.lon], { icon: wpIcon(label, false) })
       .addTo(map!)
       .bindTooltip(wp.name, { permanent: false, direction: 'top', offset: [0, -12] })
+      .on('click', (e) => { L.DomEvent.stopPropagation(e); selectedWpIndex.value = i })
   })
 })
 
@@ -706,6 +787,108 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   pointer-events: none;
   z-index: 1000;
 }
+
+.wp-card {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  padding: 14px 16px 12px;
+  min-width: 260px;
+  max-width: 340px;
+  color: #111;
+  font-family: inherit;
+}
+.wp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.wp-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wp-close {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.wp-close:hover { color: #333; }
+.wp-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+.wp-time { color: #555; font-weight: 400; }
+.wp-meta {
+  font-size: 0.78rem;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.wp-sep { color: #ccc; }
+.wp-coords { color: #555; }
+.wp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wp-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f3f3f3;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+}
+.wp-copy-btn:hover { background: #e5e5e5; }
+.wp-nav {
+  display: flex;
+  gap: 4px;
+}
+.wp-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wp-nav-btn:hover:not(:disabled) { background: #f3f3f3; }
+.wp-nav-btn:disabled { color: #ccc; cursor: default; }
 </style>
 
 <style src="leaflet/dist/leaflet.css"></style>

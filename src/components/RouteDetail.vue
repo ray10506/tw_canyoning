@@ -86,12 +86,9 @@
               <span class="row-value">{{ d.total_time }}</span>
             </div>
             <div v-if="d.gps" class="row">
-              <span class="row-label">停車點 GPS</span>
-              <a
-                class="row-value coord gps-link"
-                :href="mapsUrl(d.gps.trim())"
-                target="_blank" rel="noopener"
-              >{{ d.gps }} ↗</a>
+              <span class="row-label">{{ d.gpx_track ? '停車點 GPS' : 'GPS' }}</span>
+              <a v-if="d.gpx_track" class="row-value coord gps-link" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
+              <span v-else class="row-value coord">{{ d.gps }}</span>
             </div>
             <div v-if="d.note" class="row">
               <span class="row-label">附註</span>
