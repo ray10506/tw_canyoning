@@ -25,6 +25,13 @@ export interface WaterLevelSeries {
   points: WaterLevelPoint[]
 }
 
+export const PERIODS = [
+  { label: '近一週', days: 7 },
+  { label: '近一月', days: 30 },
+  { label: '近一季', days: 90 },
+  { label: '近一年', days: 365 },
+]
+
 const WRA_API_BASE = '/api/wra'
 
 function getWraApiBase() {

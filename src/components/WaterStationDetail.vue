@@ -18,7 +18,10 @@
           </div>
 
           <div v-if="loading" class="state-msg">載入水位資料中...</div>
-          <div v-else-if="error" class="state-msg error">{{ error }}</div>
+          <template v-else-if="error">
+            <div class="state-msg error">{{ error }}</div>
+            <button class="retry-btn" @click="load">重試</button>
+          </template>
           <template v-else-if="series">
             <div v-if="latest != null" class="latest-row">
               目前水位 <strong>{{ latest }} m</strong>
@@ -35,7 +38,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
 import WaterLevelChart from './WaterLevelChart.vue'
-import { fetchWaterLevel, type WaterLevelSeries, type WaterStation } from '../lib/waterLevel'
+import { fetchWaterLevel, PERIODS, type WaterLevelSeries, type WaterStation } from '../lib/waterLevel'
 import type { ChartSeries } from '../lib/chart'
 
 const props = withDefaults(defineProps<{ station: WaterStation; days?: number }>(), {
@@ -63,7 +66,7 @@ async function load() {
     series.value = nextSeries
   } catch (e) {
     if (!isCurrentRequest()) return
-    error.value = e instanceof Error ? e.message : '載入失敗'
+    error.value = e instanceof Error ? e.message : '水位資料暫時無法載入'
   } finally {
     if (isCurrentRequest()) loading.value = false
   }
@@ -72,15 +75,9 @@ async function load() {
 onMounted(load)
 watch(() => [props.station.id, props.days], load)
 
-const periodLabel = computed(() => {
-  switch (props.days) {
-    case 7: return '近一週'
-    case 30: return '近一月'
-    case 90: return '近一季'
-    case 365: return '近一年'
-    default: return `近 ${props.days} 天`
-  }
-})
+const periodLabel = computed(() =>
+  PERIODS.find(p => p.days === props.days)?.label ?? `近 ${props.days} 天`
+)
 
 const latest = computed(() => {
   const points = series.value?.points

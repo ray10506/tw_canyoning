@@ -28,7 +28,6 @@ Tooltip.positioners.primaryPoint = (items) => {
 const props = defineProps<{
   series: ChartSeries[]
   yLabel?: string
-  y1Label?: string
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -61,7 +60,6 @@ function computeYRange(series: ChartSeries[]) {
 
 function buildConfig() {
   const labels = props.series[0]?.points.map(p => formatLabel(p.time)) ?? []
-  const usesY1 = props.series.some(s => s.yAxisID === 'y1')
 
   return {
     type: 'line' as const,
@@ -72,7 +70,6 @@ function buildConfig() {
         data: s.points.map(p => p.value),
         borderColor: s.color,
         backgroundColor: s.color,
-        yAxisID: s.yAxisID ?? 'y',
         borderDash: s.dashed ? [5, 5] : undefined,
         pointRadius: 0,
         pointHitRadius: s.dashed ? 0 : 15,
@@ -111,15 +108,6 @@ function buildConfig() {
           ticks: { color: '#888', font: { size: 10 } },
           grid: { color: '#2a2a4a' },
         },
-        ...(usesY1 ? {
-          y1: {
-            type: 'linear' as const,
-            position: 'right' as const,
-            title: { display: !!props.y1Label, text: props.y1Label, color: '#ccc' },
-            ticks: { color: '#888', font: { size: 10 } },
-            grid: { drawOnChartArea: false },
-          },
-        } : {}),
       },
     },
   }

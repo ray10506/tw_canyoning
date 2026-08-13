@@ -67,10 +67,10 @@
             <div v-if="d.grading" class="row">
               <span class="row-label">分級</span>
               <span class="row-value">
-                <span v-if="ropeGrade !== '—'" class="grade-tag rope" :data-tooltip="ROPE_TIPS[ropeGrade]">{{ ropeGrade }}</span>
-                <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="WATER_TIPS[waterGrade]">{{ waterGrade }}</span>
-                <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="TIME_TIPS[timeGrade]">{{ timeGrade }}</span>
-                <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined">{{ gradingStars }}</span>
+                <span v-if="ropeGrade !== '—'" class="grade-tag rope" :data-tooltip="ROPE_TIPS[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
+                <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="WATER_TIPS[waterGrade]" tabindex="0">{{ waterGrade }}</span>
+                <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="TIME_TIPS[timeGrade]" tabindex="0">{{ timeGrade }}</span>
+                <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
               </span>
             </div>
             <div v-if="d.max_drop" class="row">
@@ -131,6 +131,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { clamp } from '../lib/clamp'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
@@ -150,8 +151,8 @@ async function clampToViewport() {
   const w = panelRef.value.offsetWidth
   const h = panelRef.value.offsetHeight
   pos.value = {
-    x: Math.max(MARGIN, Math.min(pos.value.x, window.innerWidth - w - MARGIN)),
-    y: Math.max(MARGIN, Math.min(pos.value.y, window.innerHeight - h - MARGIN)),
+    x: clamp(pos.value.x, MARGIN, window.innerWidth - w - MARGIN),
+    y: clamp(pos.value.y, MARGIN, window.innerHeight - h - MARGIN),
   }
 }
 
@@ -175,8 +176,8 @@ function startDrag(e: MouseEvent) {
     const w = panelRef.value?.offsetWidth ?? 380
     const h = panelRef.value?.offsetHeight ?? 420
     pos.value = {
-      x: Math.max(MARGIN, Math.min(ev.clientX - offset.x, window.innerWidth - w - MARGIN)),
-      y: Math.max(MARGIN, Math.min(ev.clientY - offset.y, window.innerHeight - h - MARGIN)),
+      x: clamp(ev.clientX - offset.x, MARGIN, window.innerWidth - w - MARGIN),
+      y: clamp(ev.clientY - offset.y, MARGIN, window.innerHeight - h - MARGIN),
     }
   }
   function onUp() {
@@ -393,7 +394,7 @@ const elePolygon = computed(() => {
   flex-shrink: 0;
   width: 72px;
   font-size: 0.78rem;
-  color: #666;
+  color: #888;
 }
 
 .row-value {
@@ -421,18 +422,6 @@ const elePolygon = computed(() => {
 }
 .note-link:hover { text-decoration: underline; }
 
-.grade-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.grade-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .grade-stars {
   font-size: 0.72rem;
   color: #f0a030;
@@ -458,9 +447,9 @@ const elePolygon = computed(() => {
   transition: opacity 0.15s;
   z-index: 9999;
 }
-.grade-stars[data-tooltip]:hover::after { opacity: 1; }
+.grade-stars[data-tooltip]:hover::after,
+.grade-stars[data-tooltip]:focus::after { opacity: 1; }
 
-.grading-wrap { display: flex; gap: 6px; }
 .grade-tag {
   font-size: 0.78rem;
   font-weight: 700;
@@ -491,7 +480,8 @@ const elePolygon = computed(() => {
   transition: opacity 0.15s;
   z-index: 9999;
 }
-.grade-tag[data-tooltip]:hover::after { opacity: 1; }
+.grade-tag[data-tooltip]:hover::after,
+.grade-tag[data-tooltip]:focus::after { opacity: 1; }
 
 .tag-row {
   display: flex;
@@ -560,5 +550,29 @@ const elePolygon = computed(() => {
   flex: 1;
   height: 70px;
   display: block;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    /* bottom sheet on mobile */
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 72dvh;
+    overflow-y: auto;
+    transform: none;
+  }
+
+  .panel-header {
+    cursor: default;
+    position: sticky;
+    top: 0;
+    background: #12122a;
+    z-index: 1;
+  }
 }
 </style>

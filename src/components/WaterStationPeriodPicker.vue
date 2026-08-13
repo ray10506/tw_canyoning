@@ -25,17 +25,10 @@
 </template>
 
 <script setup lang="ts">
-import type { WaterStation } from '../lib/waterLevel'
+import { PERIODS, type WaterStation } from '../lib/waterLevel'
 
 defineProps<{ station: WaterStation }>()
 defineEmits<{ close: []; select: [days: number] }>()
-
-const PERIODS = [
-  { label: '週', days: 7 },
-  { label: '月', days: 30 },
-  { label: '季', days: 90 },
-  { label: '年', days: 365 },
-]
 </script>
 
 <style scoped>

@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar">
     <div class="title-row">
-      <h2 class="title">台灣溪谷路線探索</h2>
+      <h2 class="title">台灣溪谷地圖</h2>
       <button class="close-sidebar-btn" @click="$emit('close')" title="收合">&#9664;</button>
     </div>
 
@@ -83,7 +83,7 @@
         </div>
         <div class="canyon-season">{{ canyon.season.join('、') }}</div>
       </li>
-      <li v-if="canyons.length === 0" class="empty">查無符合的地點</li>
+      <li v-if="canyons.length === 0" class="empty">找不到符合的地點，請調整篩選條件</li>
     </ul>
 
     <!-- 溪降路線列表 -->
@@ -112,9 +112,10 @@
             <span v-if="route.total_time">全程 {{ route.total_time }}</span>
           </div>
         </li>
-        <li v-if="canyonRoutes.length === 0" class="empty">查無符合的路線</li>
+        <li v-if="canyonRoutes.length === 0" class="empty">找不到符合的路線，請調整篩選條件</li>
       </template>
     </ul>
+    <button class="mobile-close-btn" @click="$emit('close')">收起 ✕</button>
   </aside>
 </template>
 
@@ -148,14 +149,12 @@ const props = defineProps<{
   routesLoading: boolean
   selectedId: string | null
   selectedRouteId: string | null
-  selectedDifficulty: number | null
   selectedType: RouteType | null
   selectedRegion: string[]
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
-  filter: [difficulty: number | null]
   filterType: [type: RouteType | null]
   filterRegion: [region: string]
   search: [query: string]
@@ -222,7 +221,7 @@ function typeKey(type: RouteType) {
 .sidebar {
   width: 100%;
   min-width: 0;
-  height: 100vh;
+  height: 100dvh;
   background: #1a1a2e;
   color: #e0e0e0;
   display: flex;
@@ -292,7 +291,7 @@ function typeKey(type: RouteType) {
 .close-sidebar-btn {
   background: none;
   border: none;
-  color: #555;
+  color: #888;
   font-size: 0.9rem;
   cursor: pointer;
   padding: 4px 6px;
@@ -397,38 +396,6 @@ function typeKey(type: RouteType) {
 }
 .search-clear:hover { color: #aaa; }
 
-/* Difficulty filter */
-.filter-section {
-  padding: 12px 16px;
-  border-bottom: 1px solid #2a2a4a;
-}
-
-.filter-label {
-  font-size: 0.75rem;
-  color: #888;
-  margin-bottom: 8px;
-}
-
-.filter-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.filter-btn {
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid #3a3a5a;
-  background: transparent;
-  color: #ccc;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.filter-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
-.filter-btn.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; }
-
 /* List */
 .canyon-list {
   list-style: none;
@@ -494,8 +461,32 @@ function typeKey(type: RouteType) {
 
 .empty {
   padding: 20px 16px;
-  color: #666;
+  color: #999;
   font-size: 0.85rem;
   text-align: center;
+}
+
+.mobile-close-btn {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobile-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 18px;
+    background: #12122a;
+    border: none;
+    border-top: 1px solid #2a2a4a;
+    color: #888;
+    font-size: 0.9rem;
+    cursor: pointer;
+    position: sticky;
+    bottom: 0;
+    flex-shrink: 0;
+  }
+  .mobile-close-btn:hover { color: #ccc; }
 }
 </style>

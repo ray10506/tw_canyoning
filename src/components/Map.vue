@@ -464,6 +464,7 @@ onMounted(async () => {
     maxBounds: TAIWAN_BOUNDS,
     maxBoundsViscosity: 1.0,
     minZoom: 8,
+    zoomControl: false,
   }).setView([23.9871, 121.6015], 9)
 
   const defaultTile = tileOptions.find(t => t.key === 'topo')!
@@ -582,7 +583,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 
 :global(#map) {
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
 }
 
 .map-mode-select {
@@ -790,7 +791,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 
 .wp-card {
   position: fixed;
-  bottom: 32px;
+  bottom: max(32px, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;

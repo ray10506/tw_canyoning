@@ -4,12 +4,13 @@
       <span>載入資料中...</span>
     </div>
     <div v-else-if="loadError" class="loading-overlay error">
-      <span>無法連線到資料庫，請確認 PocketBase 是否已啟動</span>
+      <span>資料暫時無法載入</span>
+      <button class="retry-btn" @click="loadCanyons">重試</button>
     </div>
     <template v-else>
       <div
         :class="['sidebar-wrap', { closed: !sidebarOpen, resizing: isResizing }]"
-        :style="sidebarOpen ? { width: sidebarWidth + 'px' } : {}"
+        :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }"
       >
         <CanyonList
           :canyons="filteredCanyons"
@@ -17,11 +18,9 @@
           :routes-loading="routesLoading"
           :selected-id="selectedId"
           :selected-route-id="selectedRouteId"
-          :selected-difficulty="selectedDifficulty"
           :selected-type="selectedType"
           :selected-region="selectedRegion"
           @select="selectedId = $event"
-          @filter="onFilter"
           @filter-type="onFilterType"
           @filter-region="toggleRegion($event)"
           @search="onSearch"
@@ -84,6 +83,7 @@ import WaterStationDetail from './components/WaterStationDetail.vue'
 import WaterStationPeriodPicker from './components/WaterStationPeriodPicker.vue'
 import RainfallStationDetail from './components/RainfallStationDetail.vue'
 import { pb } from './lib/pb'
+import { clamp } from './lib/clamp'
 import type { Canyon, RouteType } from './data/canyon'
 import type { WaterStation } from './lib/waterLevel'
 import type { RainfallStation } from './lib/rainfall'
@@ -118,6 +118,7 @@ const routeFocusPoint = computed((): [number, number] | null => {
 
 const cardInitPos = computed((): { x: number; y: number } | null => {
   if (detailItem.value?.kind !== 'route') return null
+  if (window.innerWidth <= 640) return null  // mobile: CSS bottom sheet handles positioning
   const gps = detailItem.value.data.gps?.trim()
   if (!gps) return null
 
@@ -132,8 +133,8 @@ const cardInitPos = computed((): { x: number; y: number } | null => {
     ? mapCenterX + gap
     : mapCenterX - gap - cardW
 
-  const x = Math.max(0, Math.min(rawX, window.innerWidth - cardW))
-  const y = Math.max(0, Math.min(mapCenterY + gap, window.innerHeight - cardH - gap))
+  const x = clamp(rawX, 0, window.innerWidth - cardW)
+  const y = clamp(mapCenterY + gap, 0, window.innerHeight - cardH - gap)
   return { x, y }
 })
 const isResizing   = ref(false)
@@ -163,7 +164,6 @@ const routesLoaded = ref(false)
 const routesLoading = ref(false)
 const routeFilter = ref({ v: '', a: '', t: '', drop: '' })
 
-const selectedDifficulty = ref<number | null>(null)
 const selectedType = ref<RouteType | null>('溪降')
 const selectedId = ref<string | null>(null)
 const searchQuery = ref('')
@@ -232,13 +232,9 @@ const selectedRouteId = computed(() =>
 
 watch(detailItem, item => { if (!item) selectedId.value = null })
 
-onMounted(async () => {
-  routesLoading.value = true
-  pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" }).then(records => {
-    canyonRoutes.value = records
-    routesLoaded.value = true
-  }).finally(() => { routesLoading.value = false })
-
+async function loadCanyons() {
+  loading.value = true
+  loadError.value = false
   try {
     const records = await pb.collection('canyons').getFullList({ sort: 'name' })
     canyons.value = records.map(r => ({
@@ -256,6 +252,16 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  routesLoading.value = true
+  pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" }).then(records => {
+    canyonRoutes.value = records
+    routesLoaded.value = true
+  }).finally(() => { routesLoading.value = false })
+
+  loadCanyons()
 })
 
 function parseMeters(val: string): number {
@@ -300,17 +306,11 @@ const filteredRoutes = computed(() => {
 const filteredCanyons = computed(() => {
   return canyons.value.filter(c => {
     const matchType = selectedType.value === null || c.type === selectedType.value
-    const matchDifficulty = selectedDifficulty.value === null || c.difficulty === selectedDifficulty.value
     const q = searchQuery.value.trim().toLowerCase()
     const matchSearch = !q || c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q)
-    return matchType && matchDifficulty && matchSearch && matchRegion(c.location, selectedRegion.value)
+    return matchType && matchSearch && matchRegion(c.location, selectedRegion.value)
   })
 })
-
-function onFilter(difficulty: number | null) {
-  selectedDifficulty.value = difficulty
-  selectedId.value = null
-}
 
 async function onFilterType(type: RouteType | null) {
   selectedType.value = type
@@ -335,28 +335,39 @@ function onSearch(query: string) {
 <style scoped>
 .app-layout {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
 .sidebar-wrap {
-  position: relative;
+  /* ponytail: overlay instead of push — compositor-only transform, no layout reflow on open/close */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000; /* above Leaflet popup pane (700) */
+  height: 100%;
   width: 280px;
   min-width: 280px;
-  transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   overflow: visible;
 }
 
 .sidebar-wrap.closed {
-  width: 0 !important;
-  min-width: 0;
+  transform: translateX(-100%);
   opacity: 0;
-  overflow: hidden;
+  pointer-events: none;
 }
 
 .sidebar-wrap.resizing {
   transition: none;
   user-select: none;
+}
+
+@media (max-width: 640px) {
+  .sidebar-wrap {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
 }
 
 .resize-handle {
@@ -405,14 +416,28 @@ function onSearch(query: string) {
 .loading-overlay {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   font-size: 1rem;
   color: #888;
-  background: #f8f8f8;
+  background: #0f172a;
 }
 
 .loading-overlay.error {
   color: #e05c5c;
 }
+
+.retry-btn {
+  padding: 8px 22px;
+  background: none;
+  border: 1px solid #e05c5c;
+  color: #e05c5c;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+.retry-btn:hover { background: rgba(224, 92, 92, 0.12); }
 </style>

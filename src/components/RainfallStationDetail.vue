@@ -17,7 +17,10 @@
 
       <div class="popup-body">
         <div v-if="loading" class="state">載入中...</div>
-        <div v-else-if="error" class="state error">{{ error }}</div>
+        <template v-else-if="error">
+          <div class="state error">{{ error }}</div>
+          <button class="retry-btn" @click="fetchData">重試</button>
+        </template>
         <template v-else-if="data">
           <div class="row" v-for="item in rainItems" :key="item.label">
             <span class="row-label">{{ item.label }}</span>
@@ -34,6 +37,7 @@
 import { ref, computed, onMounted } from 'vue'
 import type { RainfallStation } from '../lib/rainfall'
 import { fetchRainfallData, type RainfallData } from '../lib/rainfallData'
+import { clamp } from '../lib/clamp'
 
 const CARD_W = 200
 const CARD_OFFSET = 28
@@ -62,8 +66,8 @@ const popupStyle = computed(() => {
   // want cardTop+44 = pos.y-13  →  cardTop = pos.y-57
   let top = props.pos.y - 57
 
-  left = Math.max(MARGIN, Math.min(left, window.innerWidth - CARD_W - MARGIN))
-  top = Math.max(MARGIN, Math.min(top, window.innerHeight - ESTIMATED_H - MARGIN))
+  left = clamp(left, MARGIN, window.innerWidth - CARD_W - MARGIN)
+  top = clamp(top, MARGIN, window.innerHeight - ESTIMATED_H - MARGIN)
 
   return {
     left: `${left}px`,
@@ -83,15 +87,19 @@ const rainItems = computed(() => !data.value ? [] : [
   { label: '三日',    value: `${data.value.past3days} mm` },
 ])
 
-onMounted(async () => {
+async function fetchData() {
+  loading.value = true
+  error.value = null
   try {
     data.value = await fetchRainfallData(props.station.station_id)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '載入失敗'
+    error.value = e instanceof Error ? e.message : '雨量資料暫時無法載入'
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(fetchData)
 </script>
 
 <style scoped>
@@ -104,9 +112,10 @@ onMounted(async () => {
 .popup {
   position: fixed;
   z-index: 2000;
-  background: #fff;
+  background: #12122a;
+  border: 1px solid #2a2a4a;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   overflow: visible;
 }
 
@@ -121,16 +130,16 @@ onMounted(async () => {
   left: -8px;
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
-  border-right: 8px solid #fff;
-  filter: drop-shadow(-2px 0 2px rgba(0,0,0,0.08));
+  border-right: 8px solid #12122a;
+  filter: drop-shadow(-2px 0 3px rgba(0,0,0,0.4));
 }
 
 .arrow-right {
   right: -8px;
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
-  border-left: 8px solid #fff;
-  filter: drop-shadow(2px 0 2px rgba(0,0,0,0.08));
+  border-left: 8px solid #12122a;
+  filter: drop-shadow(2px 0 3px rgba(0,0,0,0.4));
 }
 
 .popup-header {
@@ -151,7 +160,7 @@ onMounted(async () => {
 .name {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #111;
+  color: #fff;
   line-height: 1.2;
 }
 
@@ -163,14 +172,15 @@ onMounted(async () => {
 .close-btn {
   background: none;
   border: none;
-  color: #bbb;
+  color: #666;
   font-size: 0.8rem;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 2px 4px;
+  border-radius: 4px;
   flex-shrink: 0;
   line-height: 1;
 }
-.close-btn:hover { color: #555; }
+.close-btn:hover { background: #1e1e3a; color: #aaa; }
 
 .badge-row {
   padding: 0 12px 8px;
@@ -193,13 +203,13 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #1e1e3a;
   font-size: 0.82rem;
 }
 .row:last-of-type { border-bottom: none; }
 
-.row-label { color: #555; }
-.row-value { font-weight: 600; color: #111; }
+.row-label { color: #888; }
+.row-value { font-weight: 600; color: #e0e0e0; }
 
 .state {
   font-size: 0.82rem;
@@ -208,6 +218,20 @@ onMounted(async () => {
   text-align: center;
 }
 .state.error { color: #e05c5c; }
+
+.retry-btn {
+  display: block;
+  margin: 0 auto 8px;
+  padding: 5px 14px;
+  background: none;
+  border: 1px solid #e05c5c;
+  color: #e05c5c;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: background 0.15s;
+}
+.retry-btn:hover { background: rgba(224, 92, 92, 0.12); }
 
 .update-time {
   font-size: 0.68rem;
