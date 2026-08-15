@@ -101,7 +101,13 @@
         >
           <div class="canyon-header">
             <span class="canyon-name">{{ route.name }}</span>
-            <span class="type-badge type-badge--canyon">{{ route.grading || '—' }}</span>
+            <div class="grade-badges">
+              <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
+              <span v-if="aPart(route.grading)" class="a-pill">{{ aPart(route.grading) }}</span>
+              <span v-if="timePart(route.grading)" class="time-pill">{{ timePart(route.grading) }}</span>
+              <span v-if="starsPart(route.grading)" class="stars-pill">{{ starsPart(route.grading) }}</span>
+              <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
+            </div>
           </div>
           <div class="canyon-meta">
             <span class="canyon-location">{{ route.region }}</span>
@@ -122,6 +128,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import type { Canyon, RouteType } from '../data/canyon'
+import { vGradeClass } from '../lib/grade'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
 
@@ -200,6 +207,14 @@ watch(() => props.selectedType, () => {
   emit('routeFilter', { v: '', a: '', t: '', drop: '' })
 })
 
+// Grade component parsers — each token renders as its own pill
+function vPart(grading: string): string { return grading?.match(/\bV\d+/)?.[0] ?? '' }
+function aPart(grading: string): string { return grading?.match(/\bA\d+/)?.[0] ?? '' }
+function timePart(grading: string): string { return grading?.match(/\b(I{1,3}|IV|VI?)\b/)?.[0] ?? '' }
+function starsPart(grading: string): string {
+  return (grading ?? '').replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '').trim()
+}
+
 const routeTypes = [
   { value: '溪降' as RouteType, key: 'canyon' },
   { value: '野溪溫泉' as RouteType, key: 'hotspring' },
@@ -240,7 +255,7 @@ function typeKey(type: RouteType) {
 .title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: #6c8ef5;
 }
 
 .route-filters {
@@ -263,7 +278,7 @@ function typeKey(type: RouteType) {
   border: 1px solid #3a3a5a;
   background: #12122a;
   color: #ccc;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
   outline: none;
 }
@@ -277,7 +292,7 @@ function typeKey(type: RouteType) {
 }
 
 .guide-btn {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 4px 10px;
   border-radius: 10px;
   border: 1px solid #3a3a5a;
@@ -287,18 +302,20 @@ function typeKey(type: RouteType) {
   transition: all 0.15s;
 }
 .guide-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
+.guide-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .close-sidebar-btn {
   background: none;
   border: none;
   color: #888;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 4px;
   transition: color 0.15s;
 }
 .close-sidebar-btn:hover { color: #aaa; }
+.close-sidebar-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 /* Region tabs */
 .region-tabs {
@@ -321,6 +338,7 @@ function typeKey(type: RouteType) {
 }
 .region-tab:hover { border-color: #6c8ef5; color: #ccc; }
 .region-tab.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; font-weight: 600; }
+.region-tab:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 /* Type tabs */
 .type-tabs {
@@ -334,7 +352,7 @@ function typeKey(type: RouteType) {
   border: none;
   background: transparent;
   color: #888;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
@@ -352,6 +370,7 @@ function typeKey(type: RouteType) {
 .type-tab--river.active   { border-bottom-color: #6c8ef5; color: #6c8ef5; }
 .type-tab--canyon.active  { border-bottom-color: #f5a030; color: #f5a030; }
 .type-tab--hotspring.active { border-bottom-color: #f56c8e; color: #f56c8e; }
+.type-tab:focus-visible { outline: 2px solid #6c8ef5; outline-offset: -2px; }
 
 /* Search */
 .search-section {
@@ -372,7 +391,7 @@ function typeKey(type: RouteType) {
   border: 1px solid #3a3a5a;
   background: #12122a;
   color: #e0e0e0;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.15s;
@@ -395,6 +414,7 @@ function typeKey(type: RouteType) {
   transition: color 0.15s;
 }
 .search-clear:hover { color: #aaa; }
+.search-clear:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 /* List */
 .canyon-list {
@@ -428,8 +448,50 @@ function typeKey(type: RouteType) {
   color: #fff;
 }
 
+.grade-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* V-grade difficulty color scale: V1 (green/safe) → V6 (purple/extreme) */
+.v-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+.v-pill:is(.v1,.v2,.v3,.v4,.v5,.v6) { background: var(--vg-bg); color: var(--vg-fg); }
+
+/* A-grade: sky blue (matches RouteDetail water tag) */
+.a-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #0e2a3a;
+  color: #38bdf8;
+}
+/* Time grade: orange (matches RouteDetail time tag) */
+.time-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #2a1e0e;
+  color: #f5a030;
+}
+/* Stars: gold, no bg — they're decoration not data */
+.stars-pill {
+  font-size: 0.7rem;
+  color: #f0a030;
+  letter-spacing: 1px;
+}
+
 .type-badge {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   padding: 2px 7px;
   border-radius: 10px;
   font-weight: 500;
@@ -443,7 +505,7 @@ function typeKey(type: RouteType) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .canyon-location { font-size: 0.75rem; color: #888; }
@@ -453,7 +515,7 @@ function typeKey(type: RouteType) {
 .route-meta {
   display: flex;
   gap: 10px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: #6abf8a;
 }
 
@@ -462,7 +524,7 @@ function typeKey(type: RouteType) {
 .empty {
   padding: 20px 16px;
   color: #999;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   text-align: center;
 }
 
@@ -481,7 +543,7 @@ function typeKey(type: RouteType) {
     border: none;
     border-top: 1px solid #2a2a4a;
     color: #888;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     cursor: pointer;
     position: sticky;
     bottom: 0;

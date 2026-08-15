@@ -67,7 +67,7 @@
             <div v-if="d.grading" class="row">
               <span class="row-label">分級</span>
               <span class="row-value">
-                <span v-if="ropeGrade !== '—'" class="grade-tag rope" :data-tooltip="ROPE_TIPS[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
+                <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]" :data-tooltip="ROPE_TIPS[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
                 <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="WATER_TIPS[waterGrade]" tabindex="0">{{ waterGrade }}</span>
                 <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="TIME_TIPS[timeGrade]" tabindex="0">{{ timeGrade }}</span>
                 <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { clamp } from '../lib/clamp'
+import { vGradeClass } from '../lib/grade'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
@@ -225,7 +226,8 @@ function mapsUrl(query: string): string {
 function parseGradePart(grading: string, pattern: RegExp) {
   return grading?.split(/\s+/).find((p: string) => pattern.test(p)) ?? '—'
 }
-const ropeGrade  = computed(() => parseGradePart(d.value.grading, /^V\d/))
+const ropeGrade      = computed(() => parseGradePart(d.value.grading, /^V\d/))
+const ropeGradeClass = computed(() => vGradeClass(ropeGrade.value))
 const waterGrade = computed(() => parseGradePart(d.value.grading, /^A\d/))
 const timeGrade  = computed(() => parseGradePart(d.value.grading, /^(I{1,3}|IV|VI?)$/))
 
@@ -349,19 +351,22 @@ const elePolygon = computed(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .route-name {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
 }
 
 .kind-badge {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 .kind-badge.canyon  { background: #1e2d6b; color: #6c8ef5; }
 .kind-badge.route   { background: #3a2800; color: #f5a030; }
@@ -376,9 +381,12 @@ const elePolygon = computed(() => {
   border-radius: 4px;
 }
 .close-btn:hover { background: #2a2a4a; color: #fff; }
+.close-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .panel-body {
   padding: 8px 0;
+  overflow-y: auto;
+  max-height: calc(80dvh - 60px); /* 60px ≈ header height */
 }
 
 .row {
@@ -393,12 +401,12 @@ const elePolygon = computed(() => {
 .row-label {
   flex-shrink: 0;
   width: 72px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #888;
 }
 
 .row-value {
-  font-size: 0.88rem;
+  font-size: 0.875rem;
   color: #ccc;
   line-height: 1.5;
   display: flex;
@@ -410,7 +418,7 @@ const elePolygon = computed(() => {
 .stars { color: #f0a030; letter-spacing: 2px; }
 .level-text { font-size: 0.75rem; color: #888; }
 
-.coord { font-family: monospace; font-size: 0.82rem; color: #6abf8a; }
+.coord { font-family: monospace; font-size: 0.875rem; color: #6abf8a; }
 
 .gps-link { text-decoration: none; }
 .gps-link:hover { text-decoration: underline; }
@@ -418,16 +426,32 @@ const elePolygon = computed(() => {
 .note-link {
   color: #6c8ef5;
   text-decoration: none;
-  font-size: 0.88rem;
+  font-size: 0.875rem;
 }
 .note-link:hover { text-decoration: underline; }
 
 .grade-stars {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: #f0a030;
   letter-spacing: 1px;
 }
 .grade-stars[data-tooltip] { position: relative; cursor: default; }
+
+.grade-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.grade-tag.rope  { background: #1e2d6b; color: #6c8ef5; } /* fallback */
+.grade-tag.rope:is(.v1,.v2,.v3,.v4,.v5,.v6) { background: var(--vg-bg); color: var(--vg-fg); }
+.grade-tag.water { background: #0e2a3a; color: #38bdf8; }
+.grade-tag.time  { background: #2a1e0e; color: #f5a030; }
+
+.grade-tag[data-tooltip],
+.grade-stars[data-tooltip] { position: relative; cursor: default; }
+
+.grade-tag[data-tooltip]::after,
 .grade-stars[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
@@ -437,40 +461,7 @@ const elePolygon = computed(() => {
   white-space: nowrap;
   background: #1a1a2e;
   color: #e0e0f0;
-  font-size: 0.72rem;
-  font-weight: 400;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid #2e2e52;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 9999;
-}
-.grade-stars[data-tooltip]:hover::after,
-.grade-stars[data-tooltip]:focus::after { opacity: 1; }
-
-.grade-tag {
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-.grade-tag.rope  { background: #1e2d6b; color: #6c8ef5; }
-.grade-tag.water { background: #0e2a3a; color: #38bdf8; }
-.grade-tag.time  { background: #2a1e0e; color: #f5a030; }
-
-.grade-tag[data-tooltip] { position: relative; cursor: default; }
-.grade-tag[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  background: #1a1a2e;
-  color: #e0e0f0;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 400;
   padding: 5px 10px;
   border-radius: 6px;
@@ -481,7 +472,9 @@ const elePolygon = computed(() => {
   z-index: 9999;
 }
 .grade-tag[data-tooltip]:hover::after,
-.grade-tag[data-tooltip]:focus::after { opacity: 1; }
+.grade-tag[data-tooltip]:focus::after,
+.grade-stars[data-tooltip]:hover::after,
+.grade-stars[data-tooltip]:focus::after { opacity: 1; }
 
 .tag-row {
   display: flex;
@@ -492,7 +485,7 @@ const elePolygon = computed(() => {
 }
 
 .info-tag {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 12px;
@@ -521,7 +514,7 @@ const elePolygon = computed(() => {
 .ele-stats {
   display: flex;
   gap: 12px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -538,7 +531,7 @@ const elePolygon = computed(() => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #555;
   text-align: right;
   width: 34px;
@@ -565,6 +558,12 @@ const elePolygon = computed(() => {
     max-height: 72dvh;
     overflow-y: auto;
     transform: none;
+  }
+
+  /* outer panel handles scroll on mobile — remove nested scroll from body */
+  .panel-body {
+    overflow-y: visible;
+    max-height: none;
   }
 
   .panel-header {

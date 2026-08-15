@@ -181,13 +181,14 @@ onMounted(fetchData)
   line-height: 1;
 }
 .close-btn:hover { background: #1e1e3a; color: #aaa; }
+.close-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .badge-row {
   padding: 0 12px 8px;
 }
 
 .badge {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   border: 1px solid #5b9cf6;
   color: #5b9cf6;
   border-radius: 4px;
@@ -204,7 +205,7 @@ onMounted(fetchData)
   align-items: center;
   padding: 6px 0;
   border-bottom: 1px solid #1e1e3a;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 .row:last-of-type { border-bottom: none; }
 
@@ -212,29 +213,15 @@ onMounted(fetchData)
 .row-value { font-weight: 600; color: #e0e0e0; }
 
 .state {
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   color: #888;
   padding: 12px 0;
   text-align: center;
 }
 .state.error { color: #e05c5c; }
 
-.retry-btn {
-  display: block;
-  margin: 0 auto 8px;
-  padding: 5px 14px;
-  background: none;
-  border: 1px solid #e05c5c;
-  color: #e05c5c;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.78rem;
-  transition: background 0.15s;
-}
-.retry-btn:hover { background: rgba(224, 92, 92, 0.12); }
-
 .update-time {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: #aaa;
   text-align: right;
   padding-top: 6px;

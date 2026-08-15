@@ -183,8 +183,8 @@ const routeTrack = computed(() => {
       track: JSON.parse(d.gpx_track),
       waypoints: d.gpx_waypoints ? JSON.parse(d.gpx_waypoints) : [],
       pad: cardOnRight
-        ? { paddingTopLeft: [40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
-        : { paddingTopLeft: [cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] },
+        ? { paddingTopLeft: [mapLeft + 40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
+        : { paddingTopLeft: [mapLeft + cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] },
     }
   } catch (e) {
     console.warn('[routeTrack] failed to parse gpx data for route', d.id, e)
@@ -409,9 +409,8 @@ function onSearch(query: string) {
   transition: background 0.15s;
 }
 
-.sidebar-open-btn:hover {
-  background: #252545;
-}
+.sidebar-open-btn:hover { background: #252545; }
+.sidebar-open-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .loading-overlay {
   flex: 1;
@@ -429,15 +428,4 @@ function onSearch(query: string) {
   color: #e05c5c;
 }
 
-.retry-btn {
-  padding: 8px 22px;
-  background: none;
-  border: 1px solid #e05c5c;
-  color: #e05c5c;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.15s;
-}
-.retry-btn:hover { background: rgba(224, 92, 92, 0.12); }
 </style>

@@ -596,12 +596,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border: none;
   background: rgba(255, 255, 255, 0.92);
   color: #333;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   outline: none;
 }
+.map-mode-select:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .panel-overlay {
   position: fixed;
@@ -630,6 +631,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 .layers-fab:hover { background: #f0f0f0; }
 .layers-fab.active { background: #1a1a2e; color: #fff; }
+.layers-fab:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .layers-panel {
   position: absolute;
@@ -653,7 +655,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 
 .layers-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
 }
@@ -662,12 +664,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   background: none;
   border: none;
   color: #666;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   cursor: pointer;
   padding: 2px 5px;
   border-radius: 4px;
 }
 .layers-close:hover { background: #2a2a4a; color: #fff; }
+.layers-close:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .layers-list {
   padding: 6px 0;
@@ -686,7 +689,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 
 .layer-label {
   flex: 1;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   color: #ccc;
 }
 
@@ -705,7 +708,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 
 .slider-label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: #888;
   white-space: nowrap;
   min-width: 72px;
@@ -719,7 +722,23 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 
 .toggle-switch { flex-shrink: 0; cursor: pointer; }
-.toggle-switch input { display: none; }
+.toggle-switch input {
+  /* visually hidden but keyboard-accessible */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.toggle-switch input:focus-visible + .toggle-track {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+  border-radius: 11px;
+}
 
 .toggle-track {
   display: block;
@@ -755,7 +774,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #fff;
 }
@@ -770,7 +789,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #fff;
 }
@@ -784,7 +803,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   color: #38bdf8;
   padding: 8px 16px;
   border-radius: 20px;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   pointer-events: none;
   z-index: 1000;
 }
@@ -833,8 +852,9 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   line-height: 1;
 }
 .wp-close:hover { color: #333; }
+.wp-close:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 .wp-name {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #111;
   margin-bottom: 5px;
@@ -842,7 +862,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 .wp-time { color: #555; font-weight: 400; }
 .wp-meta {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #555;
   display: flex;
   align-items: center;
@@ -865,12 +885,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border: none;
   border-radius: 8px;
   padding: 6px 12px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #333;
   cursor: pointer;
 }
 .wp-copy-btn:hover { background: #e5e5e5; }
+.wp-copy-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 .wp-nav {
   display: flex;
   gap: 4px;
@@ -890,6 +911,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 .wp-nav-btn:hover:not(:disabled) { background: #f3f3f3; }
 .wp-nav-btn:disabled { color: #ccc; cursor: default; }
+.wp-nav-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 </style>
 
 <style src="leaflet/dist/leaflet.css"></style>

@@ -14,6 +14,8 @@
 body {
   margin: 0;
   overflow-x: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.01em;
 }
 
 html {
@@ -36,3 +38,16 @@ html {
 .retry-btn:hover {
   background: rgba(224, 92, 92, 0.12);
 }
+
+.retry-btn:focus-visible {
+  outline: 2px solid #f59e9e;
+  outline-offset: 2px;
+}
+
+/* V-grade color tokens — background/fg consumed by component :is(.vN) rules */
+.v1 { --vg-bg: #0c2618; --vg-fg: #4ade80; }
+.v2 { --vg-bg: #162508; --vg-fg: #a3e635; }
+.v3 { --vg-bg: #2a2200; --vg-fg: #fbbf24; }
+.v4 { --vg-bg: #2a1200; --vg-fg: #fb923c; }
+.v5 { --vg-bg: #2a0606; --vg-fg: #f87171; }
+.v6 { --vg-bg: #190826; --vg-fg: #c084fc; }

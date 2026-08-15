@@ -163,13 +163,13 @@ const chartSeries = computed<ChartSeries[]>(() => {
 }
 
 .station-name {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
 }
 
 .river-badge {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
@@ -178,7 +178,7 @@ const chartSeries = computed<ChartSeries[]>(() => {
 }
 
 .period-badge {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 10px;
   font-weight: 600;
@@ -196,6 +196,7 @@ const chartSeries = computed<ChartSeries[]>(() => {
   border-radius: 4px;
 }
 .close-btn:hover { background: #2a2a4a; color: #fff; }
+.close-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .panel-body {
   padding: 18px 24px 24px;
@@ -206,13 +207,13 @@ const chartSeries = computed<ChartSeries[]>(() => {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: #888;
   margin-bottom: 14px;
 }
 
 .state-msg {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: #888;
   padding: 24px 0;
   text-align: center;
@@ -230,7 +231,7 @@ const chartSeries = computed<ChartSeries[]>(() => {
 }
 .latest-time {
   margin-left: 8px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #666;
 }
 </style>

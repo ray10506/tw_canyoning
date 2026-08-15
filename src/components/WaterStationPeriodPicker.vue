@@ -62,7 +62,7 @@ defineEmits<{ close: []; select: [days: number] }>()
 }
 
 .station-name {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
 }
@@ -77,13 +77,14 @@ defineEmits<{ close: []; select: [days: number] }>()
   border-radius: 4px;
 }
 .close-btn:hover { background: #2a2a4a; color: #fff; }
+.close-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .picker-body {
   padding: 18px 20px 20px;
 }
 
 .hint {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: #888;
   margin: 0 0 14px;
   text-align: center;
@@ -111,4 +112,5 @@ defineEmits<{ close: []; select: [days: number] }>()
   border-color: #6c8ef5;
   color: #6c8ef5;
 }
+.period-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 </style>

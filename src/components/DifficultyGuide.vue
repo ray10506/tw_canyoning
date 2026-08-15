@@ -16,7 +16,7 @@
             <section class="col">
               <h3 class="col-title rope">繩索（V）</h3>
               <div v-for="level in ropeLevel" :key="level.code" class="level-card">
-                <div :class="['level-badge', 'rope']">{{ level.code }}</div>
+                <div :class="['level-badge', 'rope', vGradeClass(level.code)]">{{ level.code }}</div>
                 <div class="level-content">
                   <div class="level-name">{{ level.name }}</div>
                   <ul>
@@ -84,9 +84,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { vGradeClass } from '../lib/grade'
 
 const props = defineProps<{ records: any[], loading: boolean }>()
 defineEmits<{ close: [] }>()
+
 
 const ropeLevel  = computed(() => props.records.filter(r => r['type'] === 'rope'))
 const waterLevel = computed(() => props.records.filter(r => r['type'] === 'water'))
@@ -133,7 +135,7 @@ const starLevel  = computed(() =>
 }
 
 .modal-header h2 {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
 }
@@ -160,8 +162,15 @@ const starLevel  = computed(() =>
   gap: 16px;
 }
 
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 .col-title {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 700;
   padding: 6px 10px;
   border-radius: 6px;
@@ -185,10 +194,11 @@ const starLevel  = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.84rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
-.level-badge.rope  { background: #1e2d6b; color: #6c8ef5; }
+.level-badge.rope        { background: #1e2d6b; color: #6c8ef5; } /* fallback */
+.level-badge.rope:is(.v1,.v2,.v3,.v4,.v5,.v6) { background: var(--vg-bg); color: var(--vg-fg); }
 .level-badge.water { background: #0e2a3a; color: #38bdf8; }
 .level-badge.time  { background: #2a1e0e; color: #f5a030; }
 
@@ -197,7 +207,7 @@ const starLevel  = computed(() =>
 }
 
 .level-name {
-  font-size: 0.84rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #e8e8e8;
   margin-bottom: 4px;
@@ -210,7 +220,7 @@ ul {
 }
 
 ul li {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: #aaa;
   line-height: 1.6;
 }
@@ -234,7 +244,7 @@ ul li::before {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: #aaa;
 }
 
@@ -285,20 +295,20 @@ ul li::before {
 }
 
 .star-icons {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: #f5d030;
   flex-shrink: 0;
   min-width: 60px;
 }
 
 .star-name {
-  font-size: 0.87rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #eee;
 }
 
 .star-desc {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #aaa;
   margin-top: 2px;
 }

@@ -16,6 +16,11 @@ pb_data
 .claude/settings.local.json
 .vs
 
+# Claude Code / AI tooling (not project source)
+.agents/
+.claude/skills/
+.codex/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
