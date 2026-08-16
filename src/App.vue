@@ -1,11 +1,11 @@
 <template>
   <div class="app-layout">
     <div v-if="loading" class="loading-overlay">
-      <span>載入資料中...</span>
+      <span>{{ locale === 'en' ? 'Loading...' : '載入資料中...' }}</span>
     </div>
     <div v-else-if="loadError" class="loading-overlay error">
-      <span>資料暫時無法載入</span>
-      <button class="retry-btn" @click="loadCanyons">重試</button>
+      <span>{{ locale === 'en' ? 'Unable to load data' : '資料暫時無法載入' }}</span>
+      <button class="retry-btn" @click="loadCanyonRoutes">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
     </div>
     <template v-else>
       <div
@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { locale } from './lib/locale'
 import Map from './components/Map.vue'
 import CanyonList from './components/CanyonList.vue'
 import RouteDetail from './components/RouteDetail.vue'
@@ -84,6 +85,7 @@ import WaterStationPeriodPicker from './components/WaterStationPeriodPicker.vue'
 import RainfallStationDetail from './components/RainfallStationDetail.vue'
 import { pb } from './lib/pb'
 import { clamp } from './lib/clamp'
+import { fetchElevation } from './lib/elevation'
 import type { Canyon, RouteType } from './data/canyon'
 import type { WaterStation } from './lib/waterLevel'
 import type { RainfallStation } from './lib/rainfall'
@@ -232,8 +234,52 @@ const selectedRouteId = computed(() =>
 
 watch(detailItem, item => { if (!item) selectedId.value = null })
 
+// Auto-fetch elevation for routes that have a GPS coord but no usable elevation data.
+watch(detailItem, async (item) => {
+  if (item?.kind !== 'route') return
+  const route = item.data
+  if (route.elevation > 0) return   // already stored in PocketBase (0 = default unset)
+
+  // Check whether GPX track already carries elevation (third coord)
+  if (route.gpx_track) {
+    try {
+      const parsed = JSON.parse(route.gpx_track)
+      const isSegmented = parsed.length > 0 && Array.isArray(parsed[0][0])
+      const allPts: number[][] = isSegmented ? (parsed as number[][][]).flat() : parsed
+      const eles = allPts.map(p => p[2]).filter(e => e != null && !isNaN(e))
+      if (eles.length >= 2) return   // track has elevation → computed locally
+    } catch {}
+  }
+
+  // Check whether waypoints carry elevation
+  if (route.gpx_waypoints) {
+    try {
+      const wps = JSON.parse(route.gpx_waypoints)
+      const eles = (wps as any[]).map(p => p.ele).filter(e => typeof e === 'number')
+      if (eles.length > 0) return   // waypoints have elevation
+    } catch {}
+  }
+
+  const gps = route.gps?.trim()
+  if (!gps) return
+  const parts = gps.split(/[,\s]+/).map(Number)
+  if (parts.length < 2 || !isValidLatLng(parts[0], parts[1])) return
+  const [lat, lon] = parts
+  const ele = await fetchElevation(lat, lon)
+  if (ele == null) return
+  try {
+    await pb.collection('canyon_routes').update(route.id, { elevation: ele })
+  } catch { /* silent — still apply locally */ }
+  // Patch in-memory record so it survives card close/reopen within the session
+  const idx = canyonRoutes.value.findIndex(r => r.id === route.id)
+  if (idx !== -1) canyonRoutes.value[idx]['elevation'] = ele
+  // Patch the open card so RouteDetail renders it immediately
+  if (detailItem.value?.kind === 'route' && detailItem.value.data.id === route.id) {
+    detailItem.value.data.elevation = ele
+  }
+})
+
 async function loadCanyons() {
-  loading.value = true
   loadError.value = false
   try {
     const records = await pb.collection('canyons').getFullList({ sort: 'name' })
@@ -249,20 +295,27 @@ async function loadCanyons() {
     }))
   } catch {
     loadError.value = true
+  }
+}
+
+async function loadCanyonRoutes() {
+  // Only load 溪降 routes on mount; canyons collection is loaded lazily on type switch
+  loading.value = true
+  loadError.value = false
+  routesLoading.value = true
+  try {
+    const records = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type = '溪降'" })
+    canyonRoutes.value = records
+    routesLoaded.value = true
+  } catch {
+    loadError.value = true
   } finally {
+    routesLoading.value = false
     loading.value = false
   }
 }
 
-onMounted(() => {
-  routesLoading.value = true
-  pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" }).then(records => {
-    canyonRoutes.value = records
-    routesLoaded.value = true
-  }).finally(() => { routesLoading.value = false })
-
-  loadCanyons()
-})
+onMounted(loadCanyonRoutes)
 
 function parseMeters(val: string): number {
   const m = (val ?? '').match(/(\d+(?:\.\d+)?)/)
@@ -315,10 +368,16 @@ const filteredCanyons = computed(() => {
 async function onFilterType(type: RouteType | null) {
   selectedType.value = type
   selectedId.value = null
+  if (type !== '溪降' && canyons.value.length === 0) {
+    // Lazily load canyons collection only when switching away from 溪降
+    loading.value = true
+    await loadCanyons()
+    loading.value = false
+  }
   if (type === '溪降' && !routesLoaded.value && !routesLoading.value) {
     routesLoading.value = true
     try {
-      canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type != '溯溪'" })
+      canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type = '溪降'" })
       routesLoaded.value = true
     } finally {
       routesLoading.value = false

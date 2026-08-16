@@ -1,8 +1,11 @@
 <template>
   <aside class="sidebar">
     <div class="title-row">
-      <h2 class="title">台灣溪谷地圖</h2>
-      <button class="close-sidebar-btn" @click="$emit('close')" title="收合">&#9664;</button>
+      <h2 class="title">{{ locale === 'en' ? 'Taiwan Canyoning' : '台灣溪降地圖' }}</h2>
+      <div class="title-actions">
+        <button class="lang-btn" @click="locale = locale === 'zh' ? 'en' : 'zh'">{{ locale === 'en' ? '中文' : 'EN' }}</button>
+        <button class="close-sidebar-btn" @click="$emit('close')" :title="locale === 'en' ? 'Collapse' : '收合'">&#9664;</button>
+      </div>
     </div>
 
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
@@ -13,16 +16,7 @@
         :key="r.value"
         :class="['region-tab', { active: selectedRegion.includes(r.value) }]"
         @click="$emit('filterRegion', r.value)"
-      >{{ r.label }}</button>
-    </div>
-
-    <div class="type-tabs">
-      <button
-        v-for="t in routeTypes"
-        :key="t.value"
-        :class="['type-tab', `type-tab--${t.key}`, { active: selectedType === t.value }]"
-        @click="$emit('filterType', t.value)"
-      >{{ t.value }}</button>
+      >{{ localeRegion(r.value) }}</button>
     </div>
 
     <div class="search-section">
@@ -31,7 +25,7 @@
           v-model="searchQuery"
           class="search-input"
           type="text"
-          placeholder="搜尋地點名稱或縣市..."
+          :placeholder="locale === 'en' ? 'Search location or city...' : '搜尋地點名稱或縣市...'"
           @input="$emit('search', searchQuery)"
         />
         <button v-if="searchQuery" class="search-clear" @click="clearSearch">✕</button>
@@ -39,24 +33,24 @@
     </div>
 
     <!-- 溪降篩選 -->
-    <div v-if="selectedType === '溪降'" class="route-filters">
+    <div class="route-filters">
       <div class="filter-row">
         <select v-model="filterV" @change="emitRouteFilter" class="filter-select">
-          <option value="">V 全部</option>
+          <option value="">{{ locale === 'en' ? 'V All' : 'V 全部' }}</option>
           <option v-for="v in vOptions" :key="v" :value="v">{{ v }}</option>
         </select>
         <select v-model="filterA" @change="emitRouteFilter" class="filter-select">
-          <option value="">A 全部</option>
+          <option value="">{{ locale === 'en' ? 'A All' : 'A 全部' }}</option>
           <option v-for="a in aOptions" :key="a" :value="a">{{ a }}</option>
         </select>
       </div>
       <div class="filter-row">
         <select v-model="filterT" @change="emitRouteFilter" class="filter-select">
-          <option value="">T 全部</option>
+          <option value="">{{ locale === 'en' ? 'T All' : 'T 全部' }}</option>
           <option v-for="t in tOptions" :key="t" :value="t">{{ t }}</option>
         </select>
         <select v-model="filterDrop" @change="emitRouteFilter" class="filter-select">
-          <option value="">落差 全部</option>
+          <option value="">{{ locale === 'en' ? 'Drop All' : '落差 全部' }}</option>
           <option value="≤20">≤ 20m</option>
           <option value="21-40">21–40m</option>
           <option value="41-60">41–60m</option>
@@ -65,33 +59,12 @@
       </div>
     </div>
 
-    <!-- 一般路線列表 -->
-    <ul v-if="selectedType !== '溪降'" class="canyon-list">
-      <li
-        v-for="canyon in canyons"
-        :key="canyon.id"
-        :class="['canyon-item', { active: selectedId === canyon.id }]"
-        @click.stop="emit('select', canyon.id); emit('showDetail', { kind: 'canyon', data: canyon })"
-      >
-        <div class="canyon-header">
-          <span class="canyon-name">{{ canyon.name }}</span>
-          <span :class="['type-badge', `type-badge--${typeKey(canyon.type)}`]">{{ canyon.type }}</span>
-        </div>
-        <div class="canyon-meta">
-          <span class="canyon-location">{{ canyon.location }}</span>
-          <span class="canyon-difficulty">{{ '★'.repeat(canyon.difficulty) }}{{ '☆'.repeat(5 - canyon.difficulty) }}</span>
-        </div>
-        <div class="canyon-season">{{ canyon.season.join('、') }}</div>
-      </li>
-      <li v-if="canyons.length === 0" class="empty">找不到符合的地點，請調整篩選條件</li>
-    </ul>
-
     <!-- 溪降路線列表 -->
-    <ul v-else ref="routeListRef" class="canyon-list">
+    <ul ref="routeListRef" class="canyon-list">
       <li class="guide-row">
-        <button class="guide-btn" @click.stop="openGuide">難度說明</button>
+        <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Difficulty Guide' : '難度說明' }}</button>
       </li>
-      <li v-if="routesLoading" class="empty">載入中...</li>
+      <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
       <template v-else>
         <li
           v-for="route in canyonRoutes"
@@ -110,18 +83,18 @@
             </div>
           </div>
           <div class="canyon-meta">
-            <span class="canyon-location">{{ route.region }}</span>
+            <span class="canyon-location">{{ localeRegion(route.region) }}</span>
             <span class="route-rappel">{{ route.max_drop || '' }}</span>
           </div>
           <div class="route-meta">
-            <span v-if="route.approach">接近 {{ route.approach }}</span>
-            <span v-if="route.total_time">全程 {{ route.total_time }}</span>
+            <span v-if="route.approach">{{ locale === 'en' ? 'Approach' : '接近' }} {{ route.approach }}</span>
+            <span v-if="route.total_time">{{ locale === 'en' ? 'Total' : '全程' }} {{ route.total_time }}</span>
           </div>
         </li>
-        <li v-if="canyonRoutes.length === 0" class="empty">找不到符合的路線，請調整篩選條件</li>
+        <li v-if="canyonRoutes.length === 0" class="empty">{{ locale === 'en' ? 'No routes found, adjust filters' : '找不到符合的路線，請調整篩選條件' }}</li>
       </template>
     </ul>
-    <button class="mobile-close-btn" @click="$emit('close')">收起 ✕</button>
+    <button class="mobile-close-btn" @click="$emit('close')">{{ locale === 'en' ? 'Close ✕' : '收起 ✕' }}</button>
   </aside>
 </template>
 
@@ -131,6 +104,7 @@ import type { Canyon, RouteType } from '../data/canyon'
 import { vGradeClass } from '../lib/grade'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
+import { locale, localeRegion } from '../lib/locale'
 
 const showGuide = ref(false)
 const difficultyRecords = ref<any[]>([])
@@ -215,11 +189,6 @@ function starsPart(grading: string): string {
   return (grading ?? '').replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '').trim()
 }
 
-const routeTypes = [
-  { value: '溪降' as RouteType, key: 'canyon' },
-  { value: '野溪溫泉' as RouteType, key: 'hotspring' },
-]
-
 const regions = [
   { value: '北部', label: '北部' },
   { value: '中部', label: '中部' },
@@ -227,9 +196,6 @@ const regions = [
   { value: '東部', label: '東部' },
 ]
 
-function typeKey(type: RouteType) {
-  return { '溯溪': 'river', '溪降': 'canyon', '野溪溫泉': 'hotspring' }[type]
-}
 </script>
 
 <style scoped>
@@ -303,6 +269,26 @@ function typeKey(type: RouteType) {
 }
 .guide-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
 .guide-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+
+.title-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-btn {
+  background: none;
+  border: 1px solid #3a3a5a;
+  color: #888;
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.lang-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
+.lang-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .close-sidebar-btn {
   background: none;

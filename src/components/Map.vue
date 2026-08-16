@@ -2,7 +2,7 @@
   <div class="map-wrapper">
     <div id="map"></div>
     <select class="map-mode-select" :value="selectedTile" @change="onTileChange">
-      <option v-for="t in tileOptions" :key="t.key" :value="t.key">{{ t.label }}</option>
+      <option v-for="t in tileOptions" :key="t.key" :value="t.key">{{ locale === 'en' ? t.labelEn : t.label }}</option>
     </select>
     <button class="layers-fab" @click="showLayersPanel = !showLayersPanel" :class="{ active: showLayersPanel }">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -12,13 +12,13 @@
     <div v-if="showLayersPanel" class="panel-overlay" @click="showLayersPanel = false"></div>
     <div v-if="showLayersPanel" class="layers-panel">
       <div class="layers-header">
-        <span class="layers-title">圖層</span>
+        <span class="layers-title">{{ locale === 'en' ? 'Layers' : '圖層' }}</span>
         <button class="layers-close" @click="showLayersPanel = false">✕</button>
       </div>
       <div class="layers-list">
         <div class="layer-row">
           <span class="layer-icon">💧</span>
-          <span class="layer-label">水位站 River Level</span>
+          <span class="layer-label">{{ locale === 'en' ? 'River Level' : '水位站 River Level' }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showWaterStations" />
             <span class="toggle-track" :class="{ on: showWaterStations }">
@@ -28,7 +28,7 @@
         </div>
         <div class="layer-row">
           <span class="layer-icon">🌂</span>
-          <span class="layer-label">雨量站 Rain Gauge</span>
+          <span class="layer-label">{{ locale === 'en' ? 'Rain Gauge' : '雨量站 Rain Gauge' }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showRainfallStations" />
             <span class="toggle-track" :class="{ on: showRainfallStations }">
@@ -39,7 +39,7 @@
         <div class="layer-divider"></div>
         <div class="layer-row">
           <span class="layer-icon">📍</span>
-          <span class="layer-label">地點 Locations</span>
+          <span class="layer-label">{{ locale === 'en' ? 'Locations' : '地點 Locations' }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showLocationMarkers" />
             <span class="toggle-track" :class="{ on: showLocationMarkers }">
@@ -47,30 +47,8 @@
             </span>
           </label>
         </div>
-        <div class="layer-divider"></div>
-        <div class="layer-row">
-          <span class="layer-icon">〰️</span>
-          <span class="layer-label">河川 River</span>
-          <label class="toggle-switch">
-            <input type="checkbox" v-model="showRivers" />
-            <span class="toggle-track" :class="{ on: showRivers }">
-              <span class="toggle-thumb"></span>
-            </span>
-          </label>
-        </div>
-        <template v-if="showRivers">
-          <div class="slider-row">
-            <span class="slider-label">寬度 {{ riverWidth.toFixed(1) }}</span>
-            <input type="range" min="0.2" max="3" step="0.1" v-model.number="riverWidth" class="slider" />
-          </div>
-          <div class="slider-row">
-            <span class="slider-label">透明度 {{ riverOpacity.toFixed(2) }}</span>
-            <input type="range" min="0" max="1" step="0.05" v-model.number="riverOpacity" class="slider" />
-          </div>
-        </template>
       </div>
     </div>
-    <div v-if="loadingRivers" class="river-loading">載入溪流資料中...</div>
 
     <Teleport to="body">
     <div v-if="selectedWp" class="wp-card" @click.stop>
@@ -89,7 +67,7 @@
       <div class="wp-footer">
         <button class="wp-copy-btn" @click="copyCoords">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          複製座標
+          {{ locale === 'en' ? 'Copy Coords' : '複製座標' }}
         </button>
         <div class="wp-nav">
           <button class="wp-nav-btn" :disabled="selectedWpIndex === 0" @click="goPrev">&lt;</button>
@@ -103,6 +81,7 @@
 
 <script setup lang="ts">
 import { onMounted, watch, ref, computed } from 'vue'
+import { locale } from '../lib/locale'
 import L from 'leaflet'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -146,28 +125,21 @@ let waypointMarkers: L.Marker[] = []
 let routeMarkerLayers: L.Marker[] = []
 let waterStationLayer: L.MarkerClusterGroup | null = null
 let rainfallStationLayer: L.MarkerClusterGroup | null = null
-
-// 三層溪流圖層，依 zoom 分別顯示
-let layerRiver: L.GeoJSON | null = null   // 主要河流，zoom >= 8
-let layerCanal: L.GeoJSON | null = null   // 水渠，    zoom >= 11
-let layerStream: L.GeoJSON | null = null  // 小支流，  zoom >= 13
+let canyonCluster: L.MarkerClusterGroup | null = null
+let routeCluster: L.MarkerClusterGroup | null = null
 
 const tileOptions = [
-  { key: 'carto',     label: '清晰模式',   url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                                                              attribution: '© OpenStreetMap contributors © CARTO' },
-  { key: 'osm',       label: '標準模式',   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                                                         attribution: '© OpenStreetMap contributors' },
-  { key: 'topo',      label: '地形模式',   url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                                                                           attribution: '© OpenTopoMap contributors' },
-  { key: 'satellite', label: '衛星模式',   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',                              attribution: '© Esri, Maxar, Earthstar Geographics' },
+  { key: 'carto',     label: '清晰模式', labelEn: 'Clear',     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                     attribution: '© OpenStreetMap contributors © CARTO' },
+  { key: 'osm',       label: '標準模式', labelEn: 'Standard',  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                  attribution: '© OpenStreetMap contributors' },
+  { key: 'topo',      label: '地形模式', labelEn: 'Terrain',   url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                                     attribution: '© OpenTopoMap contributors' },
+  { key: 'satellite', label: '衛星模式', labelEn: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri, Maxar, Earthstar Geographics' },
 ]
 
 let currentTile: L.TileLayer | null = null
 const selectedTile = ref('topo')
-const loadingRivers = ref(false)
 const showWaterStations = ref(false)
 const showRainfallStations = ref(false)
 const showLayersPanel = ref(false)
-const showRivers = ref(true)
-const riverOpacity = ref(1.0)
-const riverWidth = ref(1.0)
 const showLocationMarkers = ref(true)
 
 const selectedWpIndex = ref<number | null>(null)
@@ -192,6 +164,22 @@ function wpIcon(label: string, focused: boolean) {
       : `<div style="width:22px;height:22px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)">${label}</div>`,
     iconSize: focused ? [26, 26] : [22, 22],
     iconAnchor: focused ? [13, 13] : [11, 11],
+  })
+}
+
+function labelIcon(name: string, selected = false) {
+  const escapedName = name.replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]!))
+  return L.divIcon({
+    className: '',
+    html: `<div class="route-label${selected ? ' route-label--selected' : ''}">${escapedName}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
   })
 }
 
@@ -297,19 +285,6 @@ function renderRainfallStations() {
   })
 }
 
-watch(showRivers, (show) => {
-  if (!map) return
-  if (show) {
-    updateRiverVisibility()
-  } else {
-    layerRiver?.remove()
-    layerCanal?.remove()
-    layerStream?.remove()
-  }
-})
-
-watch([riverOpacity, riverWidth], () => updateRiverStyle())
-
 watch(showRainfallStations, (show) => {
   if (!map) return
   if (show) {
@@ -328,17 +303,27 @@ function onTileChange(e: Event) {
   currentTile?.remove()
   currentTile = L.tileLayer(opt.url, { attribution: opt.attribution, maxZoom: 19 })
   currentTile.addTo(map)
-  // 確保溪流圖層在底圖上方
-  layerRiver?.bringToFront()
-  layerCanal?.bringToFront()
-  layerStream?.bringToFront()
 }
 
 function renderMarkers() {
   if (!map) return
   markers.forEach(m => m.remove())
-  markers = props.canyons.map(canyon => {
-    const m = L.marker(canyon.coordinates)
+  canyonCluster?.clearLayers()
+  if (!canyonCluster) {
+    canyonCluster = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      iconCreateFunction(cluster) {
+        return L.divIcon({
+          className: '',
+          html: `<div class="canyon-cluster">${cluster.getChildCount()}</div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        })
+      },
+    })
+  }
+  markers = props.canyons.map(canyon =>
+    L.marker(canyon.coordinates, { icon: labelIcon(canyon.name, canyon.id === props.selectedId) })
       .bindPopup(`
         <div>
           <h3><strong>${canyon.name}</strong></h3>
@@ -348,109 +333,14 @@ function renderMarkers() {
           <p>${canyon.description}</p>
         </div>
       `)
-    if (showLocationMarkers.value || canyon.id === props.selectedId) m.addTo(map!)
-    return m
-  })
-}
-
-function updateRiverStyle() {
-  layerRiver?.setStyle({ color: '#1d6fa4', weight: 2.5 * riverWidth.value, opacity: riverOpacity.value })
-  layerCanal?.setStyle({ color: '#2a8fbf', weight: 1.8 * riverWidth.value, opacity: riverOpacity.value * 0.9 })
-  layerStream?.setStyle({ color: '#3aa8d8', weight: 1.0 * riverWidth.value, opacity: riverOpacity.value * 0.75 })
-}
-
-function updateRiverVisibility() {
-  if (!map || !showRivers.value) return
-  const zoom = map.getZoom()
-
-  // 主要河流：隨時顯示
-  if (layerRiver) {
-    if (!map.hasLayer(layerRiver)) layerRiver.addTo(map)
-  }
-  // 水渠：zoom 11+
-  if (layerCanal) {
-    if (zoom >= 11) { if (!map.hasLayer(layerCanal))  layerCanal.addTo(map) }
-    else            { if (map.hasLayer(layerCanal))   map.removeLayer(layerCanal) }
-  }
-  // 小支流：zoom 13+
-  if (layerStream) {
-    if (zoom >= 13) { if (!map.hasLayer(layerStream)) layerStream.addTo(map) }
-    else            { if (map.hasLayer(layerStream))  map.removeLayer(layerStream) }
-  }
-}
-
-const CACHE_KEY = 'tw-rivers-v1'
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000  // 7 天
-
-function buildLayers(river: any[], canal: any[], stream: any[]) {
-  const toGeoJSON = (features: any[]) => ({ type: 'FeatureCollection' as const, features })
-  layerRiver  = L.geoJSON(toGeoJSON(river),  { style: { color: '#1d6fa4', weight: 2.5, opacity: 1    } })
-  layerCanal  = L.geoJSON(toGeoJSON(canal),  { style: { color: '#2a8fbf', weight: 1.8, opacity: 0.9  } })
-  layerStream = L.geoJSON(toGeoJSON(stream), { style: { color: '#3aa8d8', weight: 1,   opacity: 0.75 } })
-  updateRiverVisibility()
-}
-
-async function loadRivers() {
-  if (!map) return
-  loadingRivers.value = true
-  try {
-    // 先查 localStorage 快取
-    try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      if (cached) {
-        const { ts, river, canal, stream } = JSON.parse(cached)
-        if (Date.now() - ts < CACHE_TTL) {
-          buildLayers(river, canal, stream)
-          return
-        }
-      }
-    } catch {}
-
-    const query = `
-      [out:json][timeout:60];
-      area["ISO3166-1"="TW"][admin_level=2]->.tw;
-      (
-        way["waterway"="river"](area.tw);
-        way["waterway"="canal"](area.tw);
-        way["waterway"="stream"](area.tw);
-      );
-      out geom;
-    `
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-    })
-    const data = await res.json()
-
-    const river: any[] = []
-    const canal: any[] = []
-    const stream: any[] = []
-
-    for (const el of data.elements) {
-      if (!el.geometry || el.geometry.length < 2) continue
-      const feature = {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: el.geometry.map((pt: any) => [pt.lon, pt.lat])
-        },
-        properties: { name: el.tags?.name ?? '' }
-      }
-      const w = el.tags?.waterway
-      if (w === 'river')      river.push(feature)
-      else if (w === 'canal') canal.push(feature)
-      else                    stream.push(feature)
-    }
-
-    // 存入快取
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), river, canal, stream }))
-    } catch {}
-
-    buildLayers(river, canal, stream)
-  } finally {
-    loadingRivers.value = false
+  )
+  if (showLocationMarkers.value) {
+    markers.forEach(m => canyonCluster!.addLayer(m))
+    if (!map.hasLayer(canyonCluster!)) canyonCluster!.addTo(map)
+  } else {
+    canyonCluster.remove()
+    const selIdx = props.canyons.findIndex(c => c.id === props.selectedId)
+    if (selIdx !== -1) markers[selIdx].addTo(map)
   }
 }
 
@@ -459,7 +349,7 @@ const TAIWAN_BOUNDS = L.latLngBounds(
   L.latLng(25.4, 122.1)
 )
 
-onMounted(async () => {
+onMounted(() => {
   map = L.map('map', {
     maxBounds: TAIWAN_BOUNDS,
     maxBoundsViscosity: 1.0,
@@ -471,12 +361,10 @@ onMounted(async () => {
   currentTile = L.tileLayer(defaultTile.url, { attribution: defaultTile.attribution, maxZoom: 19 })
   currentTile.addTo(map)
 
-  map.on('zoomend', updateRiverVisibility)
   map.on('click', () => { selectedWpIndex.value = null })
 
   renderMarkers()
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
-  await loadRivers()
 })
 
 watch(() => props.canyons, renderMarkers)
@@ -484,17 +372,30 @@ watch(() => props.canyons, renderMarkers)
 watch(showLocationMarkers, (show) => {
   if (!map) return
   if (show) {
-    markers.forEach(m => m.addTo(map!))
+    markers.forEach(m => m.remove())
+    canyonCluster?.clearLayers()
+    markers.forEach(m => canyonCluster!.addLayer(m))
+    if (!map.hasLayer(canyonCluster!)) canyonCluster?.addTo(map)
   } else {
-    markers.forEach((m, i) => {
-      if (props.canyons[i]?.id !== props.selectedId) m.remove()
-    })
+    canyonCluster?.remove()
+    const selIdx = props.canyons.findIndex(c => c.id === props.selectedId)
+    markers.forEach((m, i) => i === selIdx ? m.addTo(map!) : m.remove())
   }
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
 })
 
 watch(() => props.selectedId, (id, prevId) => {
   if (!map) return
+  // Update icon highlight
+  if (prevId) {
+    const pi = props.canyons.findIndex(c => c.id === prevId)
+    if (pi !== -1) markers[pi]?.setIcon(labelIcon(props.canyons[pi].name, false))
+  }
+  if (id) {
+    const ni = props.canyons.findIndex(c => c.id === id)
+    if (ni !== -1) markers[ni]?.setIcon(labelIcon(props.canyons[ni].name, true))
+  }
+  // When not showing all, swap visible individual markers
   if (!showLocationMarkers.value) {
     if (prevId) {
       const pi = props.canyons.findIndex(c => c.id === prevId)
@@ -518,7 +419,6 @@ watch(() => props.focusPoint, (coords) => {
   focusMarker = null
   if (!coords || !map) return
   map.flyTo(coords, 14, { duration: 1.2 })
-  focusMarker = L.marker(coords).addTo(map)
 })
 
 watch(() => props.routeTrack, (data) => {
@@ -558,16 +458,37 @@ watch(() => props.routeTrack, (data) => {
 
 function renderRouteMarkers(routeMarkers: RouteMarker[], selId: string | null) {
   routeMarkerLayers.forEach(m => m.remove())
+  routeCluster?.clearLayers()
   routeMarkerLayers = []
-  if (!map) return
+  if (!map || !routeMarkers.length) { routeCluster?.remove(); return }
+  if (!routeCluster) {
+    routeCluster = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      iconCreateFunction(cluster) {
+        return L.divIcon({
+          className: '',
+          html: `<div class="route-cluster">${cluster.getChildCount()}</div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        })
+      },
+    })
+  }
   routeMarkerLayers = routeMarkers.map(r => {
-    const marker = L.marker([r.lat, r.lon])
-      .bindTooltip(Object.assign(document.createElement('span'), { textContent: r.name }), { direction: 'top', offset: [0, -6] })
+    const m = L.marker([r.lat, r.lon], { icon: labelIcon(r.name, r.id === selId) })
       .on('click', () => emit('selectRoute', r.id))
-    if (r.id === selId) (marker as any).setZIndexOffset(1000)
-    if (showLocationMarkers.value || r.id === selId) marker.addTo(map!)
-    return marker
+    if (r.id === selId) (m as any).setZIndexOffset(1000)
+    return m
   })
+  if (showLocationMarkers.value) {
+    routeMarkerLayers.forEach(m => routeCluster!.addLayer(m))
+    if (!map.hasLayer(routeCluster!)) routeCluster!.addTo(map)
+  } else {
+    routeCluster.remove()
+    routeMarkerLayers.forEach((m, i) => {
+      if (routeMarkers[i].id === selId) m.addTo(map!)
+    })
+  }
 }
 
 watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeMarkers, selId]) => {
@@ -699,28 +620,6 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   margin: 2px 0;
 }
 
-.slider-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 16px 4px 40px;
-  gap: 10px;
-}
-
-.slider-label {
-  font-size: 0.75rem;
-  color: #888;
-  white-space: nowrap;
-  min-width: 72px;
-}
-
-.slider {
-  flex: 1;
-  accent-color: #6c8ef5;
-  cursor: pointer;
-  height: 4px;
-}
-
 .toggle-switch { flex-shrink: 0; cursor: pointer; }
 .toggle-switch input {
   /* visually hidden but keyboard-accessible */
@@ -794,18 +693,82 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   color: #fff;
 }
 
-.river-loading {
+/* Canyon / route label chip — name shown directly on map */
+:global(.route-label) {
+  position: relative;
+  display: inline-block;
+  /* shift up so arrow tip lands on the coordinate */
+  transform: translate(-50%, calc(-100% - 8px));
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a2e;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  border: 1.5px solid #6c8ef5;
+  line-height: 1.5;
+  cursor: pointer;
+  pointer-events: auto;
+}
+/* Outer (border-coloured) downward arrow */
+:global(.route-label::before) {
+  content: '';
   position: absolute;
-  bottom: 24px;
   left: 50%;
+  bottom: -8px;
   transform: translateX(-50%);
-  background: rgba(26, 26, 46, 0.9);
-  color: #38bdf8;
-  padding: 8px 16px;
-  border-radius: 20px;
+  border: 7px solid transparent;
+  border-top: 7px solid #6c8ef5;
+  border-bottom: 0;
+}
+/* Inner (white fill) downward arrow — sits on top of ::before */
+:global(.route-label::after) {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top: 5px solid rgba(255, 255, 255, 0.95);
+  border-bottom: 0;
+}
+
+/* Selected: same white+blue, slightly stronger glow to hint at focus */
+:global(.route-label--selected) {
+  border-width: 2px;
+  box-shadow: 0 0 0 2px rgba(108, 142, 245, 0.25), 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+:global(.canyon-cluster) {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(245, 160, 48, 0.88);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.875rem;
-  pointer-events: none;
-  z-index: 1000;
+  font-weight: 700;
+  color: #fff;
+}
+
+:global(.route-cluster) {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(108, 142, 245, 0.88);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
 }
 
 .wp-card {

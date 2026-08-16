@@ -10,7 +10,7 @@
         <div class="panel-header" @mousedown.prevent="startDrag">
           <div class="header-left">
             <span class="route-name">{{ title }}</span>
-            <span :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
+            <span v-if="item.kind === 'canyon'" :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
           </div>
           <button class="close-btn" @click="$emit('close')">✕</button>
         </div>
@@ -20,30 +20,30 @@
           <!-- Canyon（溯溪 / 野溪溫泉）-->
           <template v-if="item.kind === 'canyon'">
             <div class="row">
-              <span class="row-label">地點</span>
+              <span class="row-label">{{ locale === 'en' ? 'Location' : '地點' }}</span>
               <span class="row-value">{{ d.location || '—' }}</span>
             </div>
             <div class="row">
-              <span class="row-label">路線類型</span>
+              <span class="row-label">{{ locale === 'en' ? 'Type' : '路線類型' }}</span>
               <span class="row-value">{{ d.type || '—' }}</span>
             </div>
             <div class="row">
-              <span class="row-label">難度</span>
+              <span class="row-label">{{ locale === 'en' ? 'Difficulty' : '難度' }}</span>
               <span class="row-value">
                 <span class="stars">{{ '★'.repeat(d.difficulty) }}{{ '☆'.repeat(5 - d.difficulty) }}</span>
                 <span class="level-text">Lv.{{ d.difficulty }}</span>
               </span>
             </div>
             <div class="row">
-              <span class="row-label">適合季節</span>
+              <span class="row-label">{{ locale === 'en' ? 'Season' : '適合季節' }}</span>
               <span class="row-value">{{ d.season?.join('、') || '—' }}</span>
             </div>
             <div class="row">
-              <span class="row-label">路線描述</span>
+              <span class="row-label">{{ locale === 'en' ? 'Description' : '路線描述' }}</span>
               <span class="row-value">{{ d.description || '—' }}</span>
             </div>
             <div class="row">
-              <span class="row-label">GPS 座標</span>
+              <span class="row-label">GPS</span>
               <a
                 v-if="d.coordinates?.[0] != null && d.coordinates?.[1] != null"
                 class="row-value coord gps-link"
@@ -56,46 +56,47 @@
 
           <!-- Canyon Route（溪降）-->
           <template v-else>
-            <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要')" class="tag-row">
-              <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? '有深潭' : d.deep_pool === '無' ? '無深潭' : d.deep_pool }}</span>
-              <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">需要 AB 車</span>
+            <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要') || maxEle != null" class="tag-row">
+              <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? (locale === 'en' ? 'Deep Pool' : '有深潭') : d.deep_pool === '無' ? (locale === 'en' ? 'No Deep Pool' : '無深潭') : d.deep_pool }}</span>
+              <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">{{ locale === 'en' ? 'A-B Shuttle' : '需要 AB 車' }}</span>
+              <span v-if="maxEle != null" class="info-tag ele">{{ locale === 'en' ? 'Elevation' : '海拔高度' }} {{ maxEle }}m</span>
             </div>
             <div v-if="d.region" class="row">
-              <span class="row-label">地區</span>
-              <span class="row-value">{{ d.region }}</span>
+              <span class="row-label">{{ locale === 'en' ? 'Region' : '地區' }}</span>
+              <span class="row-value">{{ localeRegion(d.region) }}</span>
             </div>
             <div v-if="d.grading" class="row">
-              <span class="row-label">分級</span>
+              <span class="row-label">{{ locale === 'en' ? 'Grade' : '分級' }}</span>
               <span class="row-value">
-                <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]" :data-tooltip="ROPE_TIPS[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
-                <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="WATER_TIPS[waterGrade]" tabindex="0">{{ waterGrade }}</span>
-                <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="TIME_TIPS[timeGrade]" tabindex="0">{{ timeGrade }}</span>
+                <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]" :data-tooltip="(locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
+                <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="(locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade]" tabindex="0">{{ waterGrade }}</span>
+                <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="(locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade]" tabindex="0">{{ timeGrade }}</span>
                 <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
               </span>
             </div>
             <div v-if="d.max_drop" class="row">
-              <span class="row-label">最高瀑高</span>
+              <span class="row-label">{{ locale === 'en' ? 'Max Rappel' : '最高瀑高' }}</span>
               <span class="row-value">{{ d.max_drop }}</span>
             </div>
             <div v-if="d.approach" class="row">
-              <span class="row-label">接近時間</span>
+              <span class="row-label">{{ locale === 'en' ? 'Approach' : '接近時間' }}</span>
               <span class="row-value">{{ d.approach }}</span>
             </div>
             <div v-if="d.total_time" class="row">
-              <span class="row-label">全程時間</span>
+              <span class="row-label">{{ locale === 'en' ? 'Total Time' : '全程時間' }}</span>
               <span class="row-value">{{ d.total_time }}</span>
             </div>
             <div v-if="d.gps" class="row">
-              <span class="row-label">{{ d.gpx_track ? '停車點 GPS' : 'GPS' }}</span>
+              <span class="row-label">{{ d.gpx_track ? (locale === 'en' ? 'Parking GPS' : '停車點 GPS') : 'GPS' }}</span>
               <a v-if="d.gpx_track" class="row-value coord gps-link" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
               <span v-else class="row-value coord">{{ d.gps }}</span>
             </div>
             <div v-if="d.note" class="row">
-              <span class="row-label">附註</span>
+              <span class="row-label">{{ locale === 'en' ? 'Notes' : '附註' }}</span>
               <span class="row-value">
                 <template v-for="(seg, i) in parseNote(d.note)" :key="i">
                   <a v-if="seg.isUrl" :href="seg.text" target="_blank" rel="noopener" class="note-link">
-                    {{ seg.isYoutube ? '路線影片' : '路線 gpx' }} ↗
+                    {{ seg.isYoutube ? (locale === 'en' ? 'Route Video' : '路線影片') : (locale === 'en' ? 'Route GPX' : '路線 gpx') }} ↗
                   </a>
                   <span v-else>{{ seg.text }}</span>
                 </template>
@@ -106,7 +107,7 @@
           <!-- Elevation profile (shown for route kind when gpx_track has elevation) -->
           <div v-if="elevationData" class="elevation-section">
             <div class="ele-header">
-              <span class="ele-title">海拔高度變化</span>
+              <span class="ele-title">{{ locale === 'en' ? 'Elevation Profile' : '海拔高度變化' }}</span>
               <div class="ele-stats">
                 <span class="ele-up">↑ {{ elevationData.gain }}m</span>
                 <span class="ele-down">↓ {{ elevationData.loss }}m</span>
@@ -133,6 +134,7 @@
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { clamp } from '../lib/clamp'
 import { vGradeClass } from '../lib/grade'
+import { locale, localeRegion } from '../lib/locale'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
@@ -244,12 +246,26 @@ const ROPE_TIPS: Record<string, string> = {
   V4: '垂降 V4｜需雙繩下降或技術性確保',
   V5: '垂降 V5｜極高難度，專業垂降技術',
 }
+const ROPE_TIPS_EN: Record<string, string> = {
+  V1: 'Rope V1 | Small drops, clear anchors — beginner friendly',
+  V2: 'Rope V2 | Moderate drops, solid rappel skills needed',
+  V3: 'Rope V3 | Large drops or complex terrain, extensive experience required',
+  V4: 'Rope V4 | Double-rope or technical belay required',
+  V5: 'Rope V5 | Extreme difficulty, expert-level rappelling',
+}
 const WATER_TIPS: Record<string, string> = {
   A0: '水域 A0｜無需游泳，全程可涉水通過',
   A1: '水域 A1｜靜水或緩流，簡單泳渡',
   A2: '水域 A2｜流動水域，需具備游泳能力',
   A3: '水域 A3｜激流或深潭，需繩索輔助或強游泳技術',
   A4: '水域 A4｜危險激流，需高水平技術與保護',
+}
+const WATER_TIPS_EN: Record<string, string> = {
+  A0: 'Water A0 | No swimming needed, wadeable throughout',
+  A1: 'Water A1 | Calm or gentle current, easy swim crossings',
+  A2: 'Water A2 | Moving water, swimming ability required',
+  A3: 'Water A3 | Whitewater or deep pools, rope assist or strong swimmer',
+  A4: 'Water A4 | Dangerous current, high-level skills required',
 }
 const TIME_TIPS: Record<string, string> = {
   I:   '整體 I｜非常容易，適合溪降新手',
@@ -259,6 +275,14 @@ const TIME_TIPS: Record<string, string> = {
   V:   '整體 V｜非常困難，專業級路線',
   VI:  '整體 VI｜極限路線，頂尖技術',
 }
+const TIME_TIPS_EN: Record<string, string> = {
+  I:   'Overall I | Very easy, suitable for beginners',
+  II:  'Overall II | Easy, basic canyoning skills needed',
+  III: 'Overall III | Moderate, canyoning experience required',
+  IV:  'Overall IV | Difficult, extensive canyoning experience needed',
+  V:   'Overall V | Very difficult, professional-level route',
+  VI:  'Overall VI | Extreme, top-tier technical skills',
+}
 
 const STAR_TIPS: Record<number, string> = {
   1: '★ 一般｜具基本可玩性',
@@ -267,10 +291,35 @@ const STAR_TIPS: Record<number, string> = {
   4: '★★★★ 精彩｜必訪路線',
   5: '★★★★★ 經典｜台灣溪降聖地',
 }
+const STAR_TIPS_EN: Record<number, string> = {
+  1: '★ Average | Decent fun',
+  2: '★★ Good | Worth the trip',
+  3: '★★★ Excellent | Highly recommended',
+  4: '★★★★ Outstanding | Must-do route',
+  5: '★★★★★ Classic | Taiwan canyoning icon',
+}
 const starTip = computed(() => {
   const count = (gradingStars.value.match(/★/g) ?? []).length
-  return STAR_TIPS[count] ?? null
+  return (locale.value === 'en' ? STAR_TIPS_EN : STAR_TIPS)[count] ?? null
 })
+
+
+/** Max elevation from GPX waypoints (fallback when track has no ele data). */
+const maxEleFromWaypoints = computed(() => {
+  if (!d.value.gpx_waypoints) return null
+  try {
+    const wps = JSON.parse(d.value.gpx_waypoints)
+    const eles = (wps as any[]).map((p: any) => p.ele).filter((e: any) => typeof e === 'number')
+    return eles.length ? Math.round(Math.max(...eles)) : null
+  } catch { return null }
+})
+
+/** Best available max elevation: track > waypoints > stored elevation field. */
+const maxEle = computed(() =>
+  elevationData.value?.maxEle
+  ?? maxEleFromWaypoints.value
+  ?? (typeof d.value.elevation === 'number' && d.value.elevation > 0 ? d.value.elevation : null)
+)
 
 const elevationData = computed(() => {
   if (props.item.kind !== 'route' || !d.value.gpx_track) return null
@@ -493,6 +542,7 @@ const elePolygon = computed(() => {
 
 .info-tag.pool    { background: #0e2a3a; color: #38bdf8; }
 .info-tag.shuttle { background: #1a2e1a; color: #6abf8a; }
+.info-tag.ele     { background: #1e1a2e; color: #a78bfa; }
 
 .elevation-section {
   padding: 12px 20px 16px;
