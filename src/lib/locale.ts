@@ -1,6 +1,15 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
-export const locale = ref<'zh' | 'en'>('zh')
+const urlLang = new URLSearchParams(location.search).get('lang')
+export const locale = ref<'zh' | 'en'>(urlLang === 'en' ? 'en' : 'zh')
+
+// Sync locale → URL so the link is shareable
+watch(locale, (lang) => {
+  const url = new URL(location.href)
+  if (lang === 'zh') url.searchParams.delete('lang')
+  else url.searchParams.set('lang', lang)
+  history.replaceState(null, '', url)
+})
 
 /** Map Chinese region labels → English. Returns original string in zh mode. */
 export function localeRegion(text: string): string {
