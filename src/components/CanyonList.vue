@@ -2,68 +2,17 @@
   <aside class="sidebar">
     <div class="title-row">
       <h2 class="title">{{ locale === 'en' ? 'Taiwan Canyoning' : '台灣溪降地圖' }}</h2>
-      <div class="title-actions">
-        <button class="lang-btn" @click="locale = locale === 'zh' ? 'en' : 'zh'">{{ locale === 'en' ? '中文' : 'EN' }}</button>
-        <button class="close-sidebar-btn" @click="$emit('close')" :title="locale === 'en' ? 'Collapse' : '收合'">&#9664;</button>
-      </div>
+      <button class="close-sidebar-btn" @click="$emit('close')" :title="locale === 'en' ? 'Collapse' : '收合'">&#9664;</button>
     </div>
 
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
 
-    <div class="region-tabs">
-      <button
-        v-for="r in regions"
-        :key="r.value"
-        :class="['region-tab', { active: selectedRegion.includes(r.value) }]"
-        @click="$emit('filterRegion', r.value)"
-      >{{ localeRegion(r.value) }}</button>
-    </div>
-
-    <div class="search-section">
-      <div class="search-wrap">
-        <input
-          v-model="searchQuery"
-          class="search-input"
-          type="text"
-          :placeholder="locale === 'en' ? 'Search location or city...' : '搜尋地點名稱或縣市...'"
-          @input="$emit('search', searchQuery)"
-        />
-        <button v-if="searchQuery" class="search-clear" @click="clearSearch">✕</button>
-      </div>
-    </div>
-
-    <!-- 溪降篩選 -->
-    <div class="route-filters">
-      <div class="filter-row">
-        <select v-model="filterV" @change="emitRouteFilter" class="filter-select">
-          <option value="">{{ locale === 'en' ? 'V All' : 'V 全部' }}</option>
-          <option v-for="v in vOptions" :key="v" :value="v">{{ v }}</option>
-        </select>
-        <select v-model="filterA" @change="emitRouteFilter" class="filter-select">
-          <option value="">{{ locale === 'en' ? 'A All' : 'A 全部' }}</option>
-          <option v-for="a in aOptions" :key="a" :value="a">{{ a }}</option>
-        </select>
-      </div>
-      <div class="filter-row">
-        <select v-model="filterT" @change="emitRouteFilter" class="filter-select">
-          <option value="">{{ locale === 'en' ? 'T All' : 'T 全部' }}</option>
-          <option v-for="t in tOptions" :key="t" :value="t">{{ t }}</option>
-        </select>
-        <select v-model="filterDrop" @change="emitRouteFilter" class="filter-select">
-          <option value="">{{ locale === 'en' ? 'Drop All' : '落差 全部' }}</option>
-          <option value="≤20">≤ 20m</option>
-          <option value="21-40">21–40m</option>
-          <option value="41-60">41–60m</option>
-          <option value=">60">> 60m</option>
-        </select>
-      </div>
+    <div class="guide-row">
+      <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Difficulty Guide' : '難度說明' }}</button>
     </div>
 
     <!-- 溪降路線列表 -->
     <ul ref="routeListRef" class="canyon-list">
-      <li class="guide-row">
-        <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Difficulty Guide' : '難度說明' }}</button>
-      </li>
       <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
       <template v-else>
         <li
@@ -100,7 +49,6 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
-import type { Canyon, RouteType } from '../data/canyon'
 import { vGradeClass } from '../lib/grade'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
@@ -125,23 +73,16 @@ async function openGuide() {
 }
 
 const props = defineProps<{
-  canyons: Canyon[]
   canyonRoutes: any[]
   routesLoading: boolean
   selectedId: string | null
   selectedRouteId: string | null
-  selectedType: RouteType | null
-  selectedRegion: string[]
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
-  filterType: [type: RouteType | null]
-  filterRegion: [region: string]
-  search: [query: string]
   close: []
   showDetail: [item: { kind: 'canyon' | 'route', data: any }]
-  routeFilter: [f: { v: string, a: string, t: string, drop: string }]
 }>()
 
 const routeListRef = ref<HTMLElement | null>(null)
@@ -152,35 +93,6 @@ watch(() => props.selectedRouteId, async (id) => {
   routeListRef.value.querySelector('.canyon-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 })
 
-const searchQuery = ref('')
-const filterV    = ref('')
-const filterA    = ref('')
-const filterT    = ref('')
-const filterDrop = ref('')
-
-const vOptions = ['V1','V2','V3','V4','V5','V6','V7']
-const aOptions = ['A1','A2','A3','A4','A5','A6','A7']
-const tOptions = ['I','II','III','IV','V','VI']
-
-function clearSearch() {
-  searchQuery.value = ''
-  emit('search', '')
-}
-
-function emitRouteFilter() {
-  emit('routeFilter', { v: filterV.value, a: filterA.value, t: filterT.value, drop: filterDrop.value })
-}
-
-watch(() => props.selectedType, () => {
-  searchQuery.value = ''
-  filterV.value = ''
-  filterA.value = ''
-  filterT.value = ''
-  filterDrop.value = ''
-  emit('search', '')
-  emit('routeFilter', { v: '', a: '', t: '', drop: '' })
-})
-
 // Grade component parsers — each token renders as its own pill
 function vPart(grading: string): string { return grading?.match(/\bV\d+/)?.[0] ?? '' }
 function aPart(grading: string): string { return grading?.match(/\bA\d+/)?.[0] ?? '' }
@@ -189,12 +101,6 @@ function starsPart(grading: string): string {
   return (grading ?? '').replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '').trim()
 }
 
-const regions = [
-  { value: '北部', label: '北部' },
-  { value: '中部', label: '中部' },
-  { value: '南部', label: '南部' },
-  { value: '東部', label: '東部' },
-]
 
 </script>
 
@@ -254,7 +160,7 @@ const regions = [
 .guide-row {
   padding: 10px 16px;
   border-bottom: 1px solid #2a2a4a;
-  list-style: none;
+  flex-shrink: 0;
 }
 
 .guide-btn {

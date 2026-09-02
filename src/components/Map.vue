@@ -106,14 +106,14 @@ interface RouteTrack {
 
 interface RouteMarker { id: string; lat: number; lon: number; name: string }
 
-const props = defineProps<{
-  canyons: Canyon[]
+const props = withDefaults(defineProps<{
+  canyons?: Canyon[]
   selectedId: string | null
   focusPoint: [number, number] | null
   routeTrack: RouteTrack | null
   canyonRouteMarkers: RouteMarker[]
   selectedRouteId: string | null
-}>()
+}>(), { canyons: () => [] })
 
 const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation]; selectRainfallStation: [station: RainfallStation, pos: { x: number; y: number }] }>()
 

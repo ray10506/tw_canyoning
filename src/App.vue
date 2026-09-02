@@ -13,20 +13,13 @@
         :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }"
       >
         <CanyonList
-          :canyons="filteredCanyons"
           :canyon-routes="filteredRoutes"
           :routes-loading="routesLoading"
           :selected-id="selectedId"
           :selected-route-id="selectedRouteId"
-          :selected-type="selectedType"
-          :selected-region="selectedRegion"
           @select="selectedId = $event"
-          @filter-type="onFilterType"
-          @filter-region="toggleRegion($event)"
-          @search="onSearch"
           @close="sidebarOpen = false"
           @show-detail="detailItem = $event"
-          @route-filter="routeFilter = $event"
         />
         <div v-if="sidebarOpen" class="resize-handle" @mousedown="startResize" />
       </div>
@@ -35,7 +28,6 @@
           &#9654;
         </button>
         <Map
-          :canyons="selectedType === '溪降' ? [] : filteredCanyons"
           :selected-id="selectedId"
           :focus-point="routeFocusPoint"
           :route-track="routeTrack"
@@ -70,29 +62,96 @@
         :pos="rainfallStationDetail.pos"
         @close="rainfallStationDetail = null"
       />
+
+      <!-- Search card (top-right floating) -->
+      <SearchCard
+        v-if="activePanel === 'search'"
+        v-model:search-query="searchQuery"
+        v-model:v="routeFilter.v"
+        v-model:a="routeFilter.a"
+        v-model:t="routeFilter.t"
+        v-model:drop="routeFilter.drop"
+        :selected-region="selectedRegion"
+        @close="activePanel = null"
+        @filter-region="toggleRegion($event)"
+        @clear-all="clearAllFilters"
+      />
+
+      <!-- Settings panel -->
+      <SettingsPanel
+        v-if="activePanel === 'settings'"
+        @close="activePanel = null"
+      />
+
+      <!-- Active filter chips — visible when card is closed and filters are on -->
+      <transition name="chips">
+        <div v-if="activeFilters.length && activePanel !== 'search'" class="filter-chips">
+          <button
+            v-for="f in activeFilters"
+            :key="f.label"
+            class="filter-chip"
+            @click="f.clear()"
+          >{{ f.label }} ✕</button>
+          <button
+            v-if="activeFilters.length > 1"
+            class="filter-chip filter-chip--clear"
+            @click="clearAllFilters"
+          >{{ locale === 'en' ? 'Clear all' : '全部清除' }}</button>
+        </div>
+      </transition>
+
+      <!-- Bottom toolbar -->
+      <div class="bottom-bar">
+        <button
+          :class="['bar-btn', { active: activePanel === 'search' || activeFilters.length > 0 }]"
+          @click="activePanel = activePanel === 'search' ? null : 'search'"
+          :title="locale === 'en' ? 'Search' : '搜尋'"
+        >
+          <div class="bar-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span v-if="activeFilters.length && activePanel !== 'search'" class="filter-badge">{{ activeFilters.length }}</span>
+          </div>
+          <span>{{ locale === 'en' ? 'Search' : '搜尋' }}</span>
+        </button>
+        <button
+          :class="['bar-btn', { active: activePanel === 'settings' }]"
+          @click="activePanel = activePanel === 'settings' ? null : 'settings'"
+          :title="locale === 'en' ? 'Settings' : '設定'"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>{{ locale === 'en' ? 'Settings' : '設定' }}</span>
+        </button>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { locale } from './lib/locale'
+import { locale, localeRegion } from './lib/locale'
 import Map from './components/Map.vue'
 import CanyonList from './components/CanyonList.vue'
 import RouteDetail from './components/RouteDetail.vue'
 import WaterStationDetail from './components/WaterStationDetail.vue'
 import WaterStationPeriodPicker from './components/WaterStationPeriodPicker.vue'
 import RainfallStationDetail from './components/RainfallStationDetail.vue'
+import SearchCard from './components/SearchCard.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import { pb } from './lib/pb'
 import { clamp } from './lib/clamp'
 import { fetchElevation } from './lib/elevation'
-import type { Canyon, RouteType } from './data/canyon'
 import type { WaterStation } from './lib/waterLevel'
 import type { RainfallStation } from './lib/rainfall'
 
-const sidebarOpen  = ref(true)
-const detailItem   = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
-const sidebarWidth = ref(280)
+const sidebarOpen   = ref(true)
+const activePanel   = ref<'search' | 'settings' | null>(null)
+const detailItem    = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
+const sidebarWidth  = ref(280)
 const waterStationPicker = ref<WaterStation | null>(null)
 const waterStationDetail = ref<{ station: WaterStation; days: number } | null>(null)
 const rainfallStationDetail = ref<{ station: RainfallStation; pos: { x: number; y: number } } | null>(null)
@@ -157,7 +216,6 @@ function startResize(e: MouseEvent) {
   document.addEventListener('mouseup', onUp)
 }
 
-const canyons = ref<Canyon[]>([])
 const loading = ref(true)
 const loadError = ref(false)
 
@@ -166,7 +224,6 @@ const routesLoaded = ref(false)
 const routesLoading = ref(false)
 const routeFilter = ref({ v: '', a: '', t: '', drop: '' })
 
-const selectedType = ref<RouteType | null>('溪降')
 const selectedId = ref<string | null>(null)
 const searchQuery = ref('')
 const selectedRegion = ref<string[]>([])
@@ -195,7 +252,6 @@ const routeTrack = computed(() => {
 })
 
 const canyonRouteMarkers = computed(() => {
-  if (selectedType.value !== '溪降') return []
   return filteredRoutes.value.flatMap(r => {
     const gps = r['gps']?.trim()
     if (!gps) return []
@@ -233,6 +289,22 @@ const selectedRouteId = computed(() =>
 )
 
 watch(detailItem, item => { if (!item) selectedId.value = null })
+
+// Sync route/search/filter state to URL so results are shareable
+watch([detailItem, searchQuery, routeFilter, selectedRegion], ([item]) => {
+  const url = new URL(location.href)
+  if (item?.kind === 'route') url.searchParams.set('route', item.data.id)
+  else url.searchParams.delete('route')
+  if (searchQuery.value.trim()) url.searchParams.set('q', searchQuery.value.trim())
+  else url.searchParams.delete('q')
+  for (const k of ['v', 'a', 't', 'drop'] as const) {
+    if (routeFilter.value[k]) url.searchParams.set(k, routeFilter.value[k])
+    else url.searchParams.delete(k)
+  }
+  url.searchParams.delete('region')
+  for (const r of selectedRegion.value) url.searchParams.append('region', r)
+  history.replaceState(null, '', url)
+}, { deep: true })
 
 // Auto-fetch elevation for routes that have a GPS coord but no usable elevation data.
 watch(detailItem, async (item) => {
@@ -279,25 +351,6 @@ watch(detailItem, async (item) => {
   }
 })
 
-async function loadCanyons() {
-  loadError.value = false
-  try {
-    const records = await pb.collection('canyons').getFullList({ sort: 'name' })
-    canyons.value = records.map(r => ({
-      id: r.id,
-      name: r['name'],
-      location: r['location'],
-      coordinates: [r['lat'], r['lng']] as [number, number],
-      difficulty: r['difficulty'],
-      type: r['type'],
-      season: r['season'],
-      description: r['description'],
-    }))
-  } catch {
-    loadError.value = true
-  }
-}
-
 async function loadCanyonRoutes() {
   // Only load 溪降 routes on mount; canyons collection is loaded lazily on type switch
   loading.value = true
@@ -315,7 +368,24 @@ async function loadCanyonRoutes() {
   }
 }
 
-onMounted(loadCanyonRoutes)
+onMounted(async () => {
+  // Restore filter state from URL before loading
+  const sp = new URLSearchParams(location.search)
+  if (sp.get('q')) searchQuery.value = sp.get('q')!
+  for (const k of ['v', 'a', 't', 'drop'] as const)
+    if (sp.get(k)) routeFilter.value[k] = sp.get(k)!
+  const regions = sp.getAll('region')
+  if (regions.length) selectedRegion.value = regions
+
+  await loadCanyonRoutes()
+
+  // Restore selected route from URL
+  const routeId = sp.get('route')
+  if (routeId) {
+    const route = canyonRoutes.value.find(r => r.id === routeId)
+    if (route) detailItem.value = { kind: 'route', data: route }
+  }
+})
 
 function parseMeters(val: string): number {
   const m = (val ?? '').match(/(\d+(?:\.\d+)?)/)
@@ -356,39 +426,30 @@ const filteredRoutes = computed(() => {
   })
 })
 
-const filteredCanyons = computed(() => {
-  return canyons.value.filter(c => {
-    const matchType = selectedType.value === null || c.type === selectedType.value
-    const q = searchQuery.value.trim().toLowerCase()
-    const matchSearch = !q || c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q)
-    return matchType && matchSearch && matchRegion(c.location, selectedRegion.value)
-  })
+watch(searchQuery, () => { selectedId.value = null })
+
+function clearAllFilters() {
+  searchQuery.value = ''
+  routeFilter.value = { v: '', a: '', t: '', drop: '' }
+  selectedRegion.value = []
+  selectedId.value = null
+}
+
+// Active filter chips — each entry can clear itself
+type FilterKey = 'v' | 'a' | 't' | 'drop'
+const FILTER_KEYS: [FilterKey, string][] = [['v', ''], ['a', ''], ['t', ''], ['drop', 'm']]
+
+const activeFilters = computed(() => {
+  const items: { label: string; clear: () => void }[] = []
+  if (searchQuery.value.trim())
+    items.push({ label: `"${searchQuery.value.trim()}"`, clear: () => { searchQuery.value = ''; selectedId.value = null } })
+  for (const [k, suffix] of FILTER_KEYS)
+    if (routeFilter.value[k])
+      items.push({ label: routeFilter.value[k] + suffix, clear: () => routeFilter.value = { ...routeFilter.value, [k]: '' } })
+  for (const r of selectedRegion.value)
+    items.push({ label: localeRegion(r), clear: () => toggleRegion(r) })
+  return items
 })
-
-async function onFilterType(type: RouteType | null) {
-  selectedType.value = type
-  selectedId.value = null
-  if (type !== '溪降' && canyons.value.length === 0) {
-    // Lazily load canyons collection only when switching away from 溪降
-    loading.value = true
-    await loadCanyons()
-    loading.value = false
-  }
-  if (type === '溪降' && !routesLoaded.value && !routesLoading.value) {
-    routesLoading.value = true
-    try {
-      canyonRoutes.value = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type = '溪降'" })
-      routesLoaded.value = true
-    } finally {
-      routesLoading.value = false
-    }
-  }
-}
-
-function onSearch(query: string) {
-  searchQuery.value = query
-  selectedId.value = null
-}
 </script>
 
 <style scoped>
@@ -487,4 +548,105 @@ function onSearch(query: string) {
   color: #e05c5c;
 }
 
+/* ── Active filter chips ────────────────────────────────────────────── */
+.filter-chips {
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 1049;
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  padding: 2px 4px;
+  /* hide scrollbar */
+  scrollbar-width: none;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #1a1a2e;
+  border: 1px solid #6c8ef5;
+  border-radius: 20px;
+  color: #6c8ef5;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  transition: all 0.15s;
+}
+.filter-chip:hover { background: #6c8ef5; color: #fff; }
+
+.filter-chip--clear {
+  border-color: #e05c5c;
+  color: #e05c5c;
+}
+.filter-chip--clear:hover { background: #e05c5c; color: #fff; }
+
+/* slide-up transition */
+.chips-enter-active, .chips-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.chips-enter-from, .chips-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+
+/* ── Bottom toolbar ─────────────────────────────────────────────────── */
+.bottom-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: #f5f0e8;
+  border-radius: 50px;
+  padding: 8px 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  z-index: 1050;
+}
+
+.bar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 40px;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+.bar-btn:hover { color: #333; background: rgba(0,0,0,0.06); }
+.bar-btn.active { color: #6c8ef5; background: rgba(108,142,245,0.12); }
+.bar-btn-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.filter-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #6c8ef5;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 2px solid #f5f0e8;
+}
 </style>
