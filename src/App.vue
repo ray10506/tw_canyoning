@@ -25,7 +25,7 @@
       </div>
       <div class="map-container">
         <button v-if="!sidebarOpen" class="sidebar-open-btn" @click="sidebarOpen = true">
-          &#9654;
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
         <Map
           :selected-id="selectedId"
@@ -34,7 +34,7 @@
           :canyon-route-markers="canyonRouteMarkers"
           :selected-route-id="selectedRouteId"
           @select-route="onSelectRoute"
-          @select-water-station="waterStationPicker = $event"
+          @select-water-station="waterStationDetail = { station: $event, days: 1 }"
           @select-rainfall-station="(s, p) => rainfallStationDetail = { station: s, pos: p }"
         />
       </div>
@@ -43,12 +43,6 @@
         :item="detailItem"
         :init-pos="cardInitPos"
         @close="detailItem = null"
-      />
-      <WaterStationPeriodPicker
-        v-if="waterStationPicker"
-        :station="waterStationPicker"
-        @select="onSelectWaterPeriod"
-        @close="waterStationPicker = null"
       />
       <WaterStationDetail
         v-if="waterStationDetail"
@@ -138,7 +132,6 @@ import Map from './components/Map.vue'
 import CanyonList from './components/CanyonList.vue'
 import RouteDetail from './components/RouteDetail.vue'
 import WaterStationDetail from './components/WaterStationDetail.vue'
-import WaterStationPeriodPicker from './components/WaterStationPeriodPicker.vue'
 import RainfallStationDetail from './components/RainfallStationDetail.vue'
 import SearchCard from './components/SearchCard.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
@@ -152,15 +145,8 @@ const sidebarOpen   = ref(window.innerWidth > 640)
 const activePanel   = ref<'search' | 'settings' | null>(null)
 const detailItem    = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
 const sidebarWidth  = ref(280)
-const waterStationPicker = ref<WaterStation | null>(null)
 const waterStationDetail = ref<{ station: WaterStation; days: number } | null>(null)
 const rainfallStationDetail = ref<{ station: RainfallStation; pos: { x: number; y: number } } | null>(null)
-
-function onSelectWaterPeriod(days: number) {
-  if (!waterStationPicker.value) return
-  waterStationDetail.value = { station: waterStationPicker.value, days }
-  waterStationPicker.value = null
-}
 
 function isValidLatLng(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) &&
@@ -539,13 +525,14 @@ const activeFilters = computed(() => {
   left: 0;
   transform: translateY(-50%);
   z-index: 1000;
+  display: flex;
+  align-items: center;
   background: #1a1a2e;
   color: #6c8ef5;
   border: none;
   border-radius: 0 8px 8px 0;
   padding: 16px 8px;
   cursor: pointer;
-  font-size: 0.8rem;
   box-shadow: 2px 0 8px rgba(0,0,0,0.3);
   transition: background 0.15s;
 }

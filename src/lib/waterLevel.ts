@@ -1,8 +1,3 @@
-// Fetch hourly river water-level history from WRA HydroInfoMobile.
-// In dev, requests go through the /api/wra Vite proxy (see vite.config.ts) to avoid
-// browser CORS restrictions. Production builds can set VITE_WRA_API_BASE to their
-// own proxy; otherwise requests fall back to the direct WRA endpoint.
-
 export interface WaterStation {
   id: string
   name: string
@@ -25,61 +20,20 @@ export interface WaterLevelSeries {
   points: WaterLevelPoint[]
 }
 
-export const PERIODS = [
-  { label: '近一週', labelEn: 'Past Week',    days: 7 },
-  { label: '近一月', labelEn: 'Past Month',   days: 30 },
-  { label: '近一季', labelEn: 'Past Quarter', days: 90 },
-  { label: '近一年', labelEn: 'Past Year',    days: 365 },
-]
+const WRA_REALTIME_URL = 'https://opendata.wra.gov.tw/api/v2/73c4c3de-4045-4765-abeb-89f9f9cd5ff0?format=JSON'
 
-const WRA_API_BASE = '/api/wra'
-
-function getWraApiBase() {
-  const configuredBase = import.meta.env.VITE_WRA_API_BASE?.trim()
-  if (configuredBase) return configuredBase.replace(/\/+$/, '')
-  return WRA_API_BASE
-}
-
-export async function fetchWaterLevel(stationId: string, days = 7): Promise<WaterLevelSeries> {
-  const edate = new Date()
-  const sdate = new Date(edate.getTime() - days * 24 * 60 * 60 * 1000)
-
-  const params = new URLSearchParams({
-    containerID: 'chart-single-rtle',
-    category: 'rtLE',
-    stno: stationId,
-    sYear: String(sdate.getFullYear()),
-    sMonth: String(sdate.getMonth() + 1),
-    sDay: String(sdate.getDate()),
-    eYear: String(edate.getFullYear()),
-    eMonth: String(edate.getMonth() + 1),
-    eDay: String(edate.getDate()),
-    timeframe: 'YYMMDD',
-    timeType: 'hh',
-    mode: '0',
-    flow_cnt: '',
-    searchType: '',
-  })
-
-  const res = await fetch(`${getWraApiBase()}/Chart?${params}`)
+export async function fetchWaterLevel(stationId: string): Promise<WaterLevelSeries> {
+  const res = await fetch(WRA_REALTIME_URL)
   if (!res.ok) throw new Error(`水利署 API 錯誤 (${res.status})`)
-  const html = await res.text()
+  const records = await res.json()
+  const record = Array.isArray(records) ? records.find(r => r.stationid === stationId) : null
+  if (!record) throw new Error('查無水位資料')
 
-  const m = html.match(/<input id="chart-data"[^>]*value='([^']*)'/)
-  if (!m || !m[1] || m[1] === 'null') throw new Error(`查無水位資料｜HTML: ${html.slice(0, 300)}`)
+  const value = Number(record.waterlevel)
+  if (!Number.isFinite(value)) throw new Error('水位資料格式錯誤')
 
-  const data = JSON.parse(m[1].replace(/&amp;/g, '&'))
-  const series = data.series?.[0]
-  const values: (number | null)[] = series?.data ?? []
-  if (!values.length) throw new Error('查無水位資料')
-
-  const start = new Date(data.sYear, (data.sMonth ?? 1) - 1, data.sDay ?? 1, data.sHour ?? 0)
-  const stepMs = data.dateFormat === 'HH' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
-
-  const points = values.map((value, i) => ({
-    time: new Date(start.getTime() + i * stepMs).toISOString(),
-    value,
-  }))
-
-  return { title: series?.title ?? '水位 (m)', points }
+  return {
+    title: '即時水位 (m)',
+    points: [{ time: new Date(record.datetime).toISOString(), value }],
+  }
 }

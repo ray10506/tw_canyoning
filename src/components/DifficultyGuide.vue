@@ -103,7 +103,7 @@ const waterLevel = computed(() => props.records.filter(r => r['type'] === 'water
 const timeLevel  = computed(() => props.records.filter(r => r['type'] === 'time'))
 const starLevel  = computed(() =>
   props.records.filter(r => r['type'] === 'star').map(r => ({
-    stars: r['code'],
+    stars: (locale.value === 'en' && r['code'] === '無星') ? '☆' : r['code'],
     name:  localeName(r),
     desc:  localeItems(r)[0] ?? '',
   }))

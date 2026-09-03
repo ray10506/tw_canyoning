@@ -2,7 +2,9 @@
   <aside class="sidebar">
     <div class="title-row">
       <h2 class="title">{{ locale === 'en' ? 'Taiwan Canyoning' : '台灣溪降地圖' }}</h2>
-      <button class="close-sidebar-btn" @click="$emit('close')" :title="locale === 'en' ? 'Collapse' : '收合'">&#9664;</button>
+      <button class="close-sidebar-btn" @click="$emit('close')" :title="locale === 'en' ? 'Collapse' : '收合'">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+      </button>
     </div>
 
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
@@ -12,6 +14,9 @@
     </div>
 
     <!-- 溪降路線列表 -->
+    <div v-if="!routesLoading" class="list-count">
+      {{ canyonRoutes.length }} {{ locale === 'en' ? 'routes' : '條路線' }}
+    </div>
     <ul ref="routeListRef" class="canyon-list">
       <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
       <template v-else>
@@ -21,23 +26,21 @@
           :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
           @click.stop="emit('showDetail', { kind: 'route', data: route })"
         >
-          <div class="canyon-header">
-            <span class="canyon-name">{{ route.name }}</span>
-            <div class="grade-badges">
-              <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
-              <span v-if="aPart(route.grading)" class="a-pill">{{ aPart(route.grading) }}</span>
-              <span v-if="timePart(route.grading)" class="time-pill">{{ timePart(route.grading) }}</span>
-              <span v-if="starsPart(route.grading)" class="stars-pill">{{ starsPart(route.grading) }}</span>
-              <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
+          <div class="canyon-item-inner">
+            <div class="canyon-right">
+              <div class="canyon-name-row">
+                <span class="canyon-name">{{ route.name }}</span>
+                <span class="canyon-drop">{{ route.max_drop || '' }}</span>
+              </div>
+              <div class="grade-badges">
+                <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
+                <span v-if="aPart(route.grading)" class="a-pill">{{ aPart(route.grading) }}</span>
+                <span v-if="timePart(route.grading)" class="time-pill">{{ timePart(route.grading) }}</span>
+                <span v-if="starsPart(route.grading)" class="stars-pill">{{ starsPart(route.grading) }}</span>
+                <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
+              </div>
+              <span class="canyon-location">{{ route.region }}</span>
             </div>
-          </div>
-          <div class="canyon-meta">
-            <span class="canyon-location">{{ route.region }}</span>
-            <span class="route-rappel">{{ route.max_drop || '' }}</span>
-          </div>
-          <div class="route-meta">
-            <span v-if="route.approach">{{ locale === 'en' ? 'Approach' : '接近' }} {{ route.approach }}</span>
-            <span v-if="route.total_time">{{ locale === 'en' ? 'Total' : '全程' }} {{ route.total_time }}</span>
           </div>
         </li>
         <li v-if="canyonRoutes.length === 0" class="empty">{{ locale === 'en' ? 'No routes found, adjust filters' : '找不到符合的路線，請調整篩選條件' }}</li>
@@ -100,6 +103,7 @@ function timePart(grading: string): string { return grading?.match(/\b(I{1,3}|IV
 function starsPart(grading: string): string {
   return (grading ?? '').replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '').trim()
 }
+
 
 
 </script>
@@ -197,10 +201,11 @@ function starsPart(grading: string): string {
 .lang-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .close-sidebar-btn {
+  display: flex;
+  align-items: center;
   background: none;
   border: none;
   color: #888;
-  font-size: 0.95rem;
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 4px;
@@ -317,8 +322,17 @@ function starsPart(grading: string): string {
   flex: 1;
 }
 
+
+.list-count {
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  color: #999;
+  border-bottom: 1px solid #2a2a4a;
+  flex-shrink: 0;
+}
+
 .canyon-item {
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #2a2a4a;
   cursor: pointer;
   transition: background 0.15s;
@@ -327,17 +341,39 @@ function starsPart(grading: string): string {
 .canyon-item:hover { background: #252545; }
 .canyon-item.active { background: #1e2d6b; border-left: 3px solid #6c8ef5; }
 
-.canyon-header {
+.canyon-item-inner {
+  display: flex;
+}
+
+.canyon-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.canyon-name-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.canyon-drop {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f5a030;
+  line-height: 1.3;
 }
 
 .canyon-name {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #fff;
+  line-height: 1.3;
+  white-space: pre-line;
 }
 
 .grade-badges {
@@ -393,25 +429,7 @@ function starsPart(grading: string): string {
 .type-badge--canyon    { background: #3a2800; color: #f5a030; }
 .type-badge--hotspring { background: #3a1020; color: #f56c8e; }
 
-.canyon-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.canyon-location { font-size: 0.75rem; color: #888; }
-.canyon-difficulty { font-size: 0.75rem; color: #f0a030; letter-spacing: 1px; }
-.canyon-season { font-size: 0.75rem; color: #6abf8a; }
-
-.route-meta {
-  display: flex;
-  gap: 10px;
-  font-size: 0.75rem;
-  color: #6abf8a;
-}
-
-.route-rappel { font-size: 0.75rem; color: #f5a030; }
+.canyon-location { font-size: 0.72rem; color: #666; }
 
 .empty {
   padding: 20px 16px;

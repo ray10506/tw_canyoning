@@ -1,7 +1,4 @@
 <template>
-  <!-- Transparent backdrop — outside click closes card -->
-  <div class="search-backdrop" @click="$emit('close')" />
-
   <div class="search-card">
     <div class="card-header">
       <span class="card-title">{{ locale === 'en' ? 'Search & Filter' : '搜尋篩選' }}</span>
@@ -93,11 +90,6 @@ const tOptions = ['I','II','III','IV','V','VI']
 </script>
 
 <style scoped>
-.search-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-}
 
 .search-card {
   position: fixed;
@@ -209,6 +201,7 @@ const tOptions = ['I','II','III','IV','V','VI']
 }
 .region-btn:hover { border-color: #6c8ef5; color: #ccc; }
 .region-btn.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; font-weight: 600; }
+
 
 .clear-btn {
   width: 100%;
