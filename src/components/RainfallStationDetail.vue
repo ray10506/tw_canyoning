@@ -12,21 +12,21 @@
       </div>
 
       <div class="badge-row">
-        <span class="badge">即時</span>
+        <span class="badge">{{ locale === 'en' ? 'Live' : '即時' }}</span>
       </div>
 
       <div class="popup-body">
-        <div v-if="loading" class="state">載入中...</div>
+        <div v-if="loading" class="state">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</div>
         <template v-else-if="error">
           <div class="state error">{{ error }}</div>
-          <button class="retry-btn" @click="fetchData">重試</button>
+          <button class="retry-btn" @click="fetchData">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
         </template>
         <template v-else-if="data">
           <div class="row" v-for="item in rainItems" :key="item.label">
             <span class="row-label">{{ item.label }}</span>
             <span class="row-value">{{ item.value }}</span>
           </div>
-          <div v-if="data.updateTime" class="update-time">{{ data.updateTime }} 更新</div>
+          <div v-if="data.updateTime" class="update-time">{{ data.updateTime }} {{ locale === 'en' ? 'updated' : '更新' }}</div>
         </template>
       </div>
     </div>
@@ -38,6 +38,7 @@ import { ref, computed, onMounted } from 'vue'
 import type { RainfallStation } from '../lib/rainfall'
 import { fetchRainfallData, type RainfallData } from '../lib/rainfallData'
 import { clamp } from '../lib/clamp'
+import { locale } from '../lib/locale'
 
 const CARD_W = 200
 const CARD_OFFSET = 28
@@ -76,16 +77,20 @@ const popupStyle = computed(() => {
   }
 })
 
-const rainItems = computed(() => !data.value ? [] : [
-  { label: '十分鐘', value: `${data.value.past10min} mm` },
-  { label: '一小時',  value: `${data.value.past1hr} mm` },
-  { label: '三小時',  value: `${data.value.past3hr} mm` },
-  { label: '六小時',  value: `${data.value.past6hr} mm` },
-  { label: '12 小時', value: `${data.value.past12hr} mm` },
-  { label: '24 小時', value: `${data.value.past24hr} mm` },
-  { label: '二日',    value: `${data.value.past2days} mm` },
-  { label: '三日',    value: `${data.value.past3days} mm` },
-])
+const rainItems = computed(() => {
+  if (!data.value) return []
+  const en = locale.value === 'en'
+  return [
+    { label: en ? '10 min'   : '十分鐘', value: `${data.value.past10min} mm` },
+    { label: en ? '1 hr'     : '一小時',  value: `${data.value.past1hr} mm` },
+    { label: en ? '3 hr'     : '三小時',  value: `${data.value.past3hr} mm` },
+    { label: en ? '6 hr'     : '六小時',  value: `${data.value.past6hr} mm` },
+    { label: en ? '12 hr'    : '12 小時', value: `${data.value.past12hr} mm` },
+    { label: en ? '24 hr'    : '24 小時', value: `${data.value.past24hr} mm` },
+    { label: en ? '2 days'   : '二日',    value: `${data.value.past2days} mm` },
+    { label: en ? '3 days'   : '三日',    value: `${data.value.past3days} mm` },
+  ]
+})
 
 async function fetchData() {
   loading.value = true
@@ -93,7 +98,7 @@ async function fetchData() {
   try {
     data.value = await fetchRainfallData(props.station.station_id)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '雨量資料暫時無法載入'
+    error.value = e instanceof Error ? e.message : (locale.value === 'en' ? 'Unable to load rainfall data' : '雨量資料暫時無法載入')
   } finally {
     loading.value = false
   }

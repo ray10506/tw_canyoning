@@ -7,7 +7,7 @@
           <button class="close-btn" @click="$emit('close')">✕</button>
         </div>
         <div class="picker-body">
-          <p class="hint">選擇查看的水位變化區間</p>
+          <p class="hint">{{ locale === 'en' ? 'Select a time range to view' : '選擇查看的水位變化區間' }}</p>
           <div class="period-grid">
             <button
               v-for="p in PERIODS"
@@ -15,7 +15,7 @@
               class="period-btn"
               @click="$emit('select', p.days)"
             >
-              {{ p.label }}
+              {{ locale === 'en' ? p.labelEn : p.label }}
             </button>
           </div>
         </div>
@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { PERIODS, type WaterStation } from '../lib/waterLevel'
+import { locale } from '../lib/locale'
 
 defineProps<{ station: WaterStation }>()
 defineEmits<{ close: []; select: [days: number] }>()

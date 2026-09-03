@@ -26,10 +26,10 @@ export interface WaterLevelSeries {
 }
 
 export const PERIODS = [
-  { label: '近一週', days: 7 },
-  { label: '近一月', days: 30 },
-  { label: '近一季', days: 90 },
-  { label: '近一年', days: 365 },
+  { label: '近一週', labelEn: 'Past Week',    days: 7 },
+  { label: '近一月', labelEn: 'Past Month',   days: 30 },
+  { label: '近一季', labelEn: 'Past Quarter', days: 90 },
+  { label: '近一年', labelEn: 'Past Year',    days: 365 },
 ]
 
 const WRA_API_BASE = '/api/wra'

@@ -13,21 +13,21 @@
 
         <div class="panel-body">
           <div class="meta-row">
-            <span>站號 {{ station.id }}</span>
+            <span>{{ locale === 'en' ? 'ID' : '站號' }} {{ station.id }}</span>
             <span v-if="station.address">{{ station.address }}</span>
           </div>
 
-          <div v-if="loading" class="state-msg">載入水位資料中...</div>
+          <div v-if="loading" class="state-msg">{{ locale === 'en' ? 'Loading water level...' : '載入水位資料中...' }}</div>
           <template v-else-if="error">
             <div class="state-msg error">{{ error }}</div>
-            <button class="retry-btn" @click="load">重試</button>
+            <button class="retry-btn" @click="load">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
           </template>
           <template v-else-if="series">
             <div v-if="latest != null" class="latest-row">
-              目前水位 <strong>{{ latest }} m</strong>
+              {{ locale === 'en' ? 'Current level' : '目前水位' }} <strong>{{ latest }} m</strong>
               <span class="latest-time">{{ latestTime }}</span>
             </div>
-            <WaterLevelChart :series="chartSeries" y-label="水位 (m)" />
+            <WaterLevelChart :series="chartSeries" :y-label="locale === 'en' ? 'Level (m)' : '水位 (m)'" />
           </template>
         </div>
       </div>
@@ -40,6 +40,7 @@ import { computed, ref, watch, onMounted } from 'vue'
 import WaterLevelChart from './WaterLevelChart.vue'
 import { fetchWaterLevel, PERIODS, type WaterLevelSeries, type WaterStation } from '../lib/waterLevel'
 import type { ChartSeries } from '../lib/chart'
+import { locale } from '../lib/locale'
 
 const props = withDefaults(defineProps<{ station: WaterStation; days?: number }>(), {
   days: 7,
@@ -66,7 +67,7 @@ async function load() {
     series.value = nextSeries
   } catch (e) {
     if (!isCurrentRequest()) return
-    error.value = e instanceof Error ? e.message : '水位資料暫時無法載入'
+    error.value = e instanceof Error ? e.message : (locale.value === 'en' ? 'Unable to load water level data' : '水位資料暫時無法載入')
   } finally {
     if (isCurrentRequest()) loading.value = false
   }
@@ -75,9 +76,11 @@ async function load() {
 onMounted(load)
 watch(() => [props.station.id, props.days], load)
 
-const periodLabel = computed(() =>
-  PERIODS.find(p => p.days === props.days)?.label ?? `近 ${props.days} 天`
-)
+const periodLabel = computed(() => {
+  const p = PERIODS.find(p => p.days === props.days)
+  if (p) return locale.value === 'en' ? p.labelEn : p.label
+  return locale.value === 'en' ? `Past ${props.days}d` : `近 ${props.days} 天`
+})
 
 const latest = computed(() => {
   const points = series.value?.points
@@ -116,9 +119,10 @@ const chartSeries = computed<ChartSeries[]>(() => {
       points: points.map(p => ({ time: p.time, value: level })),
     })
   }
-  addAlert(props.station.alert3, '三級警戒', '#f0d977')
-  addAlert(props.station.alert2, '二級警戒', '#ff8076')
-  addAlert(props.station.alert1, '一級警戒', '#e63946')
+  const isEn = locale.value === 'en'
+  addAlert(props.station.alert3, isEn ? 'Alert Lv.3' : '三級警戒', '#f0d977')
+  addAlert(props.station.alert2, isEn ? 'Alert Lv.2' : '二級警戒', '#ff8076')
+  addAlert(props.station.alert1, isEn ? 'Alert Lv.1' : '一級警戒', '#e63946')
   return result
 })
 </script>

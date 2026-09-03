@@ -1,24 +1,44 @@
 <template>
   <div class="map-wrapper">
     <div id="map"></div>
-    <select class="map-mode-select" :value="selectedTile" @change="onTileChange">
-      <option v-for="t in tileOptions" :key="t.key" :value="t.key">{{ locale === 'en' ? t.labelEn : t.label }}</option>
+    <select
+      class="map-mode-select"
+      :value="selectedTile"
+      @change="onTileChange"
+    >
+      <option v-for="t in tileOptions" :key="t.key" :value="t.key">
+        {{ locale === "en" ? t.labelEn : t.label }}
+      </option>
     </select>
-    <button class="layers-fab" @click="showLayersPanel = !showLayersPanel" :class="{ active: showLayersPanel }">
+    <button
+      class="layers-fab"
+      @click="showLayersPanel = !showLayersPanel"
+      :class="{ active: showLayersPanel }"
+    >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
       </svg>
     </button>
-    <div v-if="showLayersPanel" class="panel-overlay" @click="showLayersPanel = false"></div>
+    <div
+      v-if="showLayersPanel"
+      class="panel-overlay"
+      @click="showLayersPanel = false"
+    ></div>
     <div v-if="showLayersPanel" class="layers-panel">
       <div class="layers-header">
-        <span class="layers-title">{{ locale === 'en' ? 'Layers' : '圖層' }}</span>
+        <span class="layers-title">{{
+          locale === "en" ? "Layers" : "圖層"
+        }}</span>
         <button class="layers-close" @click="showLayersPanel = false">✕</button>
       </div>
       <div class="layers-list">
         <div class="layer-row">
-          <span class="layer-icon">💧</span>
-          <span class="layer-label">{{ locale === 'en' ? 'River Level' : '水位站 River Level' }}</span>
+          <svg class="layer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.5C12 2.5 5.5 10.5 5.5 15.5a6.5 6.5 0 0 0 13 0C18.5 10.5 12 2.5 12 2.5z" />
+          </svg>
+          <span class="layer-label">{{
+            locale === "en" ? "River Level" : "水位站"
+          }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showWaterStations" />
             <span class="toggle-track" :class="{ on: showWaterStations }">
@@ -27,8 +47,13 @@
           </label>
         </div>
         <div class="layer-row">
-          <span class="layer-icon">🌂</span>
-          <span class="layer-label">{{ locale === 'en' ? 'Rain Gauge' : '雨量站 Rain Gauge' }}</span>
+          <svg class="layer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 14.5a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.4-1.7A4.5 4.5 0 0 0 7 14.5h10z" />
+            <path d="M8 18v1.5M12 18v1.5M16 18v1.5" />
+          </svg>
+          <span class="layer-label">{{
+            locale === "en" ? "Rain Gauge" : "雨量站"
+          }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showRainfallStations" />
             <span class="toggle-track" :class="{ on: showRainfallStations }">
@@ -38,8 +63,13 @@
         </div>
         <div class="layer-divider"></div>
         <div class="layer-row">
-          <span class="layer-icon">📍</span>
-          <span class="layer-label">{{ locale === 'en' ? 'Locations' : '地點 Locations' }}</span>
+          <svg class="layer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" />
+            <circle cx="12" cy="9" r="2.5" />
+          </svg>
+          <span class="layer-label">{{
+            locale === "en" ? "Locations" : "地點"
+          }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="showLocationMarkers" />
             <span class="toggle-track" :class="{ on: showLocationMarkers }">
@@ -51,449 +81,620 @@
     </div>
 
     <Teleport to="body">
-    <div v-if="selectedWp" class="wp-card" @click.stop>
-      <div class="wp-card-top">
-        <div class="wp-badge">{{ selectedWp.seq != null ? String(selectedWp.seq).padStart(2, '0') : '·' }}</div>
-        <button class="wp-close" @click="selectedWpIndex = null">✕</button>
-      </div>
-      <div class="wp-name">
-        <span v-if="selectedWp.time" class="wp-time">{{ fmtTime(selectedWp.time) }} | </span>{{ selectedWp.name }}
-      </div>
-      <div class="wp-meta">
-        <span v-if="selectedWp.ele != null">H {{ selectedWp.ele }} m</span>
-        <span v-if="selectedWp.ele != null" class="wp-sep">|</span>
-        <span class="wp-coords">({{ selectedWp.lat.toFixed(5) }}, {{ selectedWp.lon.toFixed(5) }})</span>
-      </div>
-      <div class="wp-footer">
-        <button class="wp-copy-btn" @click="copyCoords">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          {{ locale === 'en' ? 'Copy Coords' : '複製座標' }}
-        </button>
-        <div class="wp-nav">
-          <button class="wp-nav-btn" :disabled="selectedWpIndex === 0" @click="goPrev">&lt;</button>
-          <button class="wp-nav-btn" :disabled="selectedWpIndex === currentWaypoints.length - 1" @click="goNext">&gt;</button>
+      <div v-if="selectedWp" class="wp-card" @click.stop>
+        <div class="wp-card-top">
+          <div class="wp-badge">
+            {{
+              selectedWp.seq != null
+                ? String(selectedWp.seq).padStart(2, "0")
+                : "·"
+            }}
+          </div>
+          <button class="wp-close" @click="selectedWpIndex = null">✕</button>
+        </div>
+        <div class="wp-name">
+          <span v-if="selectedWp.time" class="wp-time"
+            >{{ fmtTime(selectedWp.time) }} | </span
+          >{{ selectedWp.name }}
+        </div>
+        <div class="wp-meta">
+          <span v-if="selectedWp.ele != null">H {{ selectedWp.ele }} m</span>
+          <span v-if="selectedWp.ele != null" class="wp-sep">|</span>
+          <span class="wp-coords"
+            >({{ selectedWp.lat.toFixed(5) }},
+            {{ selectedWp.lon.toFixed(5) }})</span
+          >
+        </div>
+        <div class="wp-footer">
+          <button class="wp-copy-btn" @click="copyCoords">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path
+                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+              />
+            </svg>
+            {{ locale === "en" ? "Copy Coords" : "複製座標" }}
+          </button>
+          <div class="wp-nav">
+            <button
+              class="wp-nav-btn"
+              :disabled="selectedWpIndex === 0"
+              @click="goPrev"
+            >
+              &lt;
+            </button>
+            <button
+              class="wp-nav-btn"
+              :disabled="selectedWpIndex === currentWaypoints.length - 1"
+              @click="goNext"
+            >
+              &gt;
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref, computed } from 'vue'
-import { locale } from '../lib/locale'
-import L from 'leaflet'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-import type { Canyon } from '../data/canyon'
-import waterStations from '../data/water-stations.json'
-import type { WaterStation } from '../lib/waterLevel'
-import { rainfallStations, type RainfallStation } from '../lib/rainfall'
-import 'leaflet.markercluster'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import { onMounted, watch, ref, computed } from "vue";
+import { locale } from "../lib/locale";
+import L from "leaflet";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import type { Canyon } from "../data/canyon";
+import waterStations from "../data/water-stations.json";
+import type { WaterStation } from "../lib/waterLevel";
+import { rainfallStations, type RainfallStation } from "../lib/rainfall";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 
-interface WaypointData { lat: number; lon: number; name: string; seq?: number; time?: string; ele?: number }
+interface WaypointData {
+  lat: number;
+  lon: number;
+  name: string;
+  seq?: number;
+  time?: string;
+  ele?: number;
+}
 interface RouteTrack {
-  track: [number, number][] | [number, number][][]
-  waypoints: WaypointData[]
-  pad?: { paddingTopLeft: [number, number]; paddingBottomRight: [number, number] }
+  track: [number, number][] | [number, number][][];
+  waypoints: WaypointData[];
+  pad?: {
+    paddingTopLeft: [number, number];
+    paddingBottomRight: [number, number];
+  };
 }
 
-interface RouteMarker { id: string; lat: number; lon: number; name: string }
+interface RouteMarker {
+  id: string;
+  lat: number;
+  lon: number;
+  name: string;
+}
 
-const props = withDefaults(defineProps<{
-  canyons?: Canyon[]
-  selectedId: string | null
-  focusPoint: [number, number] | null
-  routeTrack: RouteTrack | null
-  canyonRouteMarkers: RouteMarker[]
-  selectedRouteId: string | null
-}>(), { canyons: () => [] })
+const props = withDefaults(
+  defineProps<{
+    canyons?: Canyon[];
+    selectedId: string | null;
+    focusPoint: [number, number] | null;
+    routeTrack: RouteTrack | null;
+    canyonRouteMarkers: RouteMarker[];
+    selectedRouteId: string | null;
+  }>(),
+  { canyons: () => [] },
+);
 
-const emit = defineEmits<{ selectRoute: [id: string]; selectWaterStation: [station: WaterStation]; selectRainfallStation: [station: RainfallStation, pos: { x: number; y: number }] }>()
+const emit = defineEmits<{
+  selectRoute: [id: string];
+  selectWaterStation: [station: WaterStation];
+  selectRainfallStation: [
+    station: RainfallStation,
+    pos: { x: number; y: number },
+  ];
+}>();
 
-let map: L.Map | null = null
-let markers: L.Marker[] = []
-let focusMarker: L.Marker | null = null
-let trackLayer: L.Polyline | null = null
-let waypointMarkers: L.Marker[] = []
-let routeMarkerLayers: L.Marker[] = []
-let waterStationLayer: L.MarkerClusterGroup | null = null
-let rainfallStationLayer: L.MarkerClusterGroup | null = null
-let canyonCluster: L.MarkerClusterGroup | null = null
-let routeCluster: L.MarkerClusterGroup | null = null
+let map: L.Map | null = null;
+let markers: L.Marker[] = [];
+let focusMarker: L.Marker | null = null;
+let trackLayer: L.Polyline | null = null;
+let waypointMarkers: L.Marker[] = [];
+let routeMarkerLayers: L.Marker[] = [];
+let waterStationLayer: L.MarkerClusterGroup | null = null;
+let rainfallStationLayer: L.MarkerClusterGroup | null = null;
+let canyonCluster: L.MarkerClusterGroup | null = null;
+let routeCluster: L.MarkerClusterGroup | null = null;
 
 const tileOptions = [
-  { key: 'carto',     label: '清晰模式', labelEn: 'Clear',     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',                     attribution: '© OpenStreetMap contributors © CARTO' },
-  { key: 'osm',       label: '標準模式', labelEn: 'Standard',  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                  attribution: '© OpenStreetMap contributors' },
-  { key: 'topo',      label: '地形模式', labelEn: 'Terrain',   url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                                     attribution: '© OpenTopoMap contributors' },
-  { key: 'satellite', label: '衛星模式', labelEn: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri, Maxar, Earthstar Geographics' },
-]
+  {
+    key: "carto",
+    label: "清晰模式",
+    labelEn: "Clear",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: "© OpenStreetMap contributors © CARTO",
+  },
+  {
+    key: "osm",
+    label: "標準模式",
+    labelEn: "Standard",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors",
+  },
+  {
+    key: "topo",
+    label: "地形模式",
+    labelEn: "Terrain",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenTopoMap contributors",
+  },
+  {
+    key: "satellite",
+    label: "衛星模式",
+    labelEn: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "© Esri, Maxar, Earthstar Geographics",
+  },
+];
 
-let currentTile: L.TileLayer | null = null
-const selectedTile = ref('topo')
-const showWaterStations = ref(false)
-const showRainfallStations = ref(false)
-const showLayersPanel = ref(false)
-const showLocationMarkers = ref(true)
+let currentTile: L.TileLayer | null = null;
+const selectedTile = ref("topo");
+const showWaterStations = ref(false);
+const showRainfallStations = ref(false);
+const showLayersPanel = ref(false);
+const showLocationMarkers = ref(true);
 
-const selectedWpIndex = ref<number | null>(null)
-const currentWaypoints = ref<WaypointData[]>([])
+const selectedWpIndex = ref<number | null>(null);
+const currentWaypoints = ref<WaypointData[]>([]);
 const selectedWp = computed(() =>
-  selectedWpIndex.value !== null ? currentWaypoints.value[selectedWpIndex.value] ?? null : null
-)
+  selectedWpIndex.value !== null
+    ? (currentWaypoints.value[selectedWpIndex.value] ?? null)
+    : null,
+);
 
 function fmtTime(iso: string) {
-  const d = new Date(iso)
-  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? ""
+    : d.toLocaleTimeString("zh-TW", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
 }
 function copyCoords() {
-  if (!selectedWp.value) return
-  navigator.clipboard.writeText(`${selectedWp.value.lat.toFixed(5)}, ${selectedWp.value.lon.toFixed(5)}`)
+  if (!selectedWp.value) return;
+  navigator.clipboard.writeText(
+    `${selectedWp.value.lat.toFixed(5)}, ${selectedWp.value.lon.toFixed(5)}`,
+  );
 }
 function wpIcon(label: string, focused: boolean) {
   return L.divIcon({
-    className: '',
+    className: "",
     html: focused
       ? `<div style="width:26px;height:26px;border-radius:50%;background:#e63946;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 0 0 3px #e63946,0 2px 6px rgba(0,0,0,.5)">${label}</div>`
       : `<div style="width:22px;height:22px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)">${label}</div>`,
     iconSize: focused ? [26, 26] : [22, 22],
     iconAnchor: focused ? [13, 13] : [11, 11],
-  })
+  });
 }
 
 function labelIcon(name: string, selected = false) {
-  const escapedName = name.replace(/[&<>"']/g, ch => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }[ch]!))
+  const escapedName = name.replace(
+    /[&<>"']/g,
+    (ch) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[ch]!,
+  );
   return L.divIcon({
-    className: '',
-    html: `<div class="route-label${selected ? ' route-label--selected' : ''}">${escapedName}</div>`,
+    className: "",
+    html: `<div class="route-label${selected ? " route-label--selected" : ""}">${escapedName}</div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
-  })
+  });
 }
 
 watch(selectedWpIndex, (next, prev) => {
   if (prev !== null && waypointMarkers[prev]) {
-    const wp = currentWaypoints.value[prev]
-    const label = wp?.seq != null ? String(wp.seq).padStart(2, '0') : (wp?.name.match(/^\d+/)?.[0] ?? '·')
-    waypointMarkers[prev].setIcon(wpIcon(label, false))
+    const wp = currentWaypoints.value[prev];
+    const label =
+      wp?.seq != null
+        ? String(wp.seq).padStart(2, "0")
+        : (wp?.name.match(/^\d+/)?.[0] ?? "·");
+    waypointMarkers[prev].setIcon(wpIcon(label, false));
   }
   if (next !== null && waypointMarkers[next]) {
-    const wp = currentWaypoints.value[next]
-    const label = wp?.seq != null ? String(wp.seq).padStart(2, '0') : (wp?.name.match(/^\d+/)?.[0] ?? '·')
-    waypointMarkers[next].setIcon(wpIcon(label, true))
+    const wp = currentWaypoints.value[next];
+    const label =
+      wp?.seq != null
+        ? String(wp.seq).padStart(2, "0")
+        : (wp?.name.match(/^\d+/)?.[0] ?? "·");
+    waypointMarkers[next].setIcon(wpIcon(label, true));
   }
-})
+});
 
 function panToWp(index: number) {
-  const wp = currentWaypoints.value[index]
-  if (wp && map) map.panTo([wp.lat, wp.lon])
+  const wp = currentWaypoints.value[index];
+  if (wp && map) map.panTo([wp.lat, wp.lon]);
 }
 function goPrev() {
   if (selectedWpIndex.value !== null && selectedWpIndex.value > 0) {
-    selectedWpIndex.value--
-    panToWp(selectedWpIndex.value)
+    selectedWpIndex.value--;
+    panToWp(selectedWpIndex.value);
   }
 }
 function goNext() {
-  if (selectedWpIndex.value !== null && selectedWpIndex.value < currentWaypoints.value.length - 1) {
-    selectedWpIndex.value++
-    panToWp(selectedWpIndex.value)
+  if (
+    selectedWpIndex.value !== null &&
+    selectedWpIndex.value < currentWaypoints.value.length - 1
+  ) {
+    selectedWpIndex.value++;
+    panToWp(selectedWpIndex.value);
   }
 }
 
 const waterStationIcon = L.divIcon({
-  className: '',
+  className: "",
   html: '<div style="width:28px;height:28px;background:rgba(255,255,255,0.92);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">💧</div>',
   iconSize: [28, 26],
   iconAnchor: [14, 26],
-})
+});
 
 const rainfallStationIcon = L.divIcon({
-  className: '',
+  className: "",
   html: '<div style="width:28px;height:28px;background:rgba(255,255,255,0.92);border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">🌂</div>',
   iconSize: [28, 26],
   iconAnchor: [14, 26],
-})
+});
 
 function renderWaterStations() {
-  if (!map) return
+  if (!map) return;
   waterStationLayer = L.markerClusterGroup({
     maxClusterRadius: 80,
     iconCreateFunction(cluster) {
-      const count = cluster.getChildCount()
+      const count = cluster.getChildCount();
       return L.divIcon({
-        className: '',
+        className: "",
         html: `<div class="water-cluster">${count}</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
-      })
+      });
     },
-  })
-  ;(waterStations as WaterStation[]).forEach(s => {
+  });
+  (waterStations as WaterStation[]).forEach((s) => {
     L.marker([s.lat, s.lon], { icon: waterStationIcon })
-      .bindTooltip(Object.assign(document.createElement('span'), { textContent: `${s.name}（${s.river}）` }), { direction: 'top', offset: [0, -6] })
-      .on('click', () => emit('selectWaterStation', s))
-      .addTo(waterStationLayer!)
-  })
+      .bindTooltip(
+        Object.assign(document.createElement("span"), {
+          textContent: `${s.name}（${s.river}）`,
+        }),
+        { direction: "top", offset: [0, -6] },
+      )
+      .on("click", () => emit("selectWaterStation", s))
+      .addTo(waterStationLayer!);
+  });
 }
 
 watch(showWaterStations, (show) => {
-  if (!map) return
+  if (!map) return;
   if (show) {
-    if (!waterStationLayer) renderWaterStations()
-    waterStationLayer?.addTo(map)
+    if (!waterStationLayer) renderWaterStations();
+    waterStationLayer?.addTo(map);
   } else {
-    waterStationLayer?.remove()
+    waterStationLayer?.remove();
   }
-})
+});
 
 function renderRainfallStations() {
-  if (!map) return
+  if (!map) return;
   rainfallStationLayer = L.markerClusterGroup({
     maxClusterRadius: 80,
     iconCreateFunction(cluster) {
-      const count = cluster.getChildCount()
+      const count = cluster.getChildCount();
       return L.divIcon({
-        className: '',
+        className: "",
         html: `<div class="rainfall-cluster">${count}</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
-      })
+      });
     },
-  })
-  rainfallStations.forEach(s => {
+  });
+  rainfallStations.forEach((s) => {
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
-      .bindTooltip(`${s.name}（${s.county}${s.town}）`, { direction: 'top', offset: [0, -6] })
-      .on('click', (e: L.LeafletMouseEvent) => {
-        const rect = document.getElementById('map')!.getBoundingClientRect()
-        const pt = map!.latLngToContainerPoint(e.latlng)
-        emit('selectRainfallStation', s, { x: rect.left + pt.x, y: rect.top + pt.y })
+      .bindTooltip(`${s.name}（${s.county}${s.town}）`, {
+        direction: "top",
+        offset: [0, -6],
       })
-      .addTo(rainfallStationLayer!)
-  })
+      .on("click", (e: L.LeafletMouseEvent) => {
+        const rect = document.getElementById("map")!.getBoundingClientRect();
+        const pt = map!.latLngToContainerPoint(e.latlng);
+        emit("selectRainfallStation", s, {
+          x: rect.left + pt.x,
+          y: rect.top + pt.y,
+        });
+      })
+      .addTo(rainfallStationLayer!);
+  });
 }
 
 watch(showRainfallStations, (show) => {
-  if (!map) return
+  if (!map) return;
   if (show) {
-    if (!rainfallStationLayer) renderRainfallStations()
-    rainfallStationLayer?.addTo(map)
+    if (!rainfallStationLayer) renderRainfallStations();
+    rainfallStationLayer?.addTo(map);
   } else {
-    rainfallStationLayer?.remove()
+    rainfallStationLayer?.remove();
   }
-})
+});
 
 function onTileChange(e: Event) {
-  if (!map) return
-  const key = (e.target as HTMLSelectElement).value
-  selectedTile.value = key
-  const opt = tileOptions.find(t => t.key === key)!
-  currentTile?.remove()
-  currentTile = L.tileLayer(opt.url, { attribution: opt.attribution, maxZoom: 19 })
-  currentTile.addTo(map)
+  if (!map) return;
+  const key = (e.target as HTMLSelectElement).value;
+  selectedTile.value = key;
+  const opt = tileOptions.find((t) => t.key === key)!;
+  currentTile?.remove();
+  currentTile = L.tileLayer(opt.url, {
+    attribution: opt.attribution,
+    maxZoom: 19,
+  });
+  currentTile.addTo(map);
 }
 
 function renderMarkers() {
-  if (!map) return
-  markers.forEach(m => m.remove())
-  canyonCluster?.clearLayers()
+  if (!map) return;
+  markers.forEach((m) => m.remove());
+  canyonCluster?.clearLayers();
   if (!canyonCluster) {
     canyonCluster = L.markerClusterGroup({
       maxClusterRadius: 60,
       iconCreateFunction(cluster) {
         return L.divIcon({
-          className: '',
+          className: "",
           html: `<div class="canyon-cluster">${cluster.getChildCount()}</div>`,
           iconSize: [36, 36],
           iconAnchor: [18, 18],
-        })
+        });
       },
-    })
+    });
   }
-  markers = props.canyons.map(canyon =>
-    L.marker(canyon.coordinates, { icon: labelIcon(canyon.name, canyon.id === props.selectedId) })
-      .bindPopup(`
+  markers = props.canyons.map((canyon) =>
+    L.marker(canyon.coordinates, {
+      icon: labelIcon(canyon.name, canyon.id === props.selectedId),
+    }).bindPopup(`
         <div>
           <h3><strong>${canyon.name}</strong></h3>
           <p>地點：${canyon.location}</p>
-          <p>難度：${'★'.repeat(canyon.difficulty)}${'☆'.repeat(5 - canyon.difficulty)}</p>
-          <p>適合季節：${canyon.season.join('、')}</p>
+          <p>難度：${"★".repeat(canyon.difficulty)}${"☆".repeat(5 - canyon.difficulty)}</p>
+          <p>適合季節：${canyon.season.join("、")}</p>
           <p>${canyon.description}</p>
         </div>
-      `)
-  )
+      `),
+  );
   if (showLocationMarkers.value) {
-    markers.forEach(m => canyonCluster!.addLayer(m))
-    if (!map.hasLayer(canyonCluster!)) canyonCluster!.addTo(map)
+    markers.forEach((m) => canyonCluster!.addLayer(m));
+    if (!map.hasLayer(canyonCluster!)) canyonCluster!.addTo(map);
   } else {
-    canyonCluster.remove()
-    const selIdx = props.canyons.findIndex(c => c.id === props.selectedId)
-    if (selIdx !== -1) markers[selIdx].addTo(map)
+    canyonCluster.remove();
+    const selIdx = props.canyons.findIndex((c) => c.id === props.selectedId);
+    if (selIdx !== -1) markers[selIdx].addTo(map);
   }
 }
 
 const TAIWAN_BOUNDS = L.latLngBounds(
   L.latLng(21.8, 119.9),
-  L.latLng(25.4, 122.1)
-)
+  L.latLng(25.4, 122.1),
+);
 
 onMounted(() => {
-  map = L.map('map', {
+  map = L.map("map", {
     maxBounds: TAIWAN_BOUNDS,
     maxBoundsViscosity: 1.0,
     minZoom: 8,
     zoomControl: false,
-  }).setView([23.9871, 121.6015], 9)
+  }).setView([23.9871, 121.6015], 9);
 
-  const defaultTile = tileOptions.find(t => t.key === 'topo')!
-  currentTile = L.tileLayer(defaultTile.url, { attribution: defaultTile.attribution, maxZoom: 19 })
-  currentTile.addTo(map)
+  const defaultTile = tileOptions.find((t) => t.key === "topo")!;
+  currentTile = L.tileLayer(defaultTile.url, {
+    attribution: defaultTile.attribution,
+    maxZoom: 19,
+  });
+  currentTile.addTo(map);
 
-  map.on('click', () => { selectedWpIndex.value = null })
+  map.on("click", () => {
+    selectedWpIndex.value = null;
+  });
 
-  renderMarkers()
-  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
-})
+  renderMarkers();
+  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId);
+});
 
-watch(() => props.canyons, renderMarkers)
+watch(() => props.canyons, renderMarkers);
 
 watch(showLocationMarkers, (show) => {
-  if (!map) return
+  if (!map) return;
   if (show) {
-    markers.forEach(m => m.remove())
-    canyonCluster?.clearLayers()
-    markers.forEach(m => canyonCluster!.addLayer(m))
-    if (!map.hasLayer(canyonCluster!)) canyonCluster?.addTo(map)
+    markers.forEach((m) => m.remove());
+    canyonCluster?.clearLayers();
+    markers.forEach((m) => canyonCluster!.addLayer(m));
+    if (!map.hasLayer(canyonCluster!)) canyonCluster?.addTo(map);
   } else {
-    canyonCluster?.remove()
-    const selIdx = props.canyons.findIndex(c => c.id === props.selectedId)
-    markers.forEach((m, i) => i === selIdx ? m.addTo(map!) : m.remove())
+    canyonCluster?.remove();
+    const selIdx = props.canyons.findIndex((c) => c.id === props.selectedId);
+    markers.forEach((m, i) => (i === selIdx ? m.addTo(map!) : m.remove()));
   }
-  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId)
-})
+  renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId);
+});
 
-watch(() => props.selectedId, (id, prevId) => {
-  if (!map) return
-  // Update icon highlight
-  if (prevId) {
-    const pi = props.canyons.findIndex(c => c.id === prevId)
-    if (pi !== -1) markers[pi]?.setIcon(labelIcon(props.canyons[pi].name, false))
-  }
-  if (id) {
-    const ni = props.canyons.findIndex(c => c.id === id)
-    if (ni !== -1) markers[ni]?.setIcon(labelIcon(props.canyons[ni].name, true))
-  }
-  // When not showing all, swap visible individual markers
-  if (!showLocationMarkers.value) {
+watch(
+  () => props.selectedId,
+  (id, prevId) => {
+    if (!map) return;
+    // Update icon highlight
     if (prevId) {
-      const pi = props.canyons.findIndex(c => c.id === prevId)
-      if (pi !== -1) markers[pi]?.remove()
+      const pi = props.canyons.findIndex((c) => c.id === prevId);
+      if (pi !== -1)
+        markers[pi]?.setIcon(labelIcon(props.canyons[pi].name, false));
     }
     if (id) {
-      const ni = props.canyons.findIndex(c => c.id === id)
-      if (ni !== -1) markers[ni]?.addTo(map!)
+      const ni = props.canyons.findIndex((c) => c.id === id);
+      if (ni !== -1)
+        markers[ni]?.setIcon(labelIcon(props.canyons[ni].name, true));
     }
-  }
-  if (!id) { map.closePopup(); return }
-  const idx = props.canyons.findIndex(c => c.id === id)
-  if (idx === -1) return
-  const canyon = props.canyons[idx]
-  map.flyTo(canyon.coordinates, 13, { duration: 1 })
-  map.once('moveend', () => markers[idx]?.openPopup())
-})
+    // When not showing all, swap visible individual markers
+    if (!showLocationMarkers.value) {
+      if (prevId) {
+        const pi = props.canyons.findIndex((c) => c.id === prevId);
+        if (pi !== -1) markers[pi]?.remove();
+      }
+      if (id) {
+        const ni = props.canyons.findIndex((c) => c.id === id);
+        if (ni !== -1) markers[ni]?.addTo(map!);
+      }
+    }
+    if (!id) {
+      map.closePopup();
+      return;
+    }
+    const idx = props.canyons.findIndex((c) => c.id === id);
+    if (idx === -1) return;
+    const canyon = props.canyons[idx];
+    map.flyTo(canyon.coordinates, 13, { duration: 1 });
+    map.once("moveend", () => markers[idx]?.openPopup());
+  },
+);
 
-watch(() => props.focusPoint, (coords) => {
-  focusMarker?.remove()
-  focusMarker = null
-  if (!coords || !map) return
-  map.flyTo(coords, 14, { duration: 1.2 })
-})
+watch(
+  () => props.focusPoint,
+  (coords) => {
+    focusMarker?.remove();
+    focusMarker = null;
+    if (!coords || !map) return;
+    map.flyTo(coords, 14, { duration: 1.2 });
+  },
+);
 
-watch(() => props.routeTrack, (data) => {
-  trackLayer?.remove(); trackLayer = null
-  waypointMarkers.forEach(m => m.remove()); waypointMarkers = []
-  selectedWpIndex.value = null
-  currentWaypoints.value = []
-  if (!data || !map) return
-  currentWaypoints.value = data.waypoints
+watch(
+  () => props.routeTrack,
+  (data) => {
+    trackLayer?.remove();
+    trackLayer = null;
+    waypointMarkers.forEach((m) => m.remove());
+    waypointMarkers = [];
+    selectedWpIndex.value = null;
+    currentWaypoints.value = [];
+    if (!data || !map) return;
+    currentWaypoints.value = data.waypoints;
 
-  // Support both flat [lat,lon][] and segmented [lat,lon][][] formats
-  const isPoint = (value: unknown): value is [number, number] =>
-    Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number'
-  const rawTrack = data.track
-  const segments = Array.isArray(rawTrack)
-    ? rawTrack.some(isPoint)
-      ? [rawTrack as [number, number][]]
-      : rawTrack as [number, number][][]
-    : []
-  if (segments.some(segment => segment.some(isPoint))) {
-    trackLayer = L.polyline(segments, { color: '#e63946', weight: 3, opacity: 0.85 }).addTo(map)
-    map.flyToBounds(trackLayer.getBounds(), {
-      ...(data.pad ?? { padding: [40, 40] }),
-      maxZoom: 15,
-      duration: 1.2,
-    })
-  }
+    // Support both flat [lat,lon][] and segmented [lat,lon][][] formats
+    const isPoint = (value: unknown): value is [number, number] =>
+      Array.isArray(value) &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number";
+    const rawTrack = data.track;
+    const segments = Array.isArray(rawTrack)
+      ? rawTrack.some(isPoint)
+        ? [rawTrack as [number, number][]]
+        : (rawTrack as [number, number][][])
+      : [];
+    if (segments.some((segment) => segment.some(isPoint))) {
+      trackLayer = L.polyline(segments, {
+        color: "#e63946",
+        weight: 3,
+        opacity: 0.85,
+      }).addTo(map);
+      map.flyToBounds(trackLayer.getBounds(), {
+        ...(data.pad ?? { padding: [40, 40] }),
+        maxZoom: 15,
+        duration: 1.2,
+      });
+    }
 
-  waypointMarkers = data.waypoints.map((wp, i) => {
-    const label = wp.seq != null ? String(wp.seq).padStart(2, '0') : (wp.name.match(/^\d+/)?.[0] ?? '·')
-    return L.marker([wp.lat, wp.lon], { icon: wpIcon(label, false) })
-      .addTo(map!)
-      .bindTooltip(wp.name, { permanent: false, direction: 'top', offset: [0, -12] })
-      .on('click', (e) => { L.DomEvent.stopPropagation(e); selectedWpIndex.value = i })
-  })
-})
+    waypointMarkers = data.waypoints.map((wp, i) => {
+      const label =
+        wp.seq != null
+          ? String(wp.seq).padStart(2, "0")
+          : (wp.name.match(/^\d+/)?.[0] ?? "·");
+      return L.marker([wp.lat, wp.lon], { icon: wpIcon(label, false) })
+        .addTo(map!)
+        .bindTooltip(wp.name, {
+          permanent: false,
+          direction: "top",
+          offset: [0, -12],
+        })
+        .on("click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          selectedWpIndex.value = i;
+        });
+    });
+  },
+);
 
 function renderRouteMarkers(routeMarkers: RouteMarker[], selId: string | null) {
-  routeMarkerLayers.forEach(m => m.remove())
-  routeCluster?.clearLayers()
-  routeMarkerLayers = []
-  if (!map || !routeMarkers.length) { routeCluster?.remove(); return }
+  routeMarkerLayers.forEach((m) => m.remove());
+  routeCluster?.clearLayers();
+  routeMarkerLayers = [];
+  if (!map || !routeMarkers.length) {
+    routeCluster?.remove();
+    return;
+  }
   if (!routeCluster) {
     routeCluster = L.markerClusterGroup({
       maxClusterRadius: 60,
       iconCreateFunction(cluster) {
         return L.divIcon({
-          className: '',
+          className: "",
           html: `<div class="route-cluster">${cluster.getChildCount()}</div>`,
           iconSize: [36, 36],
           iconAnchor: [18, 18],
-        })
+        });
       },
-    })
+    });
   }
-  routeMarkerLayers = routeMarkers.map(r => {
-    const m = L.marker([r.lat, r.lon], { icon: labelIcon(r.name, r.id === selId) })
-      .on('click', () => emit('selectRoute', r.id))
-    if (r.id === selId) (m as any).setZIndexOffset(1000)
-    return m
-  })
+  routeMarkerLayers = routeMarkers.map((r) => {
+    const m = L.marker([r.lat, r.lon], {
+      icon: labelIcon(r.name, r.id === selId),
+    }).on("click", () => emit("selectRoute", r.id));
+    if (r.id === selId) (m as any).setZIndexOffset(1000);
+    return m;
+  });
   if (showLocationMarkers.value) {
-    routeMarkerLayers.forEach(m => routeCluster!.addLayer(m))
-    if (!map.hasLayer(routeCluster!)) routeCluster!.addTo(map)
+    routeMarkerLayers.forEach((m) => routeCluster!.addLayer(m));
+    if (!map.hasLayer(routeCluster!)) routeCluster!.addTo(map);
   } else {
-    routeCluster.remove()
+    routeCluster.remove();
     routeMarkerLayers.forEach((m, i) => {
-      if (routeMarkers[i].id === selId) m.addTo(map!)
-    })
+      if (routeMarkers[i].id === selId) m.addTo(map!);
+    });
   }
 }
 
-watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeMarkers, selId]) => {
-  renderRouteMarkers(routeMarkers, selId)
-}, { deep: true })
+watch(
+  () => [props.canyonRouteMarkers, props.selectedRouteId] as const,
+  ([routeMarkers, selId]) => {
+    renderRouteMarkers(routeMarkers, selId);
+  },
+  { deep: true },
+);
 </script>
 
 <style scoped>
@@ -520,10 +721,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   outline: none;
 }
-.map-mode-select:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.map-mode-select:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 
 .panel-overlay {
   position: fixed;
@@ -543,16 +747,26 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   background: rgba(255, 255, 255, 0.92);
   color: #444;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   outline: none;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
-.layers-fab:hover { background: #f0f0f0; }
-.layers-fab.active { background: #1a1a2e; color: #fff; }
-.layers-fab:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.layers-fab:hover {
+  background: #f0f0f0;
+}
+.layers-fab.active {
+  background: #1a1a2e;
+  color: #fff;
+}
+.layers-fab:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 
 .layers-panel {
   position: absolute;
@@ -563,7 +777,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border: 1px solid #2a2a4a;
   border-radius: 12px;
   min-width: 240px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
 
@@ -590,8 +804,14 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   padding: 2px 5px;
   border-radius: 4px;
 }
-.layers-close:hover { background: #2a2a4a; color: #fff; }
-.layers-close:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.layers-close:hover {
+  background: #2a2a4a;
+  color: #fff;
+}
+.layers-close:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 
 .layers-list {
   padding: 6px 0;
@@ -604,9 +824,14 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   padding: 10px 16px;
   transition: background 0.12s;
 }
-.layer-row:hover { background: #252545; }
+.layer-row:hover {
+  background: #252545;
+}
 
-.layer-icon { font-size: 1rem; flex-shrink: 0; }
+.layer-icon {
+  flex-shrink: 0;
+  color: #6c8ef5;
+}
 
 .layer-label {
   flex: 1;
@@ -620,7 +845,10 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   margin: 2px 0;
 }
 
-.toggle-switch { flex-shrink: 0; cursor: pointer; }
+.toggle-switch {
+  flex-shrink: 0;
+  cursor: pointer;
+}
 .toggle-switch input {
   /* visually hidden but keyboard-accessible */
   position: absolute;
@@ -648,7 +876,9 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   position: relative;
   transition: background 0.2s;
 }
-.toggle-track.on { background: #6c8ef5; }
+.toggle-track.on {
+  background: #6c8ef5;
+}
 
 .toggle-thumb {
   position: absolute;
@@ -658,10 +888,12 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   height: 16px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition: left 0.2s;
 }
-.toggle-track.on .toggle-thumb { left: 21px; }
+.toggle-track.on .toggle-thumb {
+  left: 21px;
+}
 
 :global(.water-cluster) {
   width: 36px;
@@ -669,7 +901,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border-radius: 50%;
   background: rgba(8, 145, 178, 0.85);
   border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -684,7 +916,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border-radius: 50%;
   background: rgba(124, 58, 237, 0.85);
   border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -714,7 +946,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 /* Outer (border-coloured) downward arrow */
 :global(.route-label::before) {
-  content: '';
+  content: "";
   position: absolute;
   left: 50%;
   bottom: -8px;
@@ -725,7 +957,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 }
 /* Inner (white fill) downward arrow — sits on top of ::before */
 :global(.route-label::after) {
-  content: '';
+  content: "";
   position: absolute;
   left: 50%;
   bottom: -5px;
@@ -738,7 +970,9 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
 /* Selected: same white+blue, slightly stronger glow to hint at focus */
 :global(.route-label--selected) {
   border-width: 2px;
-  box-shadow: 0 0 0 2px rgba(108, 142, 245, 0.25), 0 2px 8px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 0 0 2px rgba(108, 142, 245, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 :global(.canyon-cluster) {
@@ -779,7 +1013,7 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   z-index: 2000;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   padding: 14px 16px 12px;
   min-width: 260px;
   max-width: 340px;
@@ -814,8 +1048,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   border-radius: 4px;
   line-height: 1;
 }
-.wp-close:hover { color: #333; }
-.wp-close:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.wp-close:hover {
+  color: #333;
+}
+.wp-close:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 .wp-name {
   font-size: 0.95rem;
   font-weight: 600;
@@ -823,7 +1062,10 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   margin-bottom: 5px;
   line-height: 1.3;
 }
-.wp-time { color: #555; font-weight: 400; }
+.wp-time {
+  color: #555;
+  font-weight: 400;
+}
 .wp-meta {
   font-size: 0.75rem;
   color: #555;
@@ -833,8 +1075,12 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
-.wp-sep { color: #ccc; }
-.wp-coords { color: #555; }
+.wp-sep {
+  color: #ccc;
+}
+.wp-coords {
+  color: #555;
+}
 .wp-footer {
   display: flex;
   align-items: center;
@@ -853,8 +1099,13 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   color: #333;
   cursor: pointer;
 }
-.wp-copy-btn:hover { background: #e5e5e5; }
-.wp-copy-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.wp-copy-btn:hover {
+  background: #e5e5e5;
+}
+.wp-copy-btn:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 .wp-nav {
   display: flex;
   gap: 4px;
@@ -872,9 +1123,17 @@ watch(() => [props.canyonRouteMarkers, props.selectedRouteId] as const, ([routeM
   align-items: center;
   justify-content: center;
 }
-.wp-nav-btn:hover:not(:disabled) { background: #f3f3f3; }
-.wp-nav-btn:disabled { color: #ccc; cursor: default; }
-.wp-nav-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.wp-nav-btn:hover:not(:disabled) {
+  background: #f3f3f3;
+}
+.wp-nav-btn:disabled {
+  color: #ccc;
+  cursor: default;
+}
+.wp-nav-btn:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
 </style>
 
 <style src="leaflet/dist/leaflet.css"></style>

@@ -17,45 +17,8 @@
 
         <div class="panel-body">
 
-          <!-- Canyon（溯溪 / 野溪溫泉）-->
-          <template v-if="item.kind === 'canyon'">
-            <div class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Location' : '地點' }}</span>
-              <span class="row-value">{{ d.location || '—' }}</span>
-            </div>
-            <div class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Type' : '路線類型' }}</span>
-              <span class="row-value">{{ d.type || '—' }}</span>
-            </div>
-            <div class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Difficulty' : '難度' }}</span>
-              <span class="row-value">
-                <span class="stars">{{ '★'.repeat(d.difficulty) }}{{ '☆'.repeat(5 - d.difficulty) }}</span>
-                <span class="level-text">Lv.{{ d.difficulty }}</span>
-              </span>
-            </div>
-            <div class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Season' : '適合季節' }}</span>
-              <span class="row-value">{{ d.season?.join('、') || '—' }}</span>
-            </div>
-            <div class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Description' : '路線描述' }}</span>
-              <span class="row-value">{{ d.description || '—' }}</span>
-            </div>
-            <div class="row">
-              <span class="row-label">GPS</span>
-              <a
-                v-if="d.coordinates?.[0] != null && d.coordinates?.[1] != null"
-                class="row-value coord gps-link"
-                :href="mapsUrl(`${d.coordinates[0]},${d.coordinates[1]}`)"
-                target="_blank" rel="noopener"
-              >{{ d.coordinates[0] }}, {{ d.coordinates[1] }} ↗</a>
-              <span v-else class="row-value coord">—</span>
-            </div>
-          </template>
-
           <!-- Canyon Route（溪降）-->
-          <template v-else>
+          <template v-if="item.kind === 'route'">
             <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要') || maxEle != null" class="tag-row">
               <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? (locale === 'en' ? 'Deep Pool' : '有深潭') : d.deep_pool === '無' ? (locale === 'en' ? 'No Deep Pool' : '無深潭') : d.deep_pool }}</span>
               <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">{{ locale === 'en' ? 'A-B Shuttle' : '需要 AB 車' }}</span>
@@ -63,7 +26,7 @@
             </div>
             <div v-if="d.region" class="row">
               <span class="row-label">{{ locale === 'en' ? 'Region' : '地區' }}</span>
-              <span class="row-value">{{ localeRegion(d.region) }}</span>
+              <span class="row-value">{{ d.region }}</span>
             </div>
             <div v-if="d.grading" class="row">
               <span class="row-label">{{ locale === 'en' ? 'Grade' : '分級' }}</span>
@@ -134,7 +97,7 @@
 import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { clamp } from '../lib/clamp'
 import { vGradeClass } from '../lib/grade'
-import { locale, localeRegion } from '../lib/locale'
+import { locale } from '../lib/locale'
 
 const props = defineProps<{
   item: { kind: 'canyon' | 'route', data: any }
@@ -195,7 +158,7 @@ function startDrag(e: MouseEvent) {
 const d = computed(() => props.item.data)
 
 const title     = computed(() => d.value.name)
-const kindLabel = computed(() => props.item.kind === 'canyon' ? d.value.type : '溪降')
+const kindLabel = computed(() => props.item.kind === 'canyon' ? d.value.type : (locale.value === 'en' ? 'Canyon' : '溪降'))
 
 const URL_RE = /https?:\/\/[^\s]+/gi
 const YT_RE  = /youtu(?:be\.com|\.be)\//
@@ -435,6 +398,7 @@ const elePolygon = computed(() => {
 .panel-body {
   padding: 8px 0;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: calc(80dvh - 60px); /* 60px ≈ header height */
 }
 
@@ -504,9 +468,9 @@ const elePolygon = computed(() => {
 .grade-stars[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 6px);
+  left: 0;
+  transform: none;
   white-space: nowrap;
   background: #1a1a2e;
   color: #e0e0f0;

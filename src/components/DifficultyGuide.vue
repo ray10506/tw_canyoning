@@ -3,24 +3,24 @@
     <div class="modal-backdrop" @click.self="$emit('close')">
       <div class="modal">
         <div class="modal-header">
-          <h2>溪降難度分級說明</h2>
+          <h2>{{ locale === 'en' ? 'Canyon Grading Guide' : '溪降難度分級說明' }}</h2>
           <button class="close-btn" @click="$emit('close')">✕</button>
         </div>
 
         <div class="modal-body" v-if="loading" style="display:flex;align-items:center;justify-content:center;color:#888;min-height:200px">
-          載入中...
+          {{ locale === 'en' ? 'Loading...' : '載入中...' }}
         </div>
         <div class="modal-body" v-else>
           <div class="grid">
             <!-- 繩索 -->
             <section class="col">
-              <h3 class="col-title rope">繩索（V）</h3>
+              <h3 class="col-title rope">{{ locale === 'en' ? 'Rope (V)' : '繩索（V）' }}</h3>
               <div v-for="level in ropeLevel" :key="level.code" class="level-card">
                 <div :class="['level-badge', 'rope', vGradeClass(level.code)]">{{ level.code }}</div>
                 <div class="level-content">
-                  <div class="level-name">{{ level.name }}</div>
+                  <div class="level-name">{{ localeName(level) }}</div>
                   <ul>
-                    <li v-for="item in level.items" :key="item">{{ item }}</li>
+                    <li v-for="item in localeItems(level)" :key="item">{{ item }}</li>
                   </ul>
                 </div>
               </div>
@@ -28,13 +28,13 @@
 
             <!-- 水域 -->
             <section class="col">
-              <h3 class="col-title water">水域（A）</h3>
+              <h3 class="col-title water">{{ locale === 'en' ? 'Aquatic (A)' : '水域（A）' }}</h3>
               <div v-for="level in waterLevel" :key="level.code" class="level-card">
                 <div :class="['level-badge', 'water']">{{ level.code }}</div>
                 <div class="level-content">
-                  <div class="level-name">{{ level.name }}</div>
+                  <div class="level-name">{{ localeName(level) }}</div>
                   <ul>
-                    <li v-for="item in level.items" :key="item">{{ item }}</li>
+                    <li v-for="item in localeItems(level)" :key="item">{{ item }}</li>
                   </ul>
                 </div>
               </div>
@@ -42,36 +42,40 @@
 
             <!-- 時間 -->
             <section class="col">
-              <h3 class="col-title time">時間（T）</h3>
+              <h3 class="col-title time">{{ locale === 'en' ? 'Commitment (T)' : '時間（T）' }}</h3>
               <div v-for="level in timeLevel" :key="level.code" class="level-card">
                 <div :class="['level-badge', 'time']">{{ level.code }}</div>
                 <div class="level-content">
                   <ul>
-                    <li v-for="item in level.items" :key="item">{{ item }}</li>
+                    <li v-for="item in localeItems(level)" :key="item">{{ item }}</li>
                   </ul>
                 </div>
               </div>
 
               <!-- 附加說明 -->
               <div class="notes">
-                <div class="note-item"><span class="tag tag-d">D</span>須攜帶電鑽</div>
-                <div class="note-item"><span class="tag tag-u">U</span>未開發完成</div>
+                <div class="note-item"><span class="tag tag-d">D</span>{{ locale === 'en' ? 'Drill required' : '須攜帶電鑽' }}</div>
+                <div class="note-item"><span class="tag tag-u">U</span>{{ locale === 'en' ? 'Undeveloped' : '未開發完成' }}</div>
                 <div class="note-divider"></div>
-                <div class="note-item"><span class="note-label">最短繩長</span>標路線最長繩距的長度</div>
-                <div class="note-item"><span class="note-label danger">危險激流</span>回流、翻滾流、水洞等</div>
+                <div class="note-item"><span class="note-label">{{ locale === 'en' ? 'Min rope' : '最短繩長' }}</span>{{ locale === 'en' ? 'Longest rappel length on route' : '標路線最長繩距的長度' }}</div>
+                <div class="note-item"><span class="note-label danger">{{ locale === 'en' ? 'Hazardous flow' : '危險激流' }}</span>{{ locale === 'en' ? 'Recirculating, hydraulic, siphon, etc.' : '回流、翻滾流、水洞等' }}</div>
               </div>
             </section>
           </div>
 
           <!-- 星級路線 -->
           <div class="star-section">
-            <h3 class="col-title star">路線星級</h3>
-            <div class="star-grid">
-              <div v-for="s in starLevel" :key="s.stars" class="star-card">
-                <div class="star-icons">{{ s.stars }}</div>
-                <div class="star-info">
-                  <div class="star-name">{{ s.name }}</div>
-                  <div class="star-desc">{{ s.desc }}</div>
+            <h3 class="col-title star">{{ locale === 'en' ? 'Route Rating' : '路線星級' }}</h3>
+            <div class="star-table">
+              <!-- Row 1: icons -->
+              <div class="star-row star-row--icons">
+                <div v-for="s in starLevel" :key="s.stars" class="star-cell star-cell--icon">{{ s.stars }}</div>
+              </div>
+              <!-- Row 2: labels -->
+              <div class="star-row star-row--labels">
+                <div v-for="s in starLevel" :key="s.stars + '_l'" class="star-cell star-cell--label">
+                  <span class="star-name">{{ s.name }}</span>
+                  <span class="star-desc">{{ s.desc }}</span>
                 </div>
               </div>
             </div>
@@ -85,10 +89,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { vGradeClass } from '../lib/grade'
+import { locale } from '../lib/locale'
 
 const props = defineProps<{ records: any[], loading: boolean }>()
 defineEmits<{ close: [] }>()
 
+// Pick locale-appropriate fields from each record
+function localeName(r: any)  { return (locale.value === 'en' ? r.name_en  : r.name)  ?? r.name ?? '' }
+function localeItems(r: any) { return (locale.value === 'en' ? r.items_en : r.items) ?? r.items ?? [] }
 
 const ropeLevel  = computed(() => props.records.filter(r => r['type'] === 'rope'))
 const waterLevel = computed(() => props.records.filter(r => r['type'] === 'water'))
@@ -96,8 +104,8 @@ const timeLevel  = computed(() => props.records.filter(r => r['type'] === 'time'
 const starLevel  = computed(() =>
   props.records.filter(r => r['type'] === 'star').map(r => ({
     stars: r['code'],
-    name:  r['name'],
-    desc:  r['items']?.[0] ?? '',
+    name:  localeName(r),
+    desc:  localeItems(r)[0] ?? '',
   }))
 )
 </script>
@@ -276,40 +284,53 @@ ul li::before {
 
 .col-title.star { background: #2a2400; color: #f5d030; margin-bottom: 12px; }
 
-.star-grid {
+.star-table {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
+  overflow-x: auto;
 }
 
-.star-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #1a1a2e;
+.star-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  min-width: 480px;
+}
+
+.star-cell {
   border: 1px solid #2a2a4a;
-  border-radius: 8px;
-  padding: 8px 14px;
-  min-width: 160px;
-  flex: 1;
+  border-right: none;
+  background: #1a1a2e;
+  text-align: center;
+}
+.star-cell:last-child { border-right: 1px solid #2a2a4a; }
+
+.star-row--icons .star-cell {
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 6px;
+  font-size: 0.85rem;
+  color: #f5d030;
+  letter-spacing: 1px;
 }
 
-.star-icons {
-  font-size: 0.95rem;
-  color: #f5d030;
-  flex-shrink: 0;
-  min-width: 60px;
+.star-row--labels .star-cell {
+  border-radius: 0 0 8px 8px;
+  padding: 6px 4px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
 
 .star-name {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #eee;
 }
 
 .star-desc {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #aaa;
-  margin-top: 2px;
+  line-height: 1.3;
 }
 </style>

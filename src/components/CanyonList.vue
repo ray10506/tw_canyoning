@@ -8,7 +8,7 @@
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
 
     <div class="guide-row">
-      <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Difficulty Guide' : '難度說明' }}</button>
+      <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Grading Guide' : '難度說明' }}</button>
     </div>
 
     <!-- 溪降路線列表 -->
@@ -32,7 +32,7 @@
             </div>
           </div>
           <div class="canyon-meta">
-            <span class="canyon-location">{{ localeRegion(route.region) }}</span>
+            <span class="canyon-location">{{ route.region }}</span>
             <span class="route-rappel">{{ route.max_drop || '' }}</span>
           </div>
           <div class="route-meta">
@@ -52,7 +52,7 @@ import { ref, watch, nextTick } from 'vue'
 import { vGradeClass } from '../lib/grade'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
-import { locale, localeRegion } from '../lib/locale'
+import { locale } from '../lib/locale'
 
 const showGuide = ref(false)
 const difficultyRecords = ref<any[]>([])

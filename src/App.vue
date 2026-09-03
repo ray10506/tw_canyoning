@@ -5,7 +5,7 @@
     </div>
     <div v-else-if="loadError" class="loading-overlay error">
       <span>{{ locale === 'en' ? 'Unable to load data' : '資料暫時無法載入' }}</span>
-      <button class="retry-btn" @click="loadCanyonRoutes">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
+      <button class="retry-btn" @click="fetchRoutes(true)">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
     </div>
     <template v-else>
       <div
@@ -148,7 +148,7 @@ import { fetchElevation } from './lib/elevation'
 import type { WaterStation } from './lib/waterLevel'
 import type { RainfallStation } from './lib/rainfall'
 
-const sidebarOpen   = ref(true)
+const sidebarOpen   = ref(window.innerWidth > 640)
 const activePanel   = ref<'search' | 'settings' | null>(null)
 const detailItem    = ref<{ kind: 'canyon' | 'route', data: any } | null>(null)
 const sidebarWidth  = ref(280)
@@ -267,10 +267,13 @@ function onSelectRoute(id: string) {
 }
 
 const REGION_KEYWORDS: Record<string, string[]> = {
-  '北部': ['台北', '臺北', '新北', '基隆', '桃園', '新竹', '宜蘭'],
-  '中部': ['苗栗', '台中', '臺中', '彰化', '南投', '雲林'],
-  '南部': ['嘉義', '台南', '臺南', '高雄', '屏東', '澎湖'],
-  '東部': ['花蓮', '台東', '臺東'],
+  '北部': ['台北', '臺北', '新北', '基隆', '桃園', '新竹', '宜蘭',
+           'Taipei', 'New Taipei', 'Keelung', 'Taoyuan', 'Hsinchu', 'Yilan'],
+  '中部': ['苗栗', '台中', '臺中', '彰化', '南投', '雲林',
+           'Miaoli', 'Taichung', 'Changhua', 'Nantou', 'Yunlin'],
+  '南部': ['嘉義', '台南', '臺南', '高雄', '屏東', '澎湖',
+           'Chiayi', 'Tainan', 'Kaohsiung', 'Pingtung', 'Penghu'],
+  '東部': ['花蓮', '台東', '臺東', 'Hualien', 'Taitung'],
 }
 
 function toggleRegion(region: string) {
@@ -351,22 +354,40 @@ watch(detailItem, async (item) => {
   }
 })
 
-async function loadCanyonRoutes() {
-  // Only load 溪降 routes on mount; canyons collection is loaded lazily on type switch
-  loading.value = true
-  loadError.value = false
+async function fetchRoutes(showOverlay: boolean) {
+  if (showOverlay) { loading.value = true; loadError.value = false }
   routesLoading.value = true
   try {
-    const records = await pb.collection('canyon_routes').getFullList({ sort: 'name', filter: "type = '溪降'" })
-    canyonRoutes.value = records
+    const isEn    = locale.value === 'en'
+    const nameF   = isEn ? 'name_en' : 'name'
+    const regionF = isEn ? 'region_en' : 'region'
+    const fields  = `id,${nameF},${regionF},grading,max_drop,approach,total_time,gps,gpx_track,gpx_waypoints,elevation,deep_pool,ab_shuttle,note`
+    const records = await pb.collection('canyon_routes').getFullList({
+      sort: nameF, filter: "type = '溪降'", fields,
+    })
+    // Normalise: always expose .name / .region regardless of source field
+    canyonRoutes.value = isEn
+      ? records.map(r => ({ ...r, name: (r as any).name_en ?? '', region: (r as any).region_en ?? '' }))
+      : records
     routesLoaded.value = true
   } catch {
-    loadError.value = true
+    if (showOverlay) loadError.value = true
   } finally {
     routesLoading.value = false
-    loading.value = false
+    if (showOverlay) loading.value = false
   }
 }
+
+
+// Re-fetch with new locale when language is switched; update open card data
+watch(locale, async () => {
+  await fetchRoutes(false)
+  if (detailItem.value?.kind === 'route') {
+    const id = detailItem.value.data.id
+    const route = canyonRoutes.value.find(r => r.id === id)
+    if (route) detailItem.value = { kind: 'route', data: route }
+  }
+})
 
 onMounted(async () => {
   // Restore filter state from URL before loading
@@ -377,7 +398,7 @@ onMounted(async () => {
   const regions = sp.getAll('region')
   if (regions.length) selectedRegion.value = regions
 
-  await loadCanyonRoutes()
+  await fetchRoutes(true)
 
   // Restore selected route from URL
   const routeId = sp.get('route')
