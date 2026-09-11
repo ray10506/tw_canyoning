@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <aside class="sidebar">
     <div class="title-row">
       <img src="/favicon-sidebar.png" class="sidebar-logo" alt="" />
@@ -321,13 +321,13 @@ function starsPart(grading: string): string {
 }
 
 [data-theme="light"] .nz-search-input {
-  background: #f4f4f8;
+  background: #12122a;
   color: #1a1a2e;
   border-color: #c8c8d8;
 }
 
 [data-theme="light"] .nz-search-input:focus {
-  border-color: #4a6cf7;
+  border-color: #5678e8;
 }
 
 .browse-btn {
@@ -350,12 +350,12 @@ function starsPart(grading: string): string {
 .browse-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 :global(html[data-theme='light']) .browse-switch {
-  background: #d7e0e8;
-  border-color: #bcc7d1;
+  background: #1a1a2e;
+  border-color: #2a2a4a;
 }
 
-:global(html[data-theme='light']) .browse-btn { color: #64748b; }
-:global(html[data-theme='light']) .browse-btn.active { background: #4f6fd8; color: #fff; }
+:global(html[data-theme='light']) .browse-btn { color: #888; }
+:global(html[data-theme='light']) .browse-btn.active { background: #5678e8; color: #fff; }
 
 .route-filters {
   padding: 10px 16px;
@@ -550,7 +550,7 @@ function starsPart(grading: string): string {
 .list-count {
   padding: 6px 16px;
   font-size: 0.8rem;
-  color: #999;
+  color: #666;
   border-bottom: 1px solid #2a2a4a;
   flex-shrink: 0;
   display: flex;
@@ -720,7 +720,7 @@ function starsPart(grading: string): string {
 
 .empty {
   padding: 20px 16px;
-  color: #999;
+  color: #666;
   font-size: 0.875rem;
   text-align: center;
 }
@@ -767,3 +767,4 @@ function starsPart(grading: string): string {
   }
 }
 </style>
+

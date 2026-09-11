@@ -34,6 +34,7 @@ if (generalPoints.length < 300 || generalTrack.some(point => point.some(value =>
 const ROUTES = {
   'Wilson Creek': {
     source_url: 'https://www.kiwicanyons.org/wilsons-creek/', topo_url: PDF.wilson, topo_page: 2,
+    grading: 'v5 a4 IV ★★★', max_drop: '17m', first_descent: '2004 Alain Rohr & Ondrej Havlicek',
     gps: '-44.0811729, 169.3587036', elevation: 671,
     approach_time: '1 hr 15 min – 1 hr 45 min', descent_time: '3–5 hrs', return_time: '15 min', total_time: '4–7 hrs',
     details: { map_sheet: 'BZ13 Haast Pass', rock: 'Dark grey schist', rock_zh: '深灰色片岩', water: 'Moderate to high; normal flow is about 1 m³/s', water_zh: '中至高水量；正常水量約 1 m³/s', catchment: '4.9 km²', anchors: 'Double-bolt anchors', anchors_zh: '雙螺栓確保點', flood: 'Extreme', flood_zh: '極高' },
@@ -83,7 +84,7 @@ const ROUTES = {
     recent_updates: [update('2025-01-03', 'Will Hamilton', 'All anchors were reported in good condition. The pool below the final drop was shallower than before, and the fourth-drop slide required extra judgement.', '當次回報所有固定點狀況良好；最後落差下方水潭比過去淺，第四落差的滑瀑需更審慎判斷。')], videos: [],
   },
   'Bartrum Creek': {
-    source_url: 'https://www.kiwicanyons.org/bartrum-creek/', topo_url: PDF.waitaha, topo_page: 24,
+    source_url: 'https://www.kiwicanyons.org/bartrum-creek/', topo_url: PDF.waitaha, topo_page: 21,
     gps: '-43.1438942, 170.7691193', elevation: 583,
     gpx_waypoints: [
       { seq: 1, lat: -43.11627, lon: 170.73021, name: 'DOC 步道轉折', detail: '由右岸小支流上切，再繞到崖壁上方。' },
@@ -101,6 +102,7 @@ const ROUTES = {
   },
   'Gloomy Gorge': {
     source_url: 'https://www.kiwicanyons.org/gloomy-gorge/', topo_url: '', topo_page: 0,
+    first_descent: '2013-03-09/10 Alain Rohr, Annette Phillips, Nic Barth, Neil Silverwood',
     gps: '-44.4377022, 168.6837463', elevation: 924,
     details: { map_sheet: 'Matukituki Valley', rock: 'Alpine gorge', rock_zh: '高山峽谷', water: 'Only suitable in exceptionally low flow', water_zh: '僅極低水位適合進入', catchment: 'Not published', catchment_zh: '未公布', anchors: 'Not published', anchors_zh: '未公布', flood: 'Extreme', flood_zh: '極高' },
     approach_steps: [], route_sections: [section('Expedition canyon', '探險型峽谷', '9.5–10+ hrs', 'Remote, expert-only and normally a multi-day objective.')], topo_pages: [], recent_updates: [],
@@ -140,6 +142,7 @@ const ROUTES = {
   'Alf Creek': {
     source_url: 'https://www.kiwicanyons.org/alf-creek-fox-glacier/', topo_url: '', topo_page: 0,
     gps: '-43.5059814, 170.1114502', elevation: 1423, photos: ['/photos/nz/alf-creek.jpg'],
+    first_descent: 'Jeroen Verhees et al., 2025/26 season',
     details: { map_sheet: 'Fox Glacier', rock: 'Open alpine waterfalls', rock_zh: '開闊高山瀑布', water: 'Not published', water_zh: '未公布', catchment: 'Not published', catchment_zh: '未公布', anchors: 'Not published', anchors_zh: '未公布', flood: 'Glacier-adjacent alpine hazards', flood_zh: '鄰近冰河的高山風險' },
     approach_steps: [step('Helicopter access is required.', '需要直升機進場。')], route_sections: [section('Waterfall sequence', '瀑布序列', '', 'A sequence over 100 m above Fox Glacier.')], topo_pages: [], recent_updates: [], videos: [],
   },

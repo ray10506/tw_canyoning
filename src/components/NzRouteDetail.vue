@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="nz-dossier" @click.stop>
 
     <!-- ── Header ── -->
@@ -21,7 +21,7 @@
     </div>
 
     <!-- ── Tabs ── -->
-    <div class="dos-tabs" role="tablist">
+    <div ref="tabsRef" class="dos-tabs" role="tablist">
       <button v-for="tab in TABS" :key="tab.id"
         role="tab" :aria-selected="activeTab === tab.id"
         :class="['dos-tab', { active: activeTab === tab.id }]"
@@ -293,7 +293,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { locale } from '../lib/locale'
 import { vGradeClass } from '../lib/grade'
 
@@ -303,7 +303,16 @@ defineEmits<{ close: []; 'focus-waypoint': [index: number | null] }>()
 const d = computed(() => props.item.data)
 type TabId = 'info'|'updates'|'timing'|'approach'|'topo'|'photos'|'videos'|'risk'
 const activeTab = ref<TabId>('info')
+const tabsRef = ref<HTMLElement | null>(null)
 watch(() => props.item, () => { activeTab.value = 'info' }, { immediate: true })
+watch(activeTab, async () => {
+  await nextTick()
+  const bar = tabsRef.value
+  const active = bar?.querySelector<HTMLElement>('.dos-tab.active')
+  if (!bar || !active) return
+  const offset = active.offsetLeft - bar.clientWidth / 2 + active.offsetWidth / 2
+  bar.scrollTo({ left: offset, behavior: 'smooth' })
+})
 
 const BASE_TABS = [
   { id: 'info'     as const, zh: '快速資訊', en: 'Info' },
@@ -421,16 +430,16 @@ function mapsUrl(lat: number | string, lon?: number) {
 
 /* All vars on the component root — `:root` in scoped styles doesn't work in Vue */
 .nz-dossier {
-  --bg:     #0d1826;
-  --bg2:    #111f2e;
-  --bg3:    #182535;
-  --line:   #1e3347;
-  --text:   #ddeaf7;
-  --muted:  #7e9ab5;
-  --dim:    #6688a0; /* was #4e6a80 (3.1:1 on --bg, fails WCAG AA); now 4.8:1 */
-  --cyan:   #3ec5db;
-  --cyan2:  #7edff2;
-  --cdim:   #113a47;
+  --bg:     #1a1a2e;
+  --bg2:    #12122a;
+  --bg3:    #252545;
+  --line:   #2a2a4a;
+  --text:   #e0e0e0;
+  --muted:  #9898b8;
+  --dim:    #7878a8  /* reads 3.1:1 on #1a1a2e – secondary labels only */
+  --cyan:   #6c8ef5;
+  --cyan2:  #91a8ff;
+  --cdim:   #1e2d6b;
   --risk:   #ff7f50;
   --risk-bg:#1a0b04;
   --green:  #4fc88a;
@@ -484,11 +493,11 @@ function mapsUrl(lat: number | string, lon?: number) {
   font-size: 11px; font-weight: 700; padding: 2px 8px;
   border-radius: 5px; font-family: var(--mono);
 }
-.g-tag.rope              { background: #0e2636; color: var(--cyan); }
+.g-tag.rope              { background: #1a1a48; color: var(--cyan); }
 .g-tag.rope.v1, .g-tag.rope.v2, .g-tag.rope.v3,
 .g-tag.rope.v4, .g-tag.rope.v5, .g-tag.rope.v6 { background: var(--vg-bg); color: var(--vg-fg); }
-.g-tag.water  { background: #0b2130; color: #60cce5; }
-.g-tag.roman  { background: #182030; color: var(--muted); }
+.g-tag.water  { background: #0e0e3a; color: #7eaaff; }
+.g-tag.roman  { background: #1c1c3e; color: var(--muted); }
 .g-stars      { font-size: 12px; color: var(--gold); letter-spacing: 2px; }
 .g-tag.risk-chip {
   display: inline-flex; align-items: center; gap: 3px;
@@ -516,8 +525,8 @@ function mapsUrl(lat: number | string, lon?: number) {
      are actually scrolled past it, so a clipped tab (e.g. Risk) is never
      silently invisible. Pure CSS, no scroll-position JS needed. */
   background-image:
-    linear-gradient(to right, var(--bg2) 40%, rgba(17,31,46,0)),
-    linear-gradient(to left, var(--bg2) 40%, rgba(17,31,46,0)),
+    linear-gradient(to right, var(--bg2) 40%, rgba(18,18,42,0)),
+    linear-gradient(to left, var(--bg2) 40%, rgba(18,18,42,0)),
     linear-gradient(to right, rgba(0,0,0,.4), rgba(0,0,0,0)),
     linear-gradient(to left, rgba(0,0,0,.4), rgba(0,0,0,0));
   background-repeat: no-repeat;
@@ -533,7 +542,7 @@ function mapsUrl(lat: number | string, lon?: number) {
   color: var(--muted); cursor: pointer; transition: all 0.13s; white-space: nowrap;
 }
 .dos-tab:hover  { color: var(--text); background: var(--bg3); }
-.dos-tab.active { background: #0e3344; border-color: #1b6070; color: var(--cyan2); font-weight: 600; }
+.dos-tab.active { background: #1e2d6b; border-color: #3a5fc0; color: var(--cyan2); font-weight: 600; }
 
 /* ── Body ── */
 .dos-body {
@@ -676,3 +685,4 @@ dd.mono      { font-family: var(--mono); font-size: 11.5px; color: var(--green);
   .photo-grid { grid-template-columns: repeat(3, 1fr); }
 }
 </style>
+
