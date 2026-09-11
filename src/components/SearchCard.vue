@@ -41,6 +41,7 @@
       />
       <button v-if="search" class="search-clear" :aria-label="locale === 'en' ? 'Clear search' : '清除搜尋'" @click="search = ''">✕</button>
     </div>
+    <p class="search-hint">{{ locale === 'en' ? 'NZ routes are not included in this search.' : 'NZ 路線不在搜尋範圍內。' }}</p>
 
     <div v-if="suggestions.length" class="quick-suggestions">
       <button
@@ -266,6 +267,12 @@ const searchPlaceholder = computed(() => {
 }
 .search-input::placeholder { color: #555; }
 .search-input:focus { border-color: #6c8ef5; }
+
+.search-hint {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: #555;
+}
 
 .search-clear {
   position: absolute;

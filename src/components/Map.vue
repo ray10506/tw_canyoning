@@ -200,6 +200,7 @@ const props = withDefaults(
     selectedId: string | null;
     focusPoint: [number, number] | null;
     routeTrack: RouteTrack | null;
+    focusedWaypointIndex: number | null;
     canyonRouteMarkers: RouteMarker[];
     selectedRouteId: string | null;
     nearbyAnchor: NearbyAnchor | null;
@@ -347,6 +348,11 @@ watch(selectedWpIndex, (next, prev) => {
         : (wp?.name.match(/^\d+/)?.[0] ?? "·");
     waypointMarkers[next].setIcon(wpIcon(label, true));
   }
+});
+
+watch(() => props.focusedWaypointIndex, (index) => {
+  selectedWpIndex.value = index;
+  if (index !== null) panToWp(index);
 });
 
 function panToWp(index: number) {
@@ -534,6 +540,15 @@ function focusSearchResults() {
     paddingTopLeft: [48, 48], paddingBottomRight: [rightPadding, 110], maxZoom: 14, animate: false,
   });
 }
+
+function focusCountry(country: 'route' | 'nz') {
+  if (!map) return;
+  const bounds: L.LatLngBoundsExpression = country === 'nz'
+    ? [[-47.5, 166], [-34, 179.5]]
+    : [[21.8, 119.8], [25.5, 122.1]];
+  map.stop();
+  map.fitBounds(bounds, { padding: [24, 24], animate: true, duration: 0.6 });
+}
 watch(() => props.searchPoints, focusSearchResults, { flush: 'post' });
 function stationScreenPosition(lat: number, lon: number) {
   if (!map) return null;
@@ -541,7 +556,7 @@ function stationScreenPosition(lat: number, lon: number) {
   const point = map.latLngToContainerPoint([lat, lon]);
   return { x: rect.left + point.x, y: rect.top + point.y };
 }
-defineExpose({ focusSearchResults, stationScreenPosition });
+defineExpose({ focusSearchResults, focusCountry, stationScreenPosition });
 
 function onTileChange(e: Event) {
   if (!map) return;
@@ -597,20 +612,13 @@ function renderMarkers() {
   }
 }
 
-const TAIWAN_BOUNDS = L.latLngBounds(
-  L.latLng(21.8, 119.9),
-  L.latLng(25.4, 122.1),
-);
-
 onMounted(() => {
   const defaultTile = tileOptions.find((t) => t.key === "topo")!;
   map = L.map("map", {
-    maxBounds: TAIWAN_BOUNDS,
-    maxBoundsViscosity: 1.0,
-    minZoom: 8,
+    minZoom: 3,
     maxZoom: defaultTile.maxZoom,
     zoomControl: false,
-  }).setView([23.9871, 121.6015], 9);
+  }).setView([23.9871, 121.6015], 5);
 
   currentTile = L.tileLayer(defaultTile.url, {
     attribution: defaultTile.attribution,

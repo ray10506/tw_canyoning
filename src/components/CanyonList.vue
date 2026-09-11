@@ -11,52 +11,50 @@
 
     <div class="browse-switch" role="group" :aria-label="locale === 'en' ? 'Browse content' : '瀏覽內容'">
       <button
-        :class="['browse-btn', { active: !showStationResults }]"
-        :aria-pressed="!showStationResults"
+        :class="['browse-btn', { active: browseMode === 'route' }]"
+        :aria-pressed="browseMode === 'route'"
         @click="emit('changeBrowseMode', 'route')"
-      >{{ locale === 'en' ? 'Routes' : '路線' }}</button>
+      >TW</button>
       <button
-        :class="['browse-btn', { active: showStationResults }]"
-        :aria-pressed="showStationResults"
+        :class="['browse-btn', { active: browseMode === 'nz' }]"
+        :aria-pressed="browseMode === 'nz'"
+        @click="emit('changeBrowseMode', 'nz')"
+      >NZ</button>
+      <button
+        :class="['browse-btn', { active: browseMode === 'hydrology' }]"
+        :aria-pressed="browseMode === 'hydrology'"
         @click="emit('changeBrowseMode', 'hydrology')"
-      >{{ locale === 'en' ? 'Hydrology' : '水文監測' }}</button>
+      >{{ locale === 'en' ? 'Hydrology' : '水文' }}</button>
     </div>
 
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
 
-    <div v-if="!showStationResults" class="guide-row">
-      <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Grading Guide' : '難度說明' }}</button>
-    </div>
-
-    <!-- 溪降路線列表 -->
-    <div v-if="!routesLoading" class="list-count">
-      <span>{{ resultCount }} {{ showStationResults ? (locale === 'en' ? 'results' : '筆結果') : (locale === 'en' ? 'routes' : '條路線') }}</span>
-      <button
-        v-if="!showStationResults"
-        class="sort-btn"
-        :title="sortDescending ? (locale === 'en' ? 'Sort easiest first' : '改為由易到難') : (locale === 'en' ? 'Sort hardest first' : '改為由難到易')"
-        @click="$emit('toggleSort')"
-      >
-        {{ sortDescending ? (locale === 'en' ? 'Hardest first' : '由難到易') : (locale === 'en' ? 'Easiest first' : '由易到難') }}
-      </button>
-    </div>
-    <ul ref="routeListRef" class="canyon-list">
-      <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
-      <template v-else>
-        <li
-          v-for="route in canyonRoutes"
-          :key="route.id"
-          :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
-          @click.stop="emit('showDetail', { kind: 'route', data: route })"
-        >
-          <div class="canyon-item-inner">
-            <div class="canyon-right">
+    <!-- Taiwan routes tab -->
+    <template v-if="browseMode === 'route'">
+      <div class="guide-row">
+        <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Grading Guide' : '難度說明' }}</button>
+      </div>
+      <div v-if="!routesLoading" class="list-count">
+        <span>{{ canyonRoutes.length }} {{ locale === 'en' ? 'routes' : '條路線' }}</span>
+        <button
+          class="sort-btn"
+          :title="sortDescending ? (locale === 'en' ? 'Sort easiest first' : '改為由易到難') : (locale === 'en' ? 'Sort hardest first' : '改為由難到易')"
+          @click="$emit('toggleSort')"
+        >{{ sortDescending ? (locale === 'en' ? 'Hardest first' : '由難到易') : (locale === 'en' ? 'Easiest first' : '由易到難') }}</button>
+      </div>
+      <ul ref="routeListRef" class="canyon-list">
+        <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
+        <template v-else>
+          <li
+            v-for="route in canyonRoutes"
+            :key="route.id"
+            :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
+            @click.stop="emit('showDetail', { kind: 'route', data: route })"
+          >
+            <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
                 <span class="canyon-name">{{ route.name }}</span>
-                <span v-if="route.max_drop" class="canyon-drop">
-                  <span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>
-                  {{ route.max_drop }}
-                </span>
+                <span v-if="route.max_drop" class="canyon-drop"><span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>{{ route.max_drop }}</span>
               </div>
               <div class="grade-badges">
                 <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
@@ -66,44 +64,101 @@
                 <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
               </div>
               <span class="canyon-location">{{ route.region }}</span>
-            </div>
-          </div>
-        </li>
-        <li
-          v-for="station in waterStations"
-          :key="`water-${station.id}`"
-          :class="['canyon-item', { active: selectedStationKey === `water-${station.id}` }]"
-        >
-          <button class="station-item" @click.stop="emit('selectWaterStation', station)">
-            <img src="/water-level.svg" class="station-icon" alt="" />
-            <span class="station-copy">
-              <span class="station-kind">{{ locale === 'en' ? 'Water level' : '水位站' }}</span>
-              <strong :class="{ matched: matchesQuery(station.name) }">{{ station.name }}</strong>
-              <small>
-                <span :class="{ matched: matchesQuery(station.river) }">{{ station.river || '—' }}</span>
-                <span v-if="station.river && station.address"> · </span>
-                <span :class="{ matched: matchesQuery(station.address) }">{{ station.address }}</span>
-              </small>
-            </span>
-          </button>
-        </li>
-        <li
-          v-for="station in rainfallStations"
-          :key="`rain-${station.station_id}`"
-          :class="['canyon-item', { active: selectedStationKey === `rain-${station.station_id}` }]"
-        >
-          <button class="station-item" @click.stop="emit('selectRainfallStation', station)">
-            <img src="/rainfall.svg" class="station-icon" alt="" />
-            <span class="station-copy">
-              <span class="station-kind">{{ locale === 'en' ? 'Rainfall' : '雨量站' }}</span>
-              <strong :class="{ matched: matchesQuery(station.name) }">{{ station.name }}</strong>
-              <small :class="{ matched: matchesQuery(`${station.county} ${station.town}`) }">{{ station.county }} {{ station.town }}</small>
-            </span>
-          </button>
-        </li>
-        <li v-if="resultCount === 0" class="empty">{{ locale === 'en' ? 'No results found, adjust filters' : '找不到符合的結果，請調整篩選條件' }}</li>
-      </template>
-    </ul>
+            </div></div>
+          </li>
+          <li v-if="!canyonRoutes.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
+        </template>
+      </ul>
+    </template>
+
+    <!-- NZ routes tab -->
+    <template v-else-if="browseMode === 'nz'">
+      <div class="guide-row">
+        <button class="guide-btn" @click.stop="openGuide">{{ locale === 'en' ? 'Grading Guide' : '難度說明' }}</button>
+      </div>
+      <div class="nz-search-row">
+        <input
+          v-model="nzQuery"
+          class="nz-search-input"
+          :placeholder="locale === 'en' ? 'Search NZ routes…' : '搜尋紐西蘭路線…'"
+          type="search"
+        />
+      </div>
+      <div class="list-count">
+        <span>{{ filteredNzRoutes.length }} {{ locale === 'en' ? 'routes' : '條路線' }}</span>
+      </div>
+      <ul ref="routeListRef" class="canyon-list">
+        <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
+        <template v-else>
+          <li
+            v-for="route in filteredNzRoutes"
+            :key="route.id"
+            :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
+            @click.stop="emit('showDetail', { kind: 'nz', data: route })"
+          >
+            <div class="canyon-item-inner"><div class="canyon-right">
+              <div class="canyon-name-row">
+                <span class="canyon-name">{{ route.name }}</span>
+                <span v-if="route.max_drop" class="canyon-drop"><span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>{{ route.max_drop }}</span>
+              </div>
+              <div class="grade-badges">
+                <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
+                <span v-if="aPart(route.grading)" class="a-pill">{{ aPart(route.grading) }}</span>
+                <span v-if="timePart(route.grading)" class="time-pill">{{ timePart(route.grading) }}</span>
+                <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
+              </div>
+              <span class="canyon-location">{{ route.region }}</span>
+            </div></div>
+          </li>
+          <li v-if="!filteredNzRoutes.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
+        </template>
+      </ul>
+    </template>
+
+    <!-- Hydrology tab (station results) -->
+    <template v-else>
+      <div v-if="!routesLoading" class="list-count">
+        <span>{{ waterStations.length + rainfallStations.length }} {{ locale === 'en' ? 'results' : '筆結果' }}</span>
+      </div>
+      <ul ref="routeListRef" class="canyon-list">
+        <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
+        <template v-else>
+          <li
+            v-for="station in waterStations"
+            :key="`water-${station.id}`"
+            :class="['canyon-item', { active: selectedStationKey === `water-${station.id}` }]"
+          >
+            <button class="station-item" @click.stop="emit('selectWaterStation', station)">
+              <img src="/water-level.svg" class="station-icon" alt="" />
+              <span class="station-copy">
+                <span class="station-kind">{{ locale === 'en' ? 'Water level' : '水位站' }}</span>
+                <strong :class="{ matched: matchesQuery(station.name) }">{{ station.name }}</strong>
+                <small>
+                  <span :class="{ matched: matchesQuery(station.river) }">{{ station.river || '—' }}</span>
+                  <span v-if="station.river && station.address"> · </span>
+                  <span :class="{ matched: matchesQuery(station.address) }">{{ station.address }}</span>
+                </small>
+              </span>
+            </button>
+          </li>
+          <li
+            v-for="station in rainfallStations"
+            :key="`rain-${station.station_id}`"
+            :class="['canyon-item', { active: selectedStationKey === `rain-${station.station_id}` }]"
+          >
+            <button class="station-item" @click.stop="emit('selectRainfallStation', station)">
+              <img src="/rainfall.svg" class="station-icon" alt="" />
+              <span class="station-copy">
+                <span class="station-kind">{{ locale === 'en' ? 'Rainfall' : '雨量站' }}</span>
+                <strong :class="{ matched: matchesQuery(station.name) }">{{ station.name }}</strong>
+                <small :class="{ matched: matchesQuery(`${station.county} ${station.town}`) }">{{ station.county }} {{ station.town }}</small>
+              </span>
+            </button>
+          </li>
+          <li v-if="!waterStations.length && !rainfallStations.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
+        </template>
+      </ul>
+    </template>
     <button class="mobile-close-btn" @click="$emit('close')">{{ locale === 'en' ? 'Close ✕' : '收起 ✕' }}</button>
   </aside>
 </template>
@@ -137,12 +192,13 @@ async function openGuide() {
 
 const props = defineProps<{
   canyonRoutes: any[]
+  nzRoutes: any[]
   routesLoading: boolean
   selectedId: string | null
   selectedRouteId: string | null
   selectedStationKey: string | null
   sortDescending: boolean
-  showStationResults: boolean
+  browseMode: 'route' | 'nz' | 'hydrology'
   searchQuery: string
   waterStations: WaterStation[]
   rainfallStations: RainfallStation[]
@@ -152,15 +208,22 @@ const emit = defineEmits<{
   select: [id: string]
   close: []
   toggleSort: []
-  changeBrowseMode: [mode: 'route' | 'hydrology']
-  showDetail: [item: { kind: 'canyon' | 'route', data: any }]
+  changeBrowseMode: [mode: 'route' | 'nz' | 'hydrology']
+  showDetail: [item: { kind: 'canyon' | 'route' | 'nz', data: any }]
   selectWaterStation: [station: WaterStation]
   selectRainfallStation: [station: RainfallStation]
 }>()
 
-const resultCount = computed(() =>
-  props.canyonRoutes.length + props.waterStations.length + props.rainfallStations.length,
-)
+const nzQuery = ref('')
+
+const filteredNzRoutes = computed(() => {
+  const q = nzQuery.value.trim().toLowerCase().replace(/臺/g, '台')
+  if (!q) return props.nzRoutes
+  return props.nzRoutes.filter(r =>
+    [r.name, r.name_en, r.region, r.region_en, r.grading, r.note]
+      .some(v => String(v ?? '').toLowerCase().replace(/臺/g, '台').includes(q))
+  )
+})
 
 function matchesQuery(value: unknown): boolean {
   const q = props.searchQuery.trim().toLowerCase().replace(/臺/g, '台')
@@ -175,12 +238,12 @@ watch(() => [props.selectedRouteId, props.selectedStationKey], async ([routeId, 
   routeListRef.value.querySelector('.canyon-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 
-// Grade component parsers — each token renders as its own pill
-function vPart(grading: string): string { return grading?.match(/\bV\d+/)?.[0] ?? '' }
-function aPart(grading: string): string { return grading?.match(/\bA\d+/)?.[0] ?? '' }
-function timePart(grading: string): string { return grading?.match(/\b(I{1,3}|IV|VI?)\b/)?.[0] ?? '' }
+// Grade component parsers — case-insensitive so NZ (v4 a4) and TW (V4 A4) both match
+function vPart(grading: string): string { return grading?.match(/v\d+/i)?.[0].toUpperCase() ?? '' }
+function aPart(grading: string): string { return grading?.match(/a\d+/i)?.[0].toUpperCase() ?? '' }
+function timePart(grading: string): string { return grading?.replace(/v\d+|a\d+/gi, '').match(/VI|IV|V|III|II|I/i)?.[0].toUpperCase() ?? '' }
 function starsPart(grading: string): string {
-  return (grading ?? '').replace(/\b(V\d+|A\d+|I{1,3}|IV|VI?)\b/g, '').trim()
+  return (grading ?? '').replace(/v\d+|a\d+|VI|IV|V|III|II|I/gi, '').trim()
 }
 
 
@@ -226,14 +289,45 @@ function starsPart(grading: string): string {
 
 .browse-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
-  margin: 10px 16px;
+  margin: 8px 16px 4px;
   padding: 3px;
   border: 1px solid #2a2a4a;
   border-radius: 6px;
   background: #12122a;
   flex-shrink: 0;
+}
+
+.nz-search-row {
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+}
+
+.nz-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #2a2a4a;
+  background: #12122a;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.nz-search-input:focus {
+  border-color: #6c8ef5;
+}
+
+[data-theme="light"] .nz-search-input {
+  background: #f4f4f8;
+  color: #1a1a2e;
+  border-color: #c8c8d8;
+}
+
+[data-theme="light"] .nz-search-input:focus {
+  border-color: #4a6cf7;
 }
 
 .browse-btn {
@@ -291,7 +385,7 @@ function starsPart(grading: string): string {
 .filter-select:focus { border-color: #6c8ef5; }
 
 .guide-row {
-  padding: 10px 16px;
+  padding: 4px 16px 8px;
   border-bottom: 1px solid #2a2a4a;
   flex-shrink: 0;
 }

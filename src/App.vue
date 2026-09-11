@@ -21,12 +21,13 @@
       >
         <CanyonList
           :canyon-routes="filteredRoutes"
+          :nz-routes="nzRoutes"
           :routes-loading="routesLoading"
           :selected-id="selectedId"
           :selected-route-id="selectedRouteId"
           :selected-station-key="selectedStationKey"
           :sort-descending="routeSortDescending"
-          :show-station-results="!!stationSearch"
+          :browse-mode="browseMode"
           :search-query="searchQuery"
           :water-stations="stationSearch?.water ?? []"
           :rainfall-stations="stationSearch?.rainfall ?? []"
@@ -69,6 +70,7 @@
           :selected-id="selectedId"
           :focus-point="mapFocusPoint"
           :route-track="routeTrack"
+          :focused-waypoint-index="focusedWaypointIndex"
           :canyon-route-markers="canyonRouteMarkers"
           :selected-route-id="selectedRouteId"
           :nearby-anchor="nearbyAnchor"
@@ -80,9 +82,15 @@
           @select-rainfall-station="openRainfallStation"
         />
       </div>
-      <RouteDetail
-        v-if="detailItem"
+      <NzRouteDetail
+        v-if="detailItem && detailItem.kind === 'nz'"
         :item="detailItem"
+        @close="detailItem = null"
+        @focus-waypoint="focusedWaypointIndex = $event"
+      />
+      <RouteDetail
+        v-if="twDetailItem"
+        :item="twDetailItem"
         :init-pos="cardInitPos"
         :nearby-water="nearbyWater"
         :nearby-rainfall="nearbyRainfall"
@@ -228,6 +236,7 @@ import { locale, localeRegion } from "./lib/locale";
 import Map from "./components/Map.vue";
 import CanyonList from "./components/CanyonList.vue";
 import RouteDetail from "./components/RouteDetail.vue";
+import NzRouteDetail from "./components/NzRouteDetail.vue";
 import WaterStationDetail from "./components/WaterStationDetail.vue";
 import RainfallStationDetail from "./components/RainfallStationDetail.vue";
 import SearchCard from "./components/SearchCard.vue";
@@ -267,19 +276,24 @@ function openSearch() {
   rainfallStationDetail.value = null;
 }
 
-function changeBrowseMode(mode: "route" | "hydrology") {
+function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
+  browseMode.value = mode;
   if (mode === "hydrology") {
     openSearch();
     searchQuery.value = "";
     searchTypes.value = ["water", "rainfall"];
+    nextTick(() => mapRef.value?.focusCountry("route"));
     return;
   }
   searchQuery.value = "";
   searchTypes.value = ["route"];
   activePanel.value = null;
+  detailItem.value = null;
+  mapRef.value?.focusCountry(mode);
 }
 
 function cancelSearch() {
+  browseMode.value = "route";
   if (searchSnapshot) {
     searchQuery.value = searchSnapshot.query;
     routeFilter.value = searchSnapshot.routeFilter;
@@ -292,6 +306,7 @@ function cancelSearch() {
 }
 
 async function confirmSearch() {
+  browseMode.value = routeOnlySearch.value ? "route" : "hydrology";
   searchSnapshot = null;
   activePanel.value = null;
   sidebarOpen.value = true;
@@ -303,7 +318,12 @@ function toggleSettings() {
   if (activePanel.value === "search") cancelSearch();
   activePanel.value = activePanel.value === "settings" ? null : "settings";
 }
-const detailItem = ref<{ kind: "canyon" | "route"; data: any } | null>(null);
+const detailItem = ref<{ kind: "canyon" | "route" | "nz"; data: any } | null>(null);
+const focusedWaypointIndex = ref<number | null>(null);
+const twDetailItem = computed<{ kind: "canyon" | "route"; data: any } | null>(() => {
+  const item = detailItem.value;
+  return item && item.kind !== "nz" ? { kind: item.kind, data: item.data } : null;
+});
 const sidebarWidth = ref(280);
 const waterStationDetail = ref<{ station: WaterStation; pos: { x: number; y: number }; days: number; distance?: number } | null>(
   null,
@@ -334,7 +354,7 @@ function isValidLatLng(lat: number, lng: number): boolean {
 }
 
 const routeFocusPoint = computed((): [number, number] | null => {
-  if (detailItem.value?.kind !== "route") return null;
+  if (!detailItem.value || (detailItem.value.kind !== "route" && detailItem.value.kind !== "nz")) return null;
   const gps = detailItem.value.data.gps?.trim();
   if (!gps) return null;
   const parts = gps.split(/[,\s]+/).map(Number);
@@ -388,9 +408,11 @@ function startResize(e: MouseEvent) {
 const loading = ref(true);
 const loadError = ref(false);
 
-const canyonRoutes = ref<any[]>([]);
+const canyonRoutes = ref<any[]>([]);   // Taiwan routes only
+const nzRoutes = ref<any[]>([]);        // NZ routes only
 const routesLoaded = ref(false);
 const routesLoading = ref(false);
+const browseMode = ref<'route' | 'nz' | 'hydrology'>('route');
 const routeFilter = ref({ v: "", a: "", t: "", drop: "" });
 const filterGpx = ref(false);
 const routeSortDescending = ref(false);
@@ -403,27 +425,29 @@ const searchQuery = ref("");
 const selectedRegion = ref<string[]>([]);
 
 const routeTrack = computed(() => {
-  if (detailItem.value?.kind !== "route") return null;
+  if (detailItem.value?.kind !== "route" && detailItem.value?.kind !== "nz") return null;
   const d = detailItem.value.data;
-  if (!d.gpx_track) return null;
+
+  const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0;
+  const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
+  const cardW = 380;
+  const gap = 24;
+  const cardOnRight = mapCenterX + gap + cardW <= window.innerWidth;
+  const pad = cardOnRight
+    ? { paddingTopLeft: [mapLeft + 40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
+    : { paddingTopLeft: [mapLeft + cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] };
+
+  // 無 GPX track：若有 DB 內的 waypoints（nz_routes）則顯示航點
+  if (!d.gpx_track) {
+    const wps = d.gpx_waypoints ? JSON.parse(d.gpx_waypoints) : [];
+    return wps.length ? { track: [], waypoints: wps, pad } : null;
+  }
+
   try {
-    const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0;
-    const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
-    const cardW = 380;
-    const gap = 24;
-    const cardOnRight = mapCenterX + gap + cardW <= window.innerWidth;
     return {
       track: JSON.parse(d.gpx_track),
       waypoints: d.gpx_waypoints ? JSON.parse(d.gpx_waypoints) : [],
-      pad: cardOnRight
-        ? {
-            paddingTopLeft: [mapLeft + 40, 40] as [number, number],
-            paddingBottomRight: [cardW + gap * 2, 40] as [number, number],
-          }
-        : {
-            paddingTopLeft: [mapLeft + cardW + gap * 2, 40] as [number, number],
-            paddingBottomRight: [40, 40] as [number, number],
-          },
+      pad,
     };
   } catch (e) {
     console.warn("[routeTrack] failed to parse gpx data for route", d.id, e);
@@ -478,22 +502,33 @@ function nearestStation<T extends { lat: number; lon: number }>(stations: T[]) {
 const nearbyWater = computed(() => nearestStation(waterStations as WaterStation[]));
 const nearbyRainfall = computed(() => nearestStation(rainfallStations));
 
+function routeToMarker(r: any) {
+  const gps = r["gps"]?.trim();
+  if (!gps) return null;
+  const parts = gps.split(/[,\s]+/).map(Number);
+  if (parts.length < 2 || !isValidLatLng(parts[0], parts[1])) return null;
+  return { id: r["id"], lat: parts[0], lon: parts[1], name: r["name"] };
+}
+
+const filteredRouteMarkers = computed(() =>
+  filteredRoutes.value.map(routeToMarker).filter((marker) => marker !== null),
+);
+
 const canyonRouteMarkers = computed(() => {
-  return filteredRoutes.value.flatMap((r) => {
-    const gps = r["gps"]?.trim();
-    if (!gps) return [];
-    const parts = gps.split(/[,\s]+/).map(Number);
-    if (parts.length < 2 || !isValidLatLng(parts[0], parts[1])) return [];
-    return [{ id: r["id"], lat: parts[0], lon: parts[1], name: r["name"] }];
-  });
+  return [
+    ...filteredRouteMarkers.value,
+    ...nzRoutes.value.map(routeToMarker),
+  ].filter(Boolean) as { id: string; lat: number; lon: number; name: string }[];
 });
 
 function onSelectRoute(id: string) {
-  const route = canyonRoutes.value.find((r) => r.id === id);
-  if (route) openRouteDetail({ kind: "route", data: route });
+  const twRoute = canyonRoutes.value.find((r) => r.id === id);
+  if (twRoute) { openRouteDetail({ kind: "route", data: twRoute }); return; }
+  const nzRoute = nzRoutes.value.find((r) => r.id === id);
+  if (nzRoute) openRouteDetail({ kind: "nz", data: nzRoute });
 }
 
-function openRouteDetail(item: { kind: "canyon" | "route"; data: any }) {
+function openRouteDetail(item: { kind: "canyon" | "route" | "nz"; data: any }) {
   searchStationPoint.value = null;
   waterStationDetail.value = null;
   rainfallStationDetail.value = null;
@@ -608,7 +643,7 @@ const stationSearch = computed(() => {
 
 const searchPoints = computed(() => {
   if (routeOnlySearch.value && !activeFilters.value.length) return null;
-  return [...canyonRouteMarkers.value, ...(stationSearch.value?.water ?? []), ...(stationSearch.value?.rainfall ?? [])]
+  return [...filteredRouteMarkers.value, ...(stationSearch.value?.water ?? []), ...(stationSearch.value?.rainfall ?? [])]
     .map(s => [s.lat, s.lon] as [number, number]);
 });
 
@@ -626,19 +661,22 @@ function matchRegion(text: string, regions: string[]): boolean {
 }
 
 const selectedRouteId = computed(() =>
-  detailItem.value?.kind === "route" ? detailItem.value.data.id : null,
+  detailItem.value?.kind === "route" || detailItem.value?.kind === "nz" ? detailItem.value.data.id : null,
 );
 
 watch(detailItem, (item) => {
+  focusedWaypointIndex.value = null;
   if (!item) selectedId.value = null;
 });
 
 // Sync route/search/filter state to URL so results are shareable
 watch(
-  [detailItem, searchQuery, routeFilter, selectedRegion, filterGpx, searchTypes],
+  [detailItem, searchQuery, routeFilter, selectedRegion, filterGpx, searchTypes, browseMode],
   ([item]) => {
     const url = new URL(location.href);
-    if (item?.kind === "route") url.searchParams.set("route", item.data.id);
+    if (browseMode.value === "route") url.searchParams.delete("view");
+    else url.searchParams.set("view", browseMode.value);
+    if (item?.kind === "route" || item?.kind === "nz") url.searchParams.set("route", item.data.id);
     else url.searchParams.delete("route");
     if (searchQuery.value.trim())
       url.searchParams.set("q", searchQuery.value.trim());
@@ -662,7 +700,7 @@ watch(
 
 // Auto-fetch elevation for routes that have a GPS coord but no usable elevation data.
 watch(detailItem, async (item) => {
-  if (item?.kind !== "route") return;
+  if (item?.kind !== "route" && item?.kind !== "nz") return;
   const route = item.data;
   if (route.elevation > 0) return; // already stored in PocketBase (0 = default unset)
 
@@ -699,22 +737,41 @@ watch(detailItem, async (item) => {
   const [lat, lon] = parts;
   const ele = await fetchElevation(lat, lon);
   if (ele == null) return;
+  const isNz = item.kind === "nz";
   try {
-    await pb.collection("canyon_routes").update(route.id, { elevation: ele });
+    await pb.collection(isNz ? "nz_routes" : "canyon_routes").update(route.id, { elevation: ele });
   } catch {
     /* silent — still apply locally */
   }
   // Patch in-memory record so it survives card close/reopen within the session
-  const idx = canyonRoutes.value.findIndex((r) => r.id === route.id);
-  if (idx !== -1) canyonRoutes.value[idx]["elevation"] = ele;
+  const routes = isNz ? nzRoutes.value : canyonRoutes.value;
+  const idx = routes.findIndex((r) => r.id === route.id);
+  if (idx !== -1) routes[idx]["elevation"] = ele;
   // Patch the open card so RouteDetail renders it immediately
   if (
-    detailItem.value?.kind === "route" &&
+    detailItem.value?.kind === item.kind &&
     detailItem.value.data.id === route.id
   ) {
     detailItem.value.data.elevation = ele;
   }
 });
+
+function normaliseRoute(r: any, isEn: boolean) {
+  return {
+    ...r,
+    name_zh:   r.name    ?? "",
+    region_zh: r.region  ?? "",
+    name:   (isEn && r.name_en)   || r.name   || "",
+    region: (isEn && r.region_en) || r.region || "",
+    // nz_routes stores gpx_waypoints as a parsed JSON object; stringify so the
+    // rest of the codebase (which expects a string) can JSON.parse it unchanged.
+    gpx_waypoints: typeof r.gpx_waypoints === "string"
+      ? r.gpx_waypoints
+      : r.gpx_waypoints
+        ? JSON.stringify(r.gpx_waypoints)
+        : "",
+  };
+}
 
 async function fetchRoutes(showOverlay: boolean) {
   if (showOverlay) {
@@ -725,20 +782,19 @@ async function fetchRoutes(showOverlay: boolean) {
   try {
     const isEn = locale.value === "en";
     const nameF = isEn ? "name_en" : "name";
-    const fields = 'id,name,name_en,region,region_en,grading,max_drop,approach,total_time,gps,gpx_track,gpx_waypoints,elevation,deep_pool,ab_shuttle,note';
-    const records = await pb.collection("canyon_routes").getFullList({
-      sort: nameF,
-      filter: "type = '溪降'",
-      fields,
-    });
-    // Normalise: always expose .name / .region regardless of source field
-    canyonRoutes.value = records.map((r) => ({
-          ...r,
-          name_zh: (r as any).name ?? "",
-          region_zh: (r as any).region ?? "",
-          name: (isEn && r.name_en) || r.name || "",
-          region: (isEn && r.region_en) || r.region || "",
-        }));
+    const twFields = 'id,name,name_en,region,region_en,grading,max_drop,approach,total_time,gps,gpx_track,gpx_waypoints,elevation,deep_pool,ab_shuttle,note';
+    const [twRecords, nzRecords] = await Promise.all([
+      pb.collection("canyon_routes").getFullList({
+        sort: nameF,
+        filter: "type = '溪降'",
+        fields: twFields,
+      }),
+      pb.collection("nz_routes").getFullList({ sort: nameF })
+        .catch(() => [] as any[]), // collection may not exist yet
+    ]);
+
+    canyonRoutes.value = twRecords.map((r) => normaliseRoute(r, isEn));
+    nzRoutes.value     = nzRecords.map((r)  => normaliseRoute(r, isEn));
     routesLoaded.value = true;
   } catch {
     if (showOverlay) loadError.value = true;
@@ -751,16 +807,23 @@ async function fetchRoutes(showOverlay: boolean) {
 // Re-fetch with new locale when language is switched; update open card data
 watch(locale, async () => {
   await fetchRoutes(false);
-  if (detailItem.value?.kind === "route") {
+  if (detailItem.value?.kind === "route" || detailItem.value?.kind === "nz") {
     const id = detailItem.value.data.id;
-    const route = canyonRoutes.value.find((r) => r.id === id);
-    if (route) detailItem.value = { kind: "route", data: route };
+    const twRoute = canyonRoutes.value.find((r) => r.id === id);
+    const nzRoute = nzRoutes.value.find((r) => r.id === id);
+    if (twRoute) detailItem.value = { kind: "route", data: twRoute };
+    else if (nzRoute) detailItem.value = { kind: "nz", data: nzRoute };
   }
 });
 
 onMounted(async () => {
   // Restore filter state from URL before loading
   const sp = new URLSearchParams(location.search);
+  const view = sp.get("view");
+  if (view === "nz" || view === "hydrology") {
+    browseMode.value = view;
+    if (view === "hydrology" && !sp.has("type")) searchTypes.value = ["water", "rainfall"];
+  }
   if (sp.get("q")) searchQuery.value = sp.get("q")!;
   if (sp.get("type")) {
     const valid: SearchType[] = ["route", "water", "rainfall"];
@@ -779,7 +842,16 @@ onMounted(async () => {
   const routeId = sp.get("route");
   if (routeId) {
     const route = canyonRoutes.value.find((r) => r.id === routeId);
+    const nzRoute = nzRoutes.value.find((r) => r.id === routeId);
     if (route) detailItem.value = { kind: "route", data: route };
+    else if (nzRoute) {
+      browseMode.value = "nz";
+      detailItem.value = { kind: "nz", data: nzRoute };
+    }
+  }
+  await nextTick();
+  if (browseMode.value === "nz" && !selectedRouteId.value) {
+    mapRef.value?.focusCountry("nz");
   }
 });
 
@@ -898,6 +970,7 @@ watch(searchQuery, () => {
 });
 
 function clearAllFilters() {
+  browseMode.value = "route";
   searchQuery.value = "";
   routeFilter.value = { v: "", a: "", t: "", drop: "" };
   filterGpx.value = false;

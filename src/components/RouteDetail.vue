@@ -4,115 +4,179 @@
       ref="panelRef"
       class="panel"
       :class="{ dragging: isDragging }"
-      :style="
-        pos ? { left: pos.x + 'px', top: pos.y + 'px', transform: 'none' } : {}
-      "
+      :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', transform: 'none' } : {}"
       @click.stop
     >
+      <!-- ── Header ── -->
       <div class="panel-header" @mousedown.prevent="startDrag">
-        <div class="header-left">
-          <span class="route-name">{{ title }}</span>
-          <span
-            v-if="item.kind === 'canyon'"
-            :class="['kind-badge', item.kind]"
-            >{{ kindLabel }}</span
-          >
+        <div class="header-content">
+          <!-- eyebrow -->
+          <span v-if="eyebrow" class="eyebrow">{{ eyebrow }}</span>
+          <!-- route name -->
+          <span class="route-title">{{ title }}</span>
+          <!-- subtitle (NZ routes) -->
+          <span v-if="subtitle" class="route-subtitle">{{ subtitle }}</span>
+          <!-- grade row -->
+          <div v-if="d.grading" class="grade-row">
+            <span class="grade-compact">{{ gradingCompact }}</span>
+            <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]" :data-tooltip="(locale==='en'?ROPE_TIPS_EN:ROPE_TIPS)[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
+            <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="(locale==='en'?WATER_TIPS_EN:WATER_TIPS)[waterGrade]" tabindex="0">{{ waterGrade }}</span>
+            <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="(locale==='en'?TIME_TIPS_EN:TIME_TIPS)[timeGrade]" tabindex="0">{{ timeGrade }}</span>
+            <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
+            <span v-if="item.kind === 'canyon'" :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
+          </div>
         </div>
         <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
       </div>
 
+      <!-- ── Tabs ── -->
+      <div class="tab-bar" role="tablist">
+        <button v-for="tab in tabs" :key="tab.id"
+          role="tab" :aria-selected="activeTab === tab.id"
+          :class="['tab-btn', { active: activeTab === tab.id }]"
+          @click="activeTab = tab.id"
+        >{{ locale === 'en' ? tab.en : tab.zh }}</button>
+      </div>
+
+      <!-- ── Body ── -->
       <div class="panel-body">
-        <!-- Canyon Route（溪降）-->
-        <template v-if="item.kind === 'route'">
-          <div
-            v-if="
-              d.deep_pool ||
-              (d.ab_shuttle && d.ab_shuttle !== '不需要') ||
-              maxEle != null
-            "
-            class="tag-row"
-          >
-            <span v-if="d.deep_pool" class="info-tag pool">{{
-              d.deep_pool === "有"
-                ? locale === "en"
-                  ? "Deep Pool"
-                  : "有深潭"
-                : d.deep_pool === "無"
-                  ? locale === "en"
-                    ? "No Deep Pool"
-                    : "無深潭"
-                  : d.deep_pool
-            }}</span>
-            <span
-              v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'"
-              class="info-tag shuttle"
-              >{{ locale === "en" ? "A-B Shuttle" : "需要 AB 車" }}</span
-            >
-            <span v-if="maxEle != null" class="info-tag ele"
-              >{{ locale === "en" ? "Elevation" : "海拔高度" }}
-              {{ maxEle }}m</span
-            >
+
+        <!-- TAB: 快速資訊 -->
+        <template v-if="activeTab === 'info'">
+          <div class="section-label">{{ locale === 'en' ? 'QUICK INFO' : '快速資訊 QUICK INFO' }}</div>
+
+          <div v-if="d.location_zh || d.location || d.region" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '📍 Location' : '📍 地點' }}</div>
+            <div class="info-val">{{ locale === 'en' ? (d.location || d.region) : (d.location_zh || d.region) }}</div>
+            <div v-if="d.location && d.location_zh && locale !== 'en'" class="info-sub">{{ d.location }}</div>
           </div>
-          <div v-if="d.grading" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Grade" : "分級"
-            }}</span>
-            <span class="row-value">
-              <span
-                v-if="ropeGrade !== '—'"
-                :class="['grade-tag', 'rope', ropeGradeClass]"
-                :data-tooltip="
-                  (locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade]
-                "
-                tabindex="0"
-                >{{ ropeGrade }}</span
-              >
-              <span
-                v-if="waterGrade !== '—'"
-                class="grade-tag water"
-                :data-tooltip="
-                  (locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade]
-                "
-                tabindex="0"
-                >{{ waterGrade }}</span
-              >
-              <span
-                v-if="timeGrade !== '—'"
-                class="grade-tag time"
-                :data-tooltip="
-                  (locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade]
-                "
-                tabindex="0"
-                >{{ timeGrade }}</span
-              >
-              <span
-                v-if="gradingStars"
-                class="grade-stars"
-                :data-tooltip="starTip ?? undefined"
-                tabindex="0"
-                >{{ gradingStars }}</span
-              >
+
+          <div v-if="d.character_zh || d.character" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🌊 Character' : '🌊 性質' }}</div>
+            <div class="info-val">{{ locale === 'en' ? d.character : (d.character_zh || d.character) }}</div>
+          </div>
+
+          <div v-if="d.grading" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '📊 Grade' : '📊 分級' }}</div>
+            <div class="info-val grade-desc-row">
+              <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]">{{ ropeGrade }}</span>
+              <span v-if="waterGrade !== '—'" class="grade-tag water">{{ waterGrade }}</span>
+              <span v-if="timeGrade !== '—'" class="grade-tag time">{{ timeGrade }}</span>
+              <span v-if="gradingStars" class="grade-stars">{{ gradingStars }}</span>
+            </div>
+            <div v-if="ropeGrade !== '—'" class="info-sub">{{ (locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade] }}</div>
+            <div v-if="waterGrade !== '—'" class="info-sub">{{ (locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade] }}</div>
+            <div v-if="timeGrade !== '—'" class="info-sub">{{ (locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade] }}</div>
+          </div>
+
+          <div v-if="d.gear_zh || d.gear" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🪢 Gear' : '🪢 裝備' }}</div>
+            <div class="info-val">{{ locale === 'en' ? d.gear : (d.gear_zh || d.gear) }}</div>
+          </div>
+
+          <!-- Taiwan-style tags when no extended data -->
+          <template v-if="!d.location && !d.character">
+            <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要') || maxEle != null" class="tag-row">
+              <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? (locale==='en'?'Deep Pool':'有深潭') : d.deep_pool === '無' ? (locale==='en'?'No Deep Pool':'無深潭') : d.deep_pool }}</span>
+              <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">{{ locale === 'en' ? 'A-B Shuttle' : '需要 AB 車' }}</span>
+              <span v-if="maxEle != null" class="info-tag ele">{{ locale === 'en' ? 'Elevation' : '海拔高度' }} {{ maxEle }}m</span>
+            </div>
+            <div v-if="d.region" class="row">
+              <span class="row-label">{{ locale === 'en' ? 'Region' : '地區' }}</span>
+              <span class="row-value">{{ d.region }}</span>
+            </div>
+            <div v-if="d.max_drop" class="row">
+              <span class="row-label">{{ locale === 'en' ? 'Max Rappel' : '最高瀑高' }}</span>
+              <span class="row-value">{{ d.max_drop }}</span>
+            </div>
+          </template>
+
+          <!-- Max drop for NZ routes -->
+          <div v-if="d.location && d.max_drop" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '⬇ Max Drop' : '⬇ 最高落差' }}</div>
+            <div class="info-val">{{ d.max_drop }}</div>
+          </div>
+
+          <!-- Source link -->
+          <div v-if="d.source_url" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🔗 Source' : '🔗 資料來源' }}</div>
+            <a :href="d.source_url" target="_blank" rel="noopener" class="info-link">KiwiCanyons ↗</a>
+          </div>
+
+          <div v-if="d.gpx_track || noteGpxLinks.length" class="row">
+            <span class="row-label">GPX</span>
+            <span class="row-value gpx-row-value">
+              <button v-if="d.gpx_track" class="gpx-dl-btn" @click="downloadGpx">{{ locale === 'en' ? '⬇ Download GPX' : '⬇ 下載 GPX' }}</button>
+              <a v-for="link in noteGpxLinks" :key="link" :href="link" target="_blank" rel="noopener" class="note-link">{{ locale === 'en' ? 'Route GPX' : '路線 gpx' }} ↗</a>
             </span>
           </div>
-          <div v-if="d.region" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Region" : "地區"
-            }}</span>
-            <span class="row-value">{{ d.region }}</span>
+
+          <div v-if="noteHasVideo || (noteHasText && !d.source_url)" class="row">
+            <span class="row-label">{{ locale === 'en' ? 'Notes' : '附註' }}</span>
+            <span class="row-value">
+              <template v-for="(seg, i) in parseNote(d.note)" :key="i">
+                <a v-if="seg.isUrl && seg.isYoutube" :href="seg.text" target="_blank" rel="noopener" class="note-link">{{ locale === 'en' ? 'Route Video' : '路線影片' }} ↗</a>
+                <span v-else-if="!seg.isUrl">{{ seg.text }}</span>
+              </template>
+            </span>
           </div>
-          <div v-if="weatherForecastUrl" class="row">
-            <span class="row-label">{{ locale === "en" ? "Weather" : "天氣" }}</span>
-            <a class="row-value forecast-link" :href="weatherForecastUrl" target="_blank" rel="noopener">
-              {{ weatherForecastUrl?.includes('TID=') ? (locale === "en" ? "72-hour forecast" : "72 小時預報") : (locale === "en" ? "County forecast" : "縣市預報") }} ↗
+
+          <!-- Elevation profile -->
+          <div v-if="elevationData" class="elevation-section">
+            <div class="ele-header">
+              <span class="ele-title">{{ locale === 'en' ? 'Elevation Profile' : '海拔高度變化' }}</span>
+              <div class="ele-stats">
+                <span class="ele-up">↑ {{ elevationData.gain }}m</span>
+                <span class="ele-down">↓ {{ elevationData.loss }}m</span>
+              </div>
+            </div>
+            <div class="ele-chart-wrap">
+              <div class="ele-y-labels">
+                <span>{{ elevationData.maxEle }}m</span>
+                <span>{{ elevationData.minEle }}m</span>
+              </div>
+              <svg class="ele-svg" viewBox="0 0 280 60" preserveAspectRatio="none">
+                <polygon :points="elePolygon" fill="rgba(230,57,70,0.18)" />
+                <polyline :points="elePolyline" fill="none" stroke="#e63946" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </template>
+
+        <!-- TAB: 時間規劃 -->
+        <template v-else-if="activeTab === 'timing'">
+          <div class="section-label">{{ locale === 'en' ? 'TIMING' : '時間規劃 TIMING' }}</div>
+          <div v-if="d.approach_time" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🥾 Approach' : '🥾 進場時間' }}</div>
+            <div class="info-val">{{ d.approach_time }}</div>
+          </div>
+          <div v-if="d.descent_time" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🏊 Descent' : '🏊 峽谷時間' }}</div>
+            <div class="info-val">{{ d.descent_time }}</div>
+          </div>
+          <div v-if="d.total_time" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '⏱ Total' : '⏱ 全程時間' }}</div>
+            <div class="info-val">{{ d.total_time }}</div>
+          </div>
+          <div v-if="d.first_descent" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🏆 First Descent' : '🏆 首降' }}</div>
+            <div class="info-val">{{ d.first_descent }}</div>
+          </div>
+          <div v-if="!d.approach_time && !d.total_time" class="empty-tab">{{ locale === 'en' ? 'No timing data' : '尚無時間資料' }}</div>
+        </template>
+
+        <!-- TAB: 天氣水情 -->
+        <template v-else-if="activeTab === 'hydrology'">
+          <div class="section-label">{{ locale === 'en' ? 'CONDITIONS' : '天氣水情 CONDITIONS' }}</div>
+          <div v-if="weatherForecastUrl" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🌤 Weather' : '🌤 天氣預報' }}</div>
+            <a class="info-link" :href="weatherForecastUrl" target="_blank" rel="noopener">
+              {{ weatherForecastUrl.includes('TID=') ? (locale==='en'?'72-hour forecast':'72 小時預報') : (locale==='en'?'County forecast':'縣市預報') }} ↗
             </a>
           </div>
           <div v-if="nearbyWater || nearbyRainfall" class="hydrology-section">
             <div class="hydrology-title">{{ locale === 'en' ? 'Nearby hydrology' : '鄰近水文' }}</div>
-            <button
-              v-if="nearbyWater"
-              class="hydrology-row"
-              @click="emit('selectWaterStation', nearbyWater.station, nearbyWater.distance)"
-            >
+            <button v-if="nearbyWater" class="hydrology-row" @click="emit('selectWaterStation', nearbyWater.station, nearbyWater.distance)">
               <img src="/water-level.svg" alt="" />
               <span class="hydrology-copy">
                 <strong>{{ nearbyWater.station.name }}</strong>
@@ -120,11 +184,7 @@
               </span>
               <span class="hydrology-distance">{{ nearbyWater.distance.toFixed(1) }} km</span>
             </button>
-            <button
-              v-if="nearbyRainfall"
-              class="hydrology-row"
-              @click="emit('selectRainfallStation', nearbyRainfall.station, nearbyRainfall.distance)"
-            >
+            <button v-if="nearbyRainfall" class="hydrology-row" @click="emit('selectRainfallStation', nearbyRainfall.station, nearbyRainfall.distance)">
               <img src="/rainfall.svg" alt="" />
               <span class="hydrology-copy">
                 <strong>{{ nearbyRainfall.station.name }}</strong>
@@ -133,117 +193,32 @@
               <span class="hydrology-distance">{{ nearbyRainfall.distance.toFixed(1) }} km</span>
             </button>
           </div>
-          <div v-if="d.max_drop" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Max Rappel" : "最高瀑高"
-            }}</span>
-            <span class="row-value">{{ d.max_drop }}</span>
+          <div v-if="d.hazards_zh || d.hazards" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '⚠️ Hazards' : '⚠️ 危險提示' }}</div>
+            <div class="info-val warning-text">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</div>
           </div>
-          <div v-if="d.approach" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Approach" : "接近時間"
-            }}</span>
-            <span class="row-value">{{ d.approach }}</span>
-          </div>
-          <div v-if="d.total_time" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Total Time" : "全程時間"
-            }}</span>
-            <span class="row-value">{{ d.total_time }}</span>
-          </div>
-          <div v-if="d.gps" class="row">
-            <span class="row-label">{{
-              d.gpx_track
-                ? locale === "en"
-                  ? "Parking GPS"
-                  : "停車點 GPS"
-                : "GPS"
-            }}</span>
-            <a
-              v-if="d.gpx_track"
-              class="row-value coord gps-link"
-              :href="mapsUrl(d.gps.trim())"
-              target="_blank"
-              rel="noopener"
-              >{{ d.gps }} ↗</a
-            >
-            <span v-else class="row-value coord">{{ d.gps }}</span>
-          </div>
-          <div v-if="d.gpx_track || noteGpxLinks.length" class="row">
-            <span class="row-label">GPX</span>
-            <span class="row-value gpx-row-value">
-              <button
-                v-if="d.gpx_track"
-                class="gpx-dl-btn"
-                @click="downloadGpx"
-              >
-                {{ locale === "en" ? "⬇ Download GPX" : "⬇ 下載 GPX" }}
-              </button>
-              <a
-                v-for="link in noteGpxLinks"
-                :key="link"
-                :href="link"
-                target="_blank"
-                rel="noopener"
-                class="note-link"
-              >
-                {{ locale === "en" ? "Route GPX" : "路線 gpx" }} ↗
-              </a>
-            </span>
-          </div>
-          <div v-if="noteHasVideo || noteHasText" class="row">
-            <span class="row-label">{{
-              locale === "en" ? "Notes" : "附註"
-            }}</span>
-            <span class="row-value">
-              <template v-for="(seg, i) in parseNote(d.note)" :key="i">
-                <a
-                  v-if="seg.isUrl && seg.isYoutube"
-                  :href="seg.text"
-                  target="_blank"
-                  rel="noopener"
-                  class="note-link"
-                >
-                  {{ locale === "en" ? "Route Video" : "路線影片" }} ↗
-                </a>
-                <span v-else-if="!seg.isUrl">{{ seg.text }}</span>
-              </template>
-            </span>
-          </div>
+          <div v-if="!weatherForecastUrl && !nearbyWater && !nearbyRainfall && !d.hazards" class="empty-tab">{{ locale === 'en' ? 'No conditions data' : '尚無水情資料' }}</div>
         </template>
 
-        <!-- Elevation profile (shown for route kind when gpx_track has elevation) -->
-        <div v-if="elevationData" class="elevation-section">
-          <div class="ele-header">
-            <span class="ele-title">{{
-              locale === "en" ? "Elevation Profile" : "海拔高度變化"
-            }}</span>
-            <div class="ele-stats">
-              <span class="ele-up">↑ {{ elevationData.gain }}m</span>
-              <span class="ele-down">↓ {{ elevationData.loss }}m</span>
-            </div>
+        <!-- TAB: 進場路線 -->
+        <template v-else-if="activeTab === 'approach'">
+          <div class="section-label">{{ locale === 'en' ? 'APPROACH' : '進場路線 APPROACH' }}</div>
+          <div v-if="d.approach" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🥾 Route' : '🥾 主要進場' }}</div>
+            <div class="info-val approach-text">{{ d.approach }}</div>
           </div>
-          <div class="ele-chart-wrap">
-            <div class="ele-y-labels">
-              <span>{{ elevationData.maxEle }}m</span>
-              <span>{{ elevationData.minEle }}m</span>
-            </div>
-            <svg
-              class="ele-svg"
-              viewBox="0 0 280 60"
-              preserveAspectRatio="none"
-            >
-              <polygon :points="elePolygon" fill="rgba(230,57,70,0.18)" />
-              <polyline
-                :points="elePolyline"
-                fill="none"
-                stroke="#e63946"
-                stroke-width="1.5"
-                stroke-linejoin="round"
-              />
-            </svg>
+          <div v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🚗 Shuttle' : '🚗 接駁' }}</div>
+            <div class="info-val">{{ d.ab_shuttle }}</div>
           </div>
-        </div>
+          <div v-if="d.gps" class="info-block">
+            <div class="info-key">{{ d.gpx_track ? (locale==='en'?'🅿 Parking GPS':'🅿 停車點 GPS') : 'GPS' }}</div>
+            <a v-if="d.gpx_track" class="info-link coord" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
+            <span v-else class="info-val coord">{{ d.gps }}</span>
+          </div>
+          <div v-if="!d.approach" class="empty-tab">{{ locale === 'en' ? 'No approach data' : '尚無進場資料' }}</div>
+        </template>
+
       </div>
     </div>
   </Teleport>
@@ -291,10 +266,20 @@ async function clampToViewport() {
 
 onMounted(clampToViewport);
 
+const activeTab = ref<'info' | 'timing' | 'hydrology' | 'approach'>('info');
+
+const tabs = [
+  { id: 'info'      as const, zh: '快速資訊', en: 'Info' },
+  { id: 'timing'    as const, zh: '時間規劃', en: 'Timing' },
+  { id: 'hydrology' as const, zh: '天氣水情', en: 'Conditions' },
+  { id: 'approach'  as const, zh: '進場路線', en: 'Approach' },
+];
+
 watch(
   () => props.item,
   async () => {
     pos.value = props.initPos ?? null;
+    activeTab.value = 'info';
     await clampToViewport();
   },
 );
@@ -382,6 +367,16 @@ const rainfallSummary = computed(() => {
 });
 
 const title = computed(() => d.value.name);
+const eyebrow = computed(() => {
+  const r = d.value;
+  const en = locale.value === 'en';
+  return (en ? r.region_en : r.region) || r.region || '';
+});
+const subtitle = computed(() => {
+  const r = d.value;
+  return locale.value === 'en' ? (r.subtitle || '') : (r.subtitle_zh || r.subtitle || '');
+});
+const gradingCompact = computed(() => d.value.grading ?? '');
 const kindLabel = computed(() =>
   props.item.kind === "canyon"
     ? d.value.type
@@ -1068,6 +1063,143 @@ ${trksegs}
   flex: 1;
   height: 70px;
   display: block;
+}
+
+/* ── New header elements ── */
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.route-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #6c8ef5;
+  line-height: 1.25;
+}
+
+.route-subtitle {
+  font-size: 0.78rem;
+  color: #999;
+  font-style: italic;
+}
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.grade-compact {
+  display: none; /* just badges, no raw string */
+}
+
+/* ── Tab bar ── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1e1e38;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: #ccc; background: #1e1e38; }
+.tab-btn.active {
+  background: #123544;
+  border-color: #1d6577;
+  color: #8ee6f3;
+  font-weight: 500;
+}
+
+/* ── Tab content blocks ── */
+.section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #555;
+  padding: 10px 20px 4px;
+  text-transform: uppercase;
+}
+
+.info-block {
+  padding: 8px 20px;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+.info-key {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #777;
+  margin-bottom: 3px;
+}
+
+.info-val {
+  font-size: 0.85rem;
+  color: #ccc;
+  line-height: 1.55;
+}
+
+.info-sub {
+  font-size: 0.72rem;
+  color: #666;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.info-link {
+  font-size: 0.85rem;
+  color: #6c8ef5;
+  text-decoration: none;
+}
+.info-link:hover { text-decoration: underline; }
+
+.grade-desc-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.warning-text {
+  color: #e9a060;
+}
+
+.approach-text {
+  white-space: pre-line;
+}
+
+.empty-tab {
+  padding: 24px 20px;
+  font-size: 0.82rem;
+  color: #555;
+  text-align: center;
 }
 
 @media (max-width: 640px) {
