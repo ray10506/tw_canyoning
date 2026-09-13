@@ -139,3 +139,8 @@ html {
   align-items: center;
   justify-content: center;
 }
+
+@media (pointer: coarse) {
+  button { min-height: 44px; }
+  button[aria-label] { min-width: 44px; }
+}

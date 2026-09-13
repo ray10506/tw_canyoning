@@ -400,9 +400,11 @@ function nearestDistKm(lat: number, lon: number, anchor: NearbyAnchor): number {
 function filterByAnchor<T extends { lat: number; lon: number }>(
   items: T[],
   anchor: NearbyAnchor | null,
+  maxDistance?: number,
 ): { item: T; dist: number | undefined }[] {
   if (!anchor) return items.map(item => ({ item, dist: undefined }));
   const withDist = items.map(item => ({ item, dist: nearestDistKm(item.lat, item.lon, anchor) }));
+  if (maxDistance != null) return withDist.filter(x => x.dist <= maxDistance);
   const in10 = withDist.filter(x => x.dist <= 10);
   return (in10.length ? in10 : withDist.filter(x => x.dist <= 20));
 }
@@ -424,7 +426,7 @@ function renderWaterStations() {
           });
         },
       });
-  filterByAnchor(props.stationSearch?.water ?? waterStations as WaterStation[], props.stationSearch ? null : props.nearbyAnchor).forEach(({ item: s, dist }) => {
+  filterByAnchor(props.stationSearch?.water ?? waterStations as WaterStation[], props.stationSearch ? null : props.nearbyAnchor, props.stationSearch ? undefined : 5).forEach(({ item: s, dist }) => {
     const label = dist != null ? `${s.name}（${s.river}） · ${dist.toFixed(1)} km` : `${s.name}（${s.river}）`;
     L.marker([s.lat, s.lon], { icon: waterStationIcon })
       .bindTooltip(

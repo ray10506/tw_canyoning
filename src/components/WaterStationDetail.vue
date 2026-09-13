@@ -110,7 +110,13 @@ const popupLayout = computed(() => {
 })
 const popupStyle = computed(() => {
   const { left, top, width, height } = popupLayout.value
-  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, maxHeight: `${height}px`, minHeight: loading.value || error.value ? `${height}px` : undefined }
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: window.innerWidth <= 640 ? undefined : `${width}px`,
+    maxHeight: window.innerWidth <= 640 ? undefined : `${height}px`,
+    minHeight: window.innerWidth <= 640 ? undefined : loading.value || error.value ? `${height}px` : undefined,
+  }
 })
 const arrowStyle = computed(() => ({ top: `${popupLayout.value.arrowTop}px` }))
 
@@ -310,16 +316,14 @@ const chartSeries = computed<ChartSeries[]>(() => {
 /* ── Mobile: bottom sheet ── */
 @media (max-width: 640px) {
   .popup {
-    width: 100%;
-    max-width: 100%;
-    left: 0 !important;
+    width: auto;
+    max-width: none;
+    left: 12px !important;
+    right: 12px;
     top: auto !important;
-    bottom: 0;
-    max-height: 85dvh;
-    border-radius: 16px 16px 0 0;
-    border-bottom: none;
-    border-left: none;
-    border-right: none;
+    bottom: 12px;
+    max-height: calc(85dvh - 12px);
+    border-radius: 16px;
     /* Respect safe-area on devices with home indicator */
     padding-bottom: env(safe-area-inset-bottom, 0px);
     animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);

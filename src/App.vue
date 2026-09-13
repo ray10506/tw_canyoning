@@ -31,6 +31,7 @@
           :search-query="searchQuery"
           :water-stations="stationSearch?.water ?? []"
           :rainfall-stations="stationSearch?.rainfall ?? []"
+          :route-water-tones="routeWaterTones"
           @select="selectedId = $event"
           @close="sidebarOpen = false"
           @change-browse-mode="changeBrowseMode"
@@ -89,14 +90,15 @@
         @focus-waypoint="focusedWaypointIndex = $event"
       />
       <RouteDetail
+        ref="routeDetailRef"
         v-if="twDetailItem"
         :item="twDetailItem"
-        :init-pos="cardInitPos"
         :nearby-water="nearbyWater"
         :nearby-rainfall="nearbyRainfall"
         @close="detailItem = null"
         @select-water-station="openNearbyWaterStation"
         @select-rainfall-station="openNearbyRainfallStation"
+        @focus-waypoint="focusedWaypointIndex = $event"
       />
       <WaterStationDetail
         v-if="waterStationDetail"
@@ -242,9 +244,10 @@ import RainfallStationDetail from "./components/RainfallStationDetail.vue";
 import SearchCard from "./components/SearchCard.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { pb } from "./lib/pb";
-import { clamp } from "./lib/clamp";
 import { fetchElevation } from "./lib/elevation";
-import type { WaterStation } from "./lib/waterLevel";
+import { fetchAllWaterLevels, waterTone, type WaterStation, type WaterTone } from "./lib/waterLevel";
+import { haversineKm } from "./lib/geo";
+import { useResizableWidth } from "./lib/useResizableWidth";
 import { rainfallStations, type RainfallStation } from "./lib/rainfall";
 import waterStations from "./data/water-stations.json";
 import { theme } from "./lib/theme";
@@ -252,8 +255,10 @@ import { theme } from "./lib/theme";
 const sidebarOpen = ref(window.innerWidth > 640);
 const activePanel = ref<"search" | "settings" | null>(null);
 const mapRef = ref<InstanceType<typeof Map> | null>(null);
+const routeDetailRef = ref<InstanceType<typeof RouteDetail> | null>(null);
 
 type SearchSnapshot = {
+  browseMode: typeof browseMode.value;
   query: string;
   routeFilter: typeof routeFilter.value;
   gpx: boolean;
@@ -264,6 +269,7 @@ let searchSnapshot: SearchSnapshot | null = null;
 
 function openSearch() {
   searchSnapshot = {
+    browseMode: browseMode.value,
     query: searchQuery.value,
     routeFilter: { ...routeFilter.value },
     gpx: filterGpx.value,
@@ -277,14 +283,15 @@ function openSearch() {
 }
 
 function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
-  browseMode.value = mode;
   if (mode === "hydrology") {
-    openSearch();
+    openSearch();                                        // snapshot captures pre-click state
+    browseMode.value = mode;
     searchQuery.value = "";
     searchTypes.value = ["water", "rainfall"];
     nextTick(() => mapRef.value?.focusCountry("route"));
     return;
   }
+  browseMode.value = mode;
   searchQuery.value = "";
   searchTypes.value = ["route"];
   activePanel.value = null;
@@ -293,8 +300,8 @@ function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
 }
 
 function cancelSearch() {
-  browseMode.value = "route";
   if (searchSnapshot) {
+    browseMode.value = searchSnapshot.browseMode;
     searchQuery.value = searchSnapshot.query;
     routeFilter.value = searchSnapshot.routeFilter;
     filterGpx.value = searchSnapshot.gpx;
@@ -324,7 +331,6 @@ const twDetailItem = computed<{ kind: "canyon" | "route"; data: any } | null>(()
   const item = detailItem.value;
   return item && item.kind !== "nz" ? { kind: item.kind, data: item.data } : null;
 });
-const sidebarWidth = ref(280);
 const waterStationDetail = ref<{ station: WaterStation; pos: { x: number; y: number }; days: number; distance?: number } | null>(
   null,
 );
@@ -365,45 +371,12 @@ const routeFocusPoint = computed((): [number, number] | null => {
 
 const mapFocusPoint = computed(() => searchStationPoint.value ?? routeFocusPoint.value);
 
-const cardInitPos = computed((): { x: number; y: number } | null => {
-  if (detailItem.value?.kind !== "route") return null;
-  if (window.innerWidth <= 640) return null; // mobile: CSS bottom sheet handles positioning
-  const gps = detailItem.value.data.gps?.trim();
-  if (!gps) return null;
-
-  const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0;
-  const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
-  const mapCenterY = window.innerHeight / 2;
-  const cardW = 380;
-  const cardH = 420;
-  const gap = 24;
-
-  const rawX =
-    mapCenterX + gap + cardW <= window.innerWidth
-      ? mapCenterX + gap
-      : mapCenterX - gap - cardW;
-
-  const x = clamp(rawX, 0, window.innerWidth - cardW);
-  const y = clamp(mapCenterY + gap, 0, window.innerHeight - cardH - gap);
-  return { x, y };
-});
-const isResizing = ref(false);
-
-function startResize(e: MouseEvent) {
-  isResizing.value = true;
-  e.preventDefault();
-  const onMove = (ev: MouseEvent) => {
-    const max = window.innerWidth / 2;
-    sidebarWidth.value = Math.min(Math.max(ev.clientX, 200), max);
-  };
-  const onUp = () => {
-    isResizing.value = false;
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-  };
-  document.addEventListener("mousemove", onMove);
-  document.addEventListener("mouseup", onUp);
-}
+const { width: sidebarWidth, isResizing, start: startResize } = useResizableWidth(
+  280,
+  e => e.clientX,
+  200,
+  () => window.innerWidth / 2,
+);
 
 const loading = ref(true);
 const loadError = ref(false);
@@ -428,12 +401,22 @@ const routeTrack = computed(() => {
   if (detailItem.value?.kind !== "route" && detailItem.value?.kind !== "nz") return null;
   const d = detailItem.value.data;
 
-  const mapLeft = sidebarOpen.value ? sidebarWidth.value : 0;
+  const mapLeft = sidebarOpen.value && activePanel.value !== 'search' ? sidebarWidth.value : 0;
   const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
   const cardW = 380;
   const gap = 24;
   const cardOnRight = mapCenterX + gap + cardW <= window.innerWidth;
-  const pad = cardOnRight
+  const panel = detailItem.value.kind === 'route' ? routeDetailRef.value?.panelBounds : null;
+  if (detailItem.value.kind === 'route' && !panel) return null;
+  const pad = panel
+    ? {
+      paddingTopLeft: [mapLeft + 40, 40] as [number, number],
+      paddingBottomRight: [
+        panel.left > 0 ? window.innerWidth - panel.left + 40 : 40,
+        panel.left > 0 ? 40 : window.innerHeight - panel.top + 40,
+      ] as [number, number],
+    }
+    : cardOnRight
     ? { paddingTopLeft: [mapLeft + 40, 40] as [number, number], paddingBottomRight: [cardW + gap * 2, 40] as [number, number] }
     : { paddingTopLeft: [mapLeft + cardW + gap * 2, 40] as [number, number], paddingBottomRight: [40, 40] as [number, number] };
 
@@ -483,24 +466,45 @@ const nearbyAnchor = computed((): { lat: number; lon: number; pts?: [number, num
 function nearestDistanceKm(lat: number, lon: number): number {
   const anchor = nearbyAnchor.value;
   if (!anchor) return Infinity;
-  const rad = Math.PI / 180;
-  return [[anchor.lat, anchor.lon], ...(anchor.pts ?? [])].reduce((min, [pLat, pLon]) => {
-    const dLat = (lat - pLat) * rad;
-    const dLon = (lon - pLon) * rad;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(pLat * rad) * Math.cos(lat * rad) * Math.sin(dLon / 2) ** 2;
-    return Math.min(min, 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  }, Infinity);
+  return [[anchor.lat, anchor.lon], ...(anchor.pts ?? [])].reduce(
+    (min, [pLat, pLon]) => Math.min(min, haversineKm(lat, lon, pLat, pLon)),
+    Infinity,
+  );
 }
 
-function nearestStation<T extends { lat: number; lon: number }>(stations: T[]) {
+function nearestStation<T extends { lat: number; lon: number }>(stations: T[], maxDistance = 20) {
   const nearest = stations
     .map(station => ({ station, distance: nearestDistanceKm(station.lat, station.lon) }))
     .sort((a, b) => a.distance - b.distance)[0];
-  return nearest?.distance <= 20 ? nearest : null;
+  return nearest?.distance <= maxDistance ? nearest : null;
 }
 
-const nearbyWater = computed(() => nearestStation(waterStations as WaterStation[]));
+const nearbyWater = computed(() => nearestStation(waterStations as WaterStation[], 5));
 const nearbyRainfall = computed(() => nearestStation(rainfallStations));
+
+// Live water-level dot on each list row — bulk-fetched once (one WRA call covers every station),
+// so scanning the list starts answering "safe today" without opening each route.
+// ponytail: water only, rainfall needs a per-station API call; add once a bulk rainfall endpoint exists.
+const waterLevels = ref<globalThis.Map<string, number>>(new globalThis.Map());
+
+function nearestWaterStationTo(lat: number, lon: number, maxDistance = 5): WaterStation | null {
+  const nearest = (waterStations as WaterStation[])
+    .map(station => ({ station, distance: haversineKm(lat, lon, station.lat, station.lon) }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  return nearest && nearest.distance <= maxDistance ? nearest.station : null;
+}
+
+const routeWaterTones = computed<Map<string, WaterTone>>(() => {
+  const tones = new globalThis.Map<string, WaterTone>();
+  for (const route of canyonRoutes.value) {
+    const marker = routeToMarker(route);
+    if (!marker) continue;
+    const station = nearestWaterStationTo(marker.lat, marker.lon);
+    if (!station) continue;
+    tones.set(route.id, waterTone(station, waterLevels.value.get(station.id)));
+  }
+  return tones;
+});
 
 function routeToMarker(r: any) {
   const gps = r["gps"]?.trim();
@@ -837,6 +841,7 @@ onMounted(async () => {
   if (regions.length) selectedRegion.value = regions;
 
   await fetchRoutes(true);
+  fetchAllWaterLevels().then(levels => { waterLevels.value = levels; }).catch(() => {});
 
   // Restore selected route from URL
   const routeId = sp.get("route");
@@ -850,8 +855,8 @@ onMounted(async () => {
     }
   }
   await nextTick();
-  if (browseMode.value === "nz" && !selectedRouteId.value) {
-    mapRef.value?.focusCountry("nz");
+  if (!selectedRouteId.value && !sp.has("q") && !sp.has("region") && !sp.has("station")) {
+    mapRef.value?.focusCountry(browseMode.value === "nz" ? "nz" : "route");
   }
 });
 
@@ -1064,18 +1069,35 @@ const activeFilters = computed(() => {
 .resize-handle {
   position: absolute;
   top: 0;
-  right: -3px;
-  width: 6px;
+  right: -4px;
+  width: 8px;
   height: 100%;
   cursor: col-resize;
   z-index: 100;
   background: transparent;
+  transition: background 0.15s;
 }
-
 .resize-handle:hover,
 .sidebar-wrap.resizing .resize-handle {
+  background: rgba(108, 142, 245, 0.25);
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
   background: #6c8ef5;
-  opacity: 0.5;
+  box-shadow: 0 -8px 0 #6c8ef5, 0 8px 0 #6c8ef5;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.resize-handle:hover::after,
+.sidebar-wrap.resizing .resize-handle::after {
+  opacity: 1;
 }
 
 .map-container {

@@ -53,7 +53,9 @@
           >
             <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
-                <span class="canyon-name">{{ route.name }}</span>
+                <span class="canyon-name-wrap">
+                  <span class="canyon-name">{{ route.name }}</span>
+                </span>
                 <span v-if="route.max_drop" class="canyon-drop"><span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>{{ route.max_drop }}</span>
               </div>
               <div class="grade-badges">
@@ -118,11 +120,33 @@
     <!-- Hydrology tab (station results) -->
     <template v-else>
       <div v-if="!routesLoading" class="list-count">
-        <span>{{ waterStations.length + rainfallStations.length }} {{ locale === 'en' ? 'results' : '筆結果' }}</span>
+        <span>{{ canyonRoutes.length + waterStations.length + rainfallStations.length }} {{ locale === 'en' ? 'results' : '筆結果' }}</span>
       </div>
       <ul ref="routeListRef" class="canyon-list">
         <li v-if="routesLoading" class="empty">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</li>
         <template v-else>
+          <li
+            v-for="route in canyonRoutes"
+            :key="route.id"
+            :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
+            @click.stop="emit('showDetail', { kind: 'route', data: route })"
+          >
+            <div class="canyon-item-inner"><div class="canyon-right">
+              <div class="canyon-name-row">
+                <span class="canyon-name-wrap">
+                  <span class="canyon-name">{{ route.name }}</span>
+                </span>
+                <span v-if="route.max_drop" class="canyon-drop"><span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>{{ route.max_drop }}</span>
+              </div>
+              <div class="grade-badges">
+                <span v-if="vPart(route.grading)" :class="['v-pill', vGradeClass(vPart(route.grading))]">{{ vPart(route.grading) }}</span>
+                <span v-if="aPart(route.grading)" class="a-pill">{{ aPart(route.grading) }}</span>
+                <span v-if="timePart(route.grading)" class="time-pill">{{ timePart(route.grading) }}</span>
+                <span v-if="starsPart(route.grading)" class="stars-pill">{{ starsPart(route.grading) }}</span>
+              </div>
+              <span class="canyon-location">{{ route.region }}</span>
+            </div></div>
+          </li>
           <li
             v-for="station in waterStations"
             :key="`water-${station.id}`"
@@ -155,7 +179,7 @@
               </span>
             </button>
           </li>
-          <li v-if="!waterStations.length && !rainfallStations.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
+          <li v-if="!canyonRoutes.length && !waterStations.length && !rainfallStations.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
         </template>
       </ul>
     </template>
@@ -169,8 +193,20 @@ import { vGradeClass } from '../lib/grade'
 import DifficultyGuide from './DifficultyGuide.vue'
 import { pb } from '../lib/pb'
 import { locale } from '../lib/locale'
-import type { WaterStation } from '../lib/waterLevel'
+import type { WaterStation, WaterTone } from '../lib/waterLevel'
 import type { RainfallStation } from '../lib/rainfall'
+
+const TONE_LABEL: Record<WaterTone, { zh: string; en: string }> = {
+  danger: { zh: '水位達警戒，請留意', en: 'Water level at alert' },
+  warning: { zh: '水位偏高', en: 'Water level elevated' },
+  watch: { zh: '水位稍高', en: 'Water level watch' },
+  normal: { zh: '水位正常', en: 'Water level normal' },
+  'no-threshold': { zh: '未設定警戒水位', en: 'No alert level set' },
+  muted: { zh: '水位資料暫缺', en: 'Water level unavailable' },
+}
+function waterToneLabel(tone: WaterTone): string {
+  return locale.value === 'en' ? TONE_LABEL[tone].en : TONE_LABEL[tone].zh
+}
 
 const showGuide = ref(false)
 const difficultyRecords = ref<any[]>([])
@@ -202,6 +238,7 @@ const props = defineProps<{
   searchQuery: string
   waterStations: WaterStation[]
   rainfallStations: RainfallStation[]
+  routeWaterTones: Map<string, WaterTone>
 }>()
 
 const emit = defineEmits<{
@@ -655,6 +692,13 @@ function starsPart(grading: string): string {
   color: #9aa3b8;
 }
 
+.canyon-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .canyon-name {
   font-weight: 600;
   font-size: 0.9rem;
@@ -662,6 +706,19 @@ function starsPart(grading: string): string {
   line-height: 1.3;
   white-space: pre-line;
 }
+
+/* Live water-level dot — color is a shortcut, the label carries the meaning (title + aria-label) */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.tone-dot-normal  { background: #6abf8a; }
+.status-dot.tone-dot-watch   { background: #d6bd55; }
+.status-dot.tone-dot-warning { background: #e79a5e; }
+.status-dot.tone-dot-danger  { background: #e87979; }
+.status-dot.tone-dot-muted, .status-dot.tone-dot-no-threshold { background: #888; }
 
 .grade-badges {
   display: flex;

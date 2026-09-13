@@ -38,6 +38,37 @@ export function taipeiParts(iso: string): Record<string, string> {
   }).formatToParts(new Date(iso)).filter(p => p.type !== 'literal').map(p => [p.type, p.value]))
 }
 
+export type WaterTone = 'danger' | 'warning' | 'watch' | 'normal' | 'no-threshold' | 'muted'
+
+/** Alert-level tone for a reading, shared by the detail card and the route-list dot. */
+export function waterTone(station: Pick<WaterStation, 'alert1' | 'alert2' | 'alert3'>, value: number | null | undefined): WaterTone {
+  if (value == null || !Number.isFinite(value) || value === -999999) return 'muted'
+  if (station.alert1 == null && station.alert2 == null && station.alert3 == null) return 'no-threshold'
+  if (station.alert1 != null && value >= station.alert1) return 'danger'
+  if (station.alert2 != null && value >= station.alert2) return 'warning'
+  if (station.alert3 != null && value >= station.alert3) return 'watch'
+  return 'normal'
+}
+
+/** One WRA call already returns every station's current level — reuse it instead of fetching per station. */
+export async function fetchAllWaterLevels(): Promise<Map<string, number>> {
+  const res = await fetch(WRA_REALTIME_URL)
+  if (!res.ok) throw new Error(`水利署 API 錯誤 (${res.status})`)
+  const records = await res.json()
+  const levels = new Map<string, number>()
+  for (const record of Array.isArray(records) ? records : []) {
+    const value = parseWaterLevel(record.waterlevel)
+    if (value != null) levels.set(record.stationid, value)
+  }
+  return levels
+}
+
+function parseWaterLevel(raw: unknown): number | null {
+  if (raw == null || (typeof raw === 'string' && !raw.trim())) return null
+  const value = Number(raw)
+  return Number.isFinite(value) && value !== -999999 ? value : null
+}
+
 export async function fetchWaterLevel(stationId: string): Promise<WaterLevelSeries> {
   const res = await fetch(WRA_REALTIME_URL)
   if (!res.ok) throw new Error(`水利署 API 錯誤 (${res.status})`)
@@ -45,8 +76,8 @@ export async function fetchWaterLevel(stationId: string): Promise<WaterLevelSeri
   const record = Array.isArray(records) ? records.find(r => r.stationid === stationId) : null
   if (!record) throw new Error('查無水位資料')
 
-  const value = Number(record.waterlevel)
-  if (!Number.isFinite(value)) throw new Error('水位資料格式錯誤')
+  const value = parseWaterLevel(record.waterlevel)
+  if (value == null) throw new Error('水位資料格式錯誤')
 
   return {
     title: '即時水位 (m)',

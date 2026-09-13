@@ -3,12 +3,14 @@
     <div
       ref="panelRef"
       class="panel"
-      :class="{ dragging: isDragging }"
-      :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', transform: 'none' } : {}"
+      :class="{ resizing: isResizing }"
+      :style="{ width: panelWidth + 'px' }"
       @click.stop
     >
+      <div class="resize-handle" @mousedown.prevent="startResize" />
+
       <!-- ── Header ── -->
-      <div class="panel-header" @mousedown.prevent="startDrag">
+      <div class="panel-header">
         <div class="header-content">
           <!-- eyebrow -->
           <span v-if="eyebrow" class="eyebrow">{{ eyebrow }}</span>
@@ -25,6 +27,20 @@
             <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
             <span v-if="item.kind === 'canyon'" :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
           </div>
+          <!-- status strip: water level + rainfall at a glance, no tab switch needed.
+               Always rendered — silence here reads as "conditions fine", so an explicit
+               no-coverage message replaces the old no-op when there's simply no nearby station. -->
+          <button
+            :class="['status-strip', `tone-strip-${(nearbyWater || nearbyRainfall) ? statusStripTone : 'muted'}`]"
+            @click="activeTab = 'hydrology'"
+          >
+            <template v-if="nearbyWater || nearbyRainfall">
+              <span v-if="nearbyWater" :class="`tone-${waterSummary.tone}`">💧 {{ waterSummary.text }}</span>
+              <span v-if="nearbyWater && nearbyRainfall" class="status-sep">·</span>
+              <span v-if="nearbyRainfall" :class="`tone-${rainfallSummary.tone}`">🌧 {{ rainfallSummary.text }}</span>
+            </template>
+            <span v-else class="tone-muted">{{ locale === 'en' ? 'No hydrology data within range' : '範圍內沒有水文資料' }}</span>
+          </button>
         </div>
         <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
       </div>
@@ -143,8 +159,9 @@
           </div>
         </template>
 
-        <!-- TAB: 時間規劃 -->
-        <template v-else-if="activeTab === 'timing'">
+        <!-- TAB: 行程規畫 -->
+        <template v-else-if="activeTab === 'itinerary'">
+          <!-- 時間規劃 section -->
           <div class="section-label">{{ locale === 'en' ? 'TIMING' : '時間規劃 TIMING' }}</div>
           <div v-if="d.approach_time" class="info-block">
             <div class="info-key">{{ locale === 'en' ? '🥾 Approach' : '🥾 進場時間' }}</div>
@@ -162,20 +179,66 @@
             <div class="info-key">{{ locale === 'en' ? '🏆 First Descent' : '🏆 首降' }}</div>
             <div class="info-val">{{ d.first_descent }}</div>
           </div>
-          <div v-if="!d.approach_time && !d.total_time" class="empty-tab">{{ locale === 'en' ? 'No timing data' : '尚無時間資料' }}</div>
+          <!-- 進場路線 section -->
+          <div class="section-label" style="padding-top:14px">{{ locale === 'en' ? 'APPROACH' : '進場路線 APPROACH' }}</div>
+          <div v-if="d.approach" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🥾 Route' : '🥾 主要進場' }}</div>
+            <div class="info-val approach-text">{{ d.approach }}</div>
+          </div>
+          <div v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-block">
+            <div class="info-key">{{ locale === 'en' ? '🚗 Shuttle' : '🚗 接駁' }}</div>
+            <div class="info-val">{{ d.ab_shuttle }}</div>
+          </div>
+          <div v-if="d.gps" class="info-block">
+            <div class="info-key">{{ d.gpx_track ? (locale==='en'?'🅿 Parking GPS':'🅿 停車點 GPS') : 'GPS' }}</div>
+            <a v-if="d.gpx_track" class="info-link coord" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
+            <span v-else class="info-val coord">{{ d.gps }}</span>
+          </div>
+          <!-- GPX waypoints -->
+          <template v-if="waypoints.length">
+            <div class="section-label" style="padding-top:14px">{{ locale === 'en' ? 'WAYPOINTS' : '路線航點 WAYPOINTS' }}</div>
+            <div class="wpt-list">
+              <div v-for="(w, i) in waypoints" :key="i" class="wpt-item">
+                <button
+                  class="wpt-row"
+                  :class="{ active: activeWptIndex === i }"
+                  @click="toggleWpt(i)"
+                >
+                  <span class="wpt-num" :class="{ active: activeWptIndex === i }">{{ i + 1 }}</span>
+                  <span class="wpt-name">{{ w.name || (locale === 'en' ? `Point ${i + 1}` : `點位 ${i + 1}`) }}</span>
+                  <span v-if="w.ele != null" class="wpt-ele">{{ Math.round(w.ele) }}m</span>
+                  <svg class="wpt-chevron" :class="{ open: activeWptIndex === i }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div v-if="activeWptIndex === i" class="wpt-card">
+                  <a :href="mapsUrl(`${w.lat},${w.lon}`)" target="_blank" rel="noopener" class="wpt-card-coord">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                    {{ w.lat.toFixed(6) }}, {{ w.lon.toFixed(6) }} ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div v-if="!d.approach_time && !d.total_time && !d.approach && !waypoints.length" class="empty-tab">{{ locale === 'en' ? 'No itinerary data' : '尚無行程資料' }}</div>
         </template>
 
-        <!-- TAB: 天氣水情 -->
+        <!-- TAB: 氣象預報 -->
+        <template v-else-if="activeTab === 'weather'">
+          <FiveDayForecast
+            :gps="d.gps"
+            :detail-url="weatherForecastUrl || undefined"
+            :detail-label="locale === 'en' ? 'CWA detailed forecast' : '中央氣象署詳細預報'"
+          />
+        </template>
+
+        <!-- TAB: 鄰近水文 -->
         <template v-else-if="activeTab === 'hydrology'">
-          <div class="section-label">{{ locale === 'en' ? 'CONDITIONS' : '天氣水情 CONDITIONS' }}</div>
-          <div v-if="weatherForecastUrl" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🌤 Weather' : '🌤 天氣預報' }}</div>
-            <a class="info-link" :href="weatherForecastUrl" target="_blank" rel="noopener">
-              {{ weatherForecastUrl.includes('TID=') ? (locale==='en'?'72-hour forecast':'72 小時預報') : (locale==='en'?'County forecast':'縣市預報') }} ↗
-            </a>
-          </div>
+          <div class="section-label">{{ locale === 'en' ? 'HYDROLOGY' : '鄰近水文 HYDROLOGY' }}</div>
           <div v-if="nearbyWater || nearbyRainfall" class="hydrology-section">
             <div class="hydrology-title">{{ locale === 'en' ? 'Nearby hydrology' : '鄰近水文' }}</div>
+            <div class="hydrology-columns">
+              <span>{{ locale === 'en' ? 'Station' : '測站' }}</span>
+              <span>{{ locale === 'en' ? 'Distance from route' : '距離路線' }}</span>
+            </div>
             <button v-if="nearbyWater" class="hydrology-row" @click="emit('selectWaterStation', nearbyWater.station, nearbyWater.distance)">
               <img src="/water-level.svg" alt="" />
               <span class="hydrology-copy">
@@ -197,27 +260,9 @@
             <div class="info-key">{{ locale === 'en' ? '⚠️ Hazards' : '⚠️ 危險提示' }}</div>
             <div class="info-val warning-text">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</div>
           </div>
-          <div v-if="!weatherForecastUrl && !nearbyWater && !nearbyRainfall && !d.hazards" class="empty-tab">{{ locale === 'en' ? 'No conditions data' : '尚無水情資料' }}</div>
+          <div v-if="!nearbyWater && !nearbyRainfall && !d.hazards" class="empty-tab">{{ locale === 'en' ? 'No hydrology data within range' : '範圍內沒有水文資料' }}</div>
         </template>
 
-        <!-- TAB: 進場路線 -->
-        <template v-else-if="activeTab === 'approach'">
-          <div class="section-label">{{ locale === 'en' ? 'APPROACH' : '進場路線 APPROACH' }}</div>
-          <div v-if="d.approach" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🥾 Route' : '🥾 主要進場' }}</div>
-            <div class="info-val approach-text">{{ d.approach }}</div>
-          </div>
-          <div v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🚗 Shuttle' : '🚗 接駁' }}</div>
-            <div class="info-val">{{ d.ab_shuttle }}</div>
-          </div>
-          <div v-if="d.gps" class="info-block">
-            <div class="info-key">{{ d.gpx_track ? (locale==='en'?'🅿 Parking GPS':'🅿 停車點 GPS') : 'GPS' }}</div>
-            <a v-if="d.gpx_track" class="info-link coord" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
-            <span v-else class="info-val coord">{{ d.gps }}</span>
-          </div>
-          <div v-if="!d.approach" class="empty-tab">{{ locale === 'en' ? 'No approach data' : '尚無進場資料' }}</div>
-        </template>
 
       </div>
     </div>
@@ -225,19 +270,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from "vue";
-import { clamp } from "../lib/clamp";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { vGradeClass } from "../lib/grade";
 import { locale } from "../lib/locale";
-import { fetchWaterLevel, type WaterStation } from "../lib/waterLevel";
+import { fetchWaterLevel, waterTone, type WaterStation } from "../lib/waterLevel";
 import { fetchRainfallData } from "../lib/rainfallData";
 import type { RainfallStation } from "../lib/rainfall";
+import FiveDayForecast from "./FiveDayForecast.vue";
+import { useResizableWidth } from "../lib/useResizableWidth";
 
 type NearbyStation<T> = { station: T; distance: number };
 
 const props = defineProps<{
   item: { kind: "canyon" | "route"; data: any };
-  initPos?: { x: number; y: number } | null;
   nearbyWater?: NearbyStation<WaterStation> | null;
   nearbyRainfall?: NearbyStation<RainfallStation> | null;
 }>();
@@ -245,70 +290,55 @@ const emit = defineEmits<{
   close: [];
   selectWaterStation: [station: WaterStation, distance: number];
   selectRainfallStation: [station: RainfallStation, distance: number];
+  focusWaypoint: [index: number | null];
 }>();
 
+const { width: panelWidth, isResizing, start: startResize } = useResizableWidth(
+  452,
+  e => window.innerWidth - e.clientX,
+  380,
+  () => Math.min(900, window.innerWidth),
+);
+
 const panelRef = ref<HTMLElement | null>(null);
-const pos = ref<{ x: number; y: number } | null>(props.initPos ?? null);
-const isDragging = ref(false);
+const panelBounds = ref<DOMRect | null>(null);
+function updatePanelBounds() {
+  panelBounds.value = panelRef.value?.getBoundingClientRect() ?? null;
+}
+const panelObserver = new ResizeObserver(updatePanelBounds);
+onMounted(() => {
+  if (panelRef.value) panelObserver.observe(panelRef.value);
+  window.addEventListener('resize', updatePanelBounds);
+});
+onUnmounted(() => {
+  panelObserver.disconnect();
+  window.removeEventListener('resize', updatePanelBounds);
+});
+defineExpose({ panelBounds });
 
-const MARGIN = 10;
+const activeTab = ref<'info' | 'itinerary' | 'weather' | 'hydrology'>('info');
+const activeWptIndex = ref<number | null>(null);
 
-async function clampToViewport() {
-  await nextTick();
-  if (!pos.value || !panelRef.value) return;
-  const w = panelRef.value.offsetWidth;
-  const h = panelRef.value.offsetHeight;
-  pos.value = {
-    x: clamp(pos.value.x, MARGIN, window.innerWidth - w - MARGIN),
-    y: clamp(pos.value.y, MARGIN, window.innerHeight - h - MARGIN),
-  };
+function toggleWpt(i: number) {
+  const next = activeWptIndex.value === i ? null : i;
+  activeWptIndex.value = next;
+  emit('focusWaypoint', next);
 }
 
-onMounted(clampToViewport);
-
-const activeTab = ref<'info' | 'timing' | 'hydrology' | 'approach'>('info');
-
 const tabs = [
-  { id: 'info'      as const, zh: '快速資訊', en: 'Info' },
-  { id: 'timing'    as const, zh: '時間規劃', en: 'Timing' },
-  { id: 'hydrology' as const, zh: '天氣水情', en: 'Conditions' },
-  { id: 'approach'  as const, zh: '進場路線', en: 'Approach' },
+  { id: 'info'       as const, zh: '快速資訊', en: 'Info' },
+  { id: 'itinerary'  as const, zh: '行程規畫', en: 'Itinerary' },
+  { id: 'weather'    as const, zh: '氣象預報', en: 'Weather' },
+  { id: 'hydrology'  as const, zh: '鄰近水文', en: 'Hydrology' },
 ];
 
 watch(
   () => props.item,
-  async () => {
-    pos.value = props.initPos ?? null;
+  () => {
     activeTab.value = 'info';
-    await clampToViewport();
+    activeWptIndex.value = null;
   },
 );
-
-function startDrag(e: MouseEvent) {
-  if (!panelRef.value) return;
-  if (!pos.value) {
-    const r = panelRef.value.getBoundingClientRect();
-    pos.value = { x: r.left, y: r.top };
-  }
-  isDragging.value = true;
-  const offset = { x: e.clientX - pos.value.x, y: e.clientY - pos.value.y };
-
-  function onMove(ev: MouseEvent) {
-    const w = panelRef.value?.offsetWidth ?? 380;
-    const h = panelRef.value?.offsetHeight ?? 420;
-    pos.value = {
-      x: clamp(ev.clientX - offset.x, MARGIN, window.innerWidth - w - MARGIN),
-      y: clamp(ev.clientY - offset.y, MARGIN, window.innerHeight - h - MARGIN),
-    };
-  }
-  function onUp() {
-    isDragging.value = false;
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-  }
-  document.addEventListener("mousemove", onMove);
-  document.addEventListener("mouseup", onUp);
-}
 
 const d = computed(() => props.item.data);
 
@@ -347,10 +377,15 @@ const waterSummary = computed(() => {
       : s.alert3 != null && value >= s.alert3 ? (en ? 'Alert Lv.3' : '三級警戒')
         : [s.alert1, s.alert2, s.alert3].some(level => level != null) ? (en ? 'Below alert level' : '低於警戒水位')
           : (en ? 'No alert level set' : '未設定警戒水位');
-  const tone = s.alert1 != null && value >= s.alert1 ? 'danger'
-    : s.alert2 != null && value >= s.alert2 ? 'warning'
-      : s.alert3 != null && value >= s.alert3 ? 'watch' : 'normal';
-  return { tone, text: `${label} · ${value} m` };
+  return { tone: waterTone(s, value), text: `${label} · ${value} m` };
+});
+
+const TONE_RANK: Record<string, number> = { danger: 4, warning: 3, watch: 2, normal: 1, 'no-threshold': 0, muted: 0 };
+const statusStripTone = computed(() => {
+  const tones: string[] = [];
+  if (props.nearbyWater) tones.push(waterSummary.value.tone);
+  if (props.nearbyRainfall) tones.push(rainfallSummary.value.tone);
+  return tones.reduce((worst, t) => (TONE_RANK[t] > TONE_RANK[worst] ? t : worst), 'muted');
 });
 
 const rainfallSummary = computed(() => {
@@ -544,18 +579,21 @@ const starTip = computed(() => {
   return (locale.value === "en" ? STAR_TIPS_EN : STAR_TIPS)[count] ?? null;
 });
 
+/** Parsed GPX waypoints array. */
+const waypoints = computed<{ lat: number; lon: number; ele?: number; name?: string }[]>(() => {
+  if (!d.value.gpx_waypoints) return [];
+  try {
+    const parsed = typeof d.value.gpx_waypoints === 'string'
+      ? JSON.parse(d.value.gpx_waypoints)
+      : d.value.gpx_waypoints;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+});
+
 /** Max elevation from GPX waypoints (fallback when track has no ele data). */
 const maxEleFromWaypoints = computed(() => {
-  if (!d.value.gpx_waypoints) return null;
-  try {
-    const wps = JSON.parse(d.value.gpx_waypoints);
-    const eles = (wps as any[])
-      .map((p: any) => p.ele)
-      .filter((e: any) => typeof e === "number");
-    return eles.length ? Math.round(Math.max(...eles)) : null;
-  } catch {
-    return null;
-  }
+  const eles = waypoints.value.map(p => p.ele).filter((e): e is number => typeof e === 'number');
+  return eles.length ? Math.round(Math.max(...eles)) : null;
 });
 
 /** Best available max elevation: track > waypoints > stored elevation field. */
@@ -706,32 +744,42 @@ ${trksegs}
 <style scoped>
 .panel {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  right: 0;
   z-index: 1500;
   background: #12122a;
-  border: 1px solid #2a2a4a;
-  border-radius: 12px;
-  width: 450px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border-left: 1px solid #2a2a4a;
+  width: min(452px, 100vw);
+  height: 100dvh;
+  min-width: min(380px, 100vw);
+  max-width: min(900px, 100vw);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.7);
   overflow: hidden;
+}
+
+.panel.resizing { user-select: none; }
+
+.resize-handle {
+  position: absolute;
+  inset: 0 auto 0 -4px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 10;
+}
+.resize-handle:hover,
+.panel.resizing .resize-handle {
+  background: rgba(108, 142, 245, 0.25);
 }
 
 .panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #2a2a4a;
-  cursor: grab;
-}
-
-.panel.dragging .panel-header {
-  cursor: grabbing;
-}
-.panel.dragging {
-  user-select: none;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -786,7 +834,8 @@ ${trksegs}
   padding: 8px 0;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: calc(80dvh - 60px); /* 60px ≈ header height */
+  flex: 1;
+  min-height: 0;
 }
 
 .row {
@@ -870,25 +919,17 @@ ${trksegs}
   text-decoration: underline;
 }
 
-.forecast-link {
-  width: fit-content;
-  padding: 5px 10px;
-  border: 1px solid #3a3a5a;
-  border-radius: 6px;
-  color: #6c8ef5;
-  text-decoration: none;
-}
-.forecast-link:hover {
-  border-color: #6c8ef5;
-  background: #1e2d6b;
-}
-
 .hydrology-section {
   padding: 8px 20px;
   border-bottom: 1px solid #1e1e38;
 }
 
 .hydrology-title { color: #888; font-size: 0.75rem; margin-bottom: 4px; }
+.hydrology-columns {
+  display: grid; grid-template-columns: 1fr auto; gap: 12px;
+  padding: 2px 0 4px 37px; color: #666; font-size: 0.65rem;
+}
+.hydrology-columns span:last-child { text-align: right; }
 .hydrology-row {
   width: 100%;
   display: grid;
@@ -914,7 +955,7 @@ ${trksegs}
 .tone-watch { color: #d6bd55; }
 .tone-warning { color: #e79a5e; }
 .tone-danger { color: #e87979; }
-.tone-muted { color: #888; }
+.tone-muted, .tone-no-threshold { color: #888; }
 
 .grade-stars {
   font-size: 0.75rem;
@@ -1107,6 +1148,29 @@ ${trksegs}
   display: none; /* just badges, no raw string */
 }
 
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #1a1a2e;
+  font-size: 0.78rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.status-strip:hover { background: #21213e; }
+.status-strip:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
+.status-strip.tone-strip-danger { background: rgba(232, 121, 121, 0.12); }
+.status-strip.tone-strip-warning { background: rgba(231, 154, 94, 0.12); }
+.status-strip.tone-strip-watch { background: rgba(214, 189, 85, 0.1); }
+.status-sep { color: #555; }
+
 /* ── Tab bar ── */
 .tab-bar {
   display: flex;
@@ -1130,12 +1194,12 @@ ${trksegs}
   transition: all 0.15s;
   white-space: nowrap;
 }
-.tab-btn:hover { color: #ccc; background: #1e1e38; }
+.tab-btn:hover { color: #ccc; background: #252545; }
 .tab-btn.active {
-  background: #123544;
-  border-color: #1d6577;
-  color: #8ee6f3;
-  font-weight: 500;
+  background: #1e2d6b;
+  border-color: #3a5fc0;
+  color: #91a8ff;
+  font-weight: 600;
 }
 
 /* ── Tab content blocks ── */
@@ -1195,6 +1259,98 @@ ${trksegs}
   white-space: pre-line;
 }
 
+/* ── Waypoints list ── */
+.wpt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 14px 14px;
+}
+.wpt-item {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #1e1e38;
+  transition: border-color 0.13s;
+}
+.wpt-item:has(.wpt-row.active) { border-color: #3a3a5a; }
+.wpt-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #12122a;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.13s;
+}
+.wpt-row:hover { background: #1a1a38; }
+.wpt-row.active { background: #151530; }
+.wpt-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(108,142,245,0.15);
+  color: #6c8ef5;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.13s, color 0.13s;
+}
+.wpt-num.active {
+  background: #6c8ef5;
+  color: #fff;
+}
+.wpt-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wpt-ele {
+  font-size: 11px;
+  font-family: monospace;
+  color: #888;
+  flex-shrink: 0;
+}
+.wpt-chevron {
+  flex-shrink: 0;
+  color: #555;
+  transition: transform 0.2s;
+}
+.wpt-chevron.open { transform: rotate(180deg); color: #6c8ef5; }
+
+/* expanded card */
+.wpt-card {
+  padding: 10px 14px 12px 46px;
+  background: #0e0e24;
+  border-top: 1px solid #1e1e38;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wpt-card-coord {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  color: #6abf8a;
+  text-decoration: none;
+  width: fit-content;
+}
+.wpt-card-coord:hover {
+  text-decoration: underline;
+}
+
 .empty-tab {
   padding: 24px 20px;
   font-size: 0.82rem;
@@ -1202,31 +1358,26 @@ ${trksegs}
   text-align: center;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-width: 900px) and (orientation: portrait) {
   .panel {
-    /* bottom sheet on mobile */
-    top: auto;
+    top: auto !important;
     bottom: 0;
-    left: 0;
+    left: 0 !important;
     right: 0;
-    width: 100%;
+    width: 100% !important;
     max-width: 100%;
     border-radius: 16px 16px 0 0;
-    max-height: 72dvh;
-    overflow-y: auto;
+    height: 76dvh;
+    min-width: 0;
+    max-height: 100dvh;
+    border-left: none;
+    border-top: 1px solid #2a2a4a;
     transform: none;
   }
 
-  /* outer panel handles scroll on mobile — remove nested scroll from body */
-  .panel-body {
-    overflow-y: visible;
-    max-height: none;
-  }
+  .resize-handle { display: none; }
 
   .panel-header {
-    cursor: default;
-    position: sticky;
-    top: 0;
     background: #12122a;
     z-index: 1;
   }
