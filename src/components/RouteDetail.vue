@@ -21,117 +21,304 @@
           <!-- grade row -->
           <div v-if="d.grading" class="grade-row">
             <span class="grade-compact">{{ gradingCompact }}</span>
-            <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]" :data-tooltip="(locale==='en'?ROPE_TIPS_EN:ROPE_TIPS)[ropeGrade]" tabindex="0">{{ ropeGrade }}</span>
-            <span v-if="waterGrade !== '—'" class="grade-tag water" :data-tooltip="(locale==='en'?WATER_TIPS_EN:WATER_TIPS)[waterGrade]" tabindex="0">{{ waterGrade }}</span>
-            <span v-if="timeGrade !== '—'" class="grade-tag time" :data-tooltip="(locale==='en'?TIME_TIPS_EN:TIME_TIPS)[timeGrade]" tabindex="0">{{ timeGrade }}</span>
-            <span v-if="gradingStars" class="grade-stars" :data-tooltip="starTip ?? undefined" tabindex="0">{{ gradingStars }}</span>
-            <span v-if="item.kind === 'canyon'" :class="['kind-badge', item.kind]">{{ kindLabel }}</span>
+            <span
+              v-if="ropeGrade !== '—'"
+              :class="['grade-tag', 'rope', ropeGradeClass]"
+              :data-tooltip="
+                (locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade]
+              "
+              tabindex="0"
+              >{{ ropeGrade }}</span
+            >
+            <span
+              v-if="waterGrade !== '—'"
+              class="grade-tag water"
+              :data-tooltip="
+                (locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade]
+              "
+              tabindex="0"
+              >{{ waterGrade }}</span
+            >
+            <span
+              v-if="timeGrade !== '—'"
+              class="grade-tag time"
+              :data-tooltip="
+                (locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade]
+              "
+              tabindex="0"
+              >{{ timeGrade }}</span
+            >
+            <span
+              v-if="gradingStars"
+              class="grade-stars"
+              :data-tooltip="starTip ?? undefined"
+              tabindex="0"
+              >{{ gradingStars }}</span
+            >
+            <span
+              v-if="item.kind === 'canyon'"
+              :class="['kind-badge', item.kind]"
+              >{{ kindLabel }}</span
+            >
           </div>
           <!-- status strip: water level + rainfall at a glance, no tab switch needed.
                Always rendered — silence here reads as "conditions fine", so an explicit
                no-coverage message replaces the old no-op when there's simply no nearby station. -->
           <button
-            :class="['status-strip', `tone-strip-${(nearbyWater || nearbyRainfall) ? statusStripTone : 'muted'}`]"
+            :class="[
+              'status-strip',
+              `tone-strip-${nearbyWater || nearbyRainfall ? statusStripTone : 'muted'}`,
+            ]"
             @click="activeTab = 'hydrology'"
           >
             <template v-if="nearbyWater || nearbyRainfall">
-              <span v-if="nearbyWater" :class="`tone-${waterSummary.tone}`">💧 {{ waterSummary.text }}</span>
-              <span v-if="nearbyWater && nearbyRainfall" class="status-sep">·</span>
-              <span v-if="nearbyRainfall" :class="`tone-${rainfallSummary.tone}`">🌧 {{ rainfallSummary.text }}</span>
+              <span v-if="nearbyWater" :class="`tone-${waterSummary.tone}`"
+                >💧 {{ waterSummary.text }}</span
+              >
+              <span v-if="nearbyWater && nearbyRainfall" class="status-sep"
+                >·</span
+              >
+              <span
+                v-if="nearbyRainfall"
+                :class="`tone-${rainfallSummary.tone}`"
+                >🌧 {{ rainfallSummary.text }}</span
+              >
             </template>
-            <span v-else class="tone-muted">{{ locale === 'en' ? 'No hydrology data within range' : '範圍內沒有水文資料' }}</span>
+            <span v-else class="tone-muted">{{
+              locale === "en"
+                ? "No hydrology data within range"
+                : "範圍內沒有水文資料"
+            }}</span>
           </button>
         </div>
-        <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
+        <button
+          class="close-btn"
+          :aria-label="locale === 'en' ? 'Close' : '關閉'"
+          @click="$emit('close')"
+        >
+          ✕
+        </button>
       </div>
 
       <!-- ── Tabs ── -->
       <div class="tab-bar" role="tablist">
-        <button v-for="tab in tabs" :key="tab.id"
-          role="tab" :aria-selected="activeTab === tab.id"
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
           :class="['tab-btn', { active: activeTab === tab.id }]"
           @click="activeTab = tab.id"
-        >{{ locale === 'en' ? tab.en : tab.zh }}</button>
+        >
+          {{ locale === "en" ? tab.en : tab.zh }}
+        </button>
       </div>
 
       <!-- ── Body ── -->
       <div class="panel-body">
-
         <!-- TAB: 快速資訊 -->
         <template v-if="activeTab === 'info'">
-          <div class="section-label">{{ locale === 'en' ? 'QUICK INFO' : '快速資訊 QUICK INFO' }}</div>
+          <div class="section-label">
+            {{ locale === "en" ? "QUICK INFO" : "快速資訊 QUICK INFO" }}
+          </div>
 
-          <div v-if="d.location_zh || d.location || d.region" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '📍 Location' : '📍 地點' }}</div>
-            <div class="info-val">{{ locale === 'en' ? (d.location || d.region) : (d.location_zh || d.region) }}</div>
-            <div v-if="d.location && d.location_zh && locale !== 'en'" class="info-sub">{{ d.location }}</div>
+          <div
+            v-if="d.location_zh || d.location || d.region"
+            class="info-block"
+          >
+            <div class="info-key">
+              {{ locale === "en" ? "📍 Location" : "📍 地點" }}
+            </div>
+            <div class="info-val">
+              {{
+                locale === "en"
+                  ? d.location || d.region
+                  : d.location_zh || d.region
+              }}
+            </div>
+            <div
+              v-if="d.location && d.location_zh && locale !== 'en'"
+              class="info-sub"
+            >
+              {{ d.location }}
+            </div>
           </div>
 
           <div v-if="d.character_zh || d.character" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🌊 Character' : '🌊 性質' }}</div>
-            <div class="info-val">{{ locale === 'en' ? d.character : (d.character_zh || d.character) }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🌊 Character" : "🌊 性質" }}
+            </div>
+            <div class="info-val">
+              {{
+                locale === "en" ? d.character : d.character_zh || d.character
+              }}
+            </div>
           </div>
 
           <div v-if="d.grading" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '📊 Grade' : '📊 分級' }}</div>
-            <div class="info-val grade-desc-row">
-              <span v-if="ropeGrade !== '—'" :class="['grade-tag', 'rope', ropeGradeClass]">{{ ropeGrade }}</span>
-              <span v-if="waterGrade !== '—'" class="grade-tag water">{{ waterGrade }}</span>
-              <span v-if="timeGrade !== '—'" class="grade-tag time">{{ timeGrade }}</span>
-              <span v-if="gradingStars" class="grade-stars">{{ gradingStars }}</span>
+            <div class="info-key">
+              {{ locale === "en" ? "📊 Grade" : "📊 分級" }}
             </div>
-            <div v-if="ropeGrade !== '—'" class="info-sub">{{ (locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade] }}</div>
-            <div v-if="waterGrade !== '—'" class="info-sub">{{ (locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade] }}</div>
-            <div v-if="timeGrade !== '—'" class="info-sub">{{ (locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade] }}</div>
+            <div class="info-val grade-desc-row">
+              <span
+                v-if="ropeGrade !== '—'"
+                :class="['grade-tag', 'rope', ropeGradeClass]"
+                >{{ ropeGrade }}</span
+              >
+              <span v-if="waterGrade !== '—'" class="grade-tag water">{{
+                waterGrade
+              }}</span>
+              <span v-if="timeGrade !== '—'" class="grade-tag time">{{
+                timeGrade
+              }}</span>
+              <span v-if="gradingStars" class="grade-stars">{{
+                gradingStars
+              }}</span>
+            </div>
+            <div v-if="ropeGrade !== '—'" class="info-sub">
+              {{ (locale === "en" ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade] }}
+            </div>
+            <div v-if="waterGrade !== '—'" class="info-sub">
+              {{ (locale === "en" ? WATER_TIPS_EN : WATER_TIPS)[waterGrade] }}
+            </div>
+            <div v-if="timeGrade !== '—'" class="info-sub">
+              {{ (locale === "en" ? TIME_TIPS_EN : TIME_TIPS)[timeGrade] }}
+            </div>
           </div>
 
           <div v-if="d.gear_zh || d.gear" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🪢 Gear' : '🪢 裝備' }}</div>
-            <div class="info-val">{{ locale === 'en' ? d.gear : (d.gear_zh || d.gear) }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🪢 Gear" : "🪢 裝備" }}
+            </div>
+            <div class="info-val">
+              {{ locale === "en" ? d.gear : d.gear_zh || d.gear }}
+            </div>
           </div>
 
           <!-- Taiwan-style tags when no extended data -->
           <template v-if="!d.location && !d.character">
-            <div v-if="d.deep_pool || (d.ab_shuttle && d.ab_shuttle !== '不需要') || maxEle != null" class="tag-row">
-              <span v-if="d.deep_pool" class="info-tag pool">{{ d.deep_pool === '有' ? (locale==='en'?'Deep Pool':'有深潭') : d.deep_pool === '無' ? (locale==='en'?'No Deep Pool':'無深潭') : d.deep_pool }}</span>
-              <span v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-tag shuttle">{{ locale === 'en' ? 'A-B Shuttle' : '需要 AB 車' }}</span>
-              <span v-if="maxEle != null" class="info-tag ele">{{ locale === 'en' ? 'Elevation' : '海拔高度' }} {{ maxEle }}m</span>
+            <div
+              v-if="
+                d.deep_pool ||
+                (d.ab_shuttle && d.ab_shuttle !== '不需要') ||
+                maxEle != null
+              "
+              class="tag-row"
+            >
+              <span v-if="d.deep_pool" class="info-tag pool">{{
+                d.deep_pool === "有"
+                  ? locale === "en"
+                    ? "Deep Pool"
+                    : "有深潭"
+                  : d.deep_pool === "無"
+                    ? locale === "en"
+                      ? "No Deep Pool"
+                      : "無深潭"
+                    : d.deep_pool
+              }}</span>
+              <span
+                v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'"
+                class="info-tag shuttle"
+                >{{ locale === "en" ? "A-B Shuttle" : "需要 AB 車" }}</span
+              >
+              <span v-if="maxEle != null" class="info-tag ele"
+                >{{ locale === "en" ? "Elevation" : "海拔高度" }}
+                {{ maxEle }}m</span
+              >
             </div>
             <div v-if="d.region" class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Region' : '地區' }}</span>
+              <span class="row-label">{{
+                locale === "en" ? "Region" : "地區"
+              }}</span>
               <span class="row-value">{{ d.region }}</span>
             </div>
             <div v-if="d.max_drop" class="row">
-              <span class="row-label">{{ locale === 'en' ? 'Max Rappel' : '最高瀑高' }}</span>
+              <span class="row-label">{{
+                locale === "en" ? "Max Rappel" : "最高瀑高"
+              }}</span>
               <span class="row-value">{{ d.max_drop }}</span>
+            </div>
+            <div v-if="d.catchment_sampled && catchmentObserverUrl" class="row">
+              <span class="row-label">{{
+                locale === "en" ? "Catchment" : "集水區"
+              }}</span>
+              <a
+                class="catchment-link"
+                :href="catchmentObserverUrl"
+                target="_blank"
+                rel="noopener"
+                :title="
+                  locale === 'en'
+                    ? 'Open this point in Catchment Observer'
+                    : '在集水區觀察員開啟此點'
+                "
+                >~ {{ d.catchment_km2 > 0 ? d.catchment_km2 : "< 0.1" }} km²
+                ↗</a
+              >
             </div>
           </template>
 
           <!-- Max drop for NZ routes -->
           <div v-if="d.location && d.max_drop" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '⬇ Max Drop' : '⬇ 最高落差' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "⬇ Max Drop" : "⬇ 最高落差" }}
+            </div>
             <div class="info-val">{{ d.max_drop }}</div>
           </div>
 
           <!-- Source link -->
           <div v-if="d.source_url" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🔗 Source' : '🔗 資料來源' }}</div>
-            <a :href="d.source_url" target="_blank" rel="noopener" class="info-link">KiwiCanyons ↗</a>
+            <div class="info-key">
+              {{ locale === "en" ? "🔗 Source" : "🔗 資料來源" }}
+            </div>
+            <a
+              :href="d.source_url"
+              target="_blank"
+              rel="noopener"
+              class="info-link"
+              >KiwiCanyons ↗</a
+            >
           </div>
 
           <div v-if="d.gpx_track || noteGpxLinks.length" class="row">
             <span class="row-label">GPX</span>
             <span class="row-value gpx-row-value">
-              <button v-if="d.gpx_track" class="gpx-dl-btn" @click="downloadGpx">{{ locale === 'en' ? '⬇ Download GPX' : '⬇ 下載 GPX' }}</button>
-              <a v-for="link in noteGpxLinks" :key="link" :href="link" target="_blank" rel="noopener" class="note-link">{{ locale === 'en' ? 'Route GPX' : '路線 gpx' }} ↗</a>
+              <button
+                v-if="d.gpx_track"
+                class="gpx-dl-btn"
+                @click="downloadGpx"
+              >
+                {{ locale === "en" ? "⬇ Download GPX" : "⬇ 下載 GPX" }}
+              </button>
+              <a
+                v-for="link in noteGpxLinks"
+                :key="link"
+                :href="link"
+                target="_blank"
+                rel="noopener"
+                class="note-link"
+                >{{ locale === "en" ? "Route GPX" : "路線 gpx" }} ↗</a
+              >
             </span>
           </div>
 
-          <div v-if="noteHasVideo || (noteHasText && !d.source_url)" class="row">
-            <span class="row-label">{{ locale === 'en' ? 'Notes' : '附註' }}</span>
+          <div
+            v-if="noteHasVideo || (noteHasText && !d.source_url)"
+            class="row"
+          >
+            <span class="row-label">{{
+              locale === "en" ? "Notes" : "附註"
+            }}</span>
             <span class="row-value">
               <template v-for="(seg, i) in parseNote(d.note)" :key="i">
-                <a v-if="seg.isUrl && seg.isYoutube" :href="seg.text" target="_blank" rel="noopener" class="note-link">{{ locale === 'en' ? 'Route Video' : '路線影片' }} ↗</a>
+                <a
+                  v-if="seg.isUrl && seg.isYoutube"
+                  :href="seg.text"
+                  target="_blank"
+                  rel="noopener"
+                  class="note-link"
+                  >{{ locale === "en" ? "Route Video" : "路線影片" }} ↗</a
+                >
                 <span v-else-if="!seg.isUrl">{{ seg.text }}</span>
               </template>
             </span>
@@ -140,7 +327,9 @@
           <!-- Elevation profile -->
           <div v-if="elevationData" class="elevation-section">
             <div class="ele-header">
-              <span class="ele-title">{{ locale === 'en' ? 'Elevation Profile' : '海拔高度變化' }}</span>
+              <span class="ele-title">{{
+                locale === "en" ? "Elevation Profile" : "海拔高度變化"
+              }}</span>
               <div class="ele-stats">
                 <span class="ele-up">↑ {{ elevationData.gain }}m</span>
                 <span class="ele-down">↓ {{ elevationData.loss }}m</span>
@@ -151,9 +340,19 @@
                 <span>{{ elevationData.maxEle }}m</span>
                 <span>{{ elevationData.minEle }}m</span>
               </div>
-              <svg class="ele-svg" viewBox="0 0 280 60" preserveAspectRatio="none">
+              <svg
+                class="ele-svg"
+                viewBox="0 0 280 60"
+                preserveAspectRatio="none"
+              >
                 <polygon :points="elePolygon" fill="rgba(230,57,70,0.18)" />
-                <polyline :points="elePolyline" fill="none" stroke="#e63946" stroke-width="1.5" stroke-linejoin="round" />
+                <polyline
+                  :points="elePolyline"
+                  fill="none"
+                  stroke="#e63946"
+                  stroke-width="1.5"
+                  stroke-linejoin="round"
+                />
               </svg>
             </div>
           </div>
@@ -162,41 +361,77 @@
         <!-- TAB: 行程規畫 -->
         <template v-else-if="activeTab === 'itinerary'">
           <!-- 時間規劃 section -->
-          <div class="section-label">{{ locale === 'en' ? 'TIMING' : '時間規劃 TIMING' }}</div>
+          <div class="section-label">
+            {{ locale === "en" ? "TIMING" : "時間規劃 TIMING" }}
+          </div>
           <div v-if="d.approach_time" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🥾 Approach' : '🥾 進場時間' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🥾 Approach" : "🥾 進場時間" }}
+            </div>
             <div class="info-val">{{ d.approach_time }}</div>
           </div>
           <div v-if="d.descent_time" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🏊 Descent' : '🏊 峽谷時間' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🏊 Descent" : "🏊 峽谷時間" }}
+            </div>
             <div class="info-val">{{ d.descent_time }}</div>
           </div>
           <div v-if="d.total_time" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '⏱ Total' : '⏱ 全程時間' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "⏱ Total" : "⏱ 全程時間" }}
+            </div>
             <div class="info-val">{{ d.total_time }}</div>
           </div>
           <div v-if="d.first_descent" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🏆 First Descent' : '🏆 首降' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🏆 First Descent" : "🏆 首降" }}
+            </div>
             <div class="info-val">{{ d.first_descent }}</div>
           </div>
           <!-- 進場路線 section -->
-          <div class="section-label" style="padding-top:14px">{{ locale === 'en' ? 'APPROACH' : '進場路線 APPROACH' }}</div>
+          <div class="section-label" style="padding-top: 14px">
+            {{ locale === "en" ? "APPROACH" : "進場路線 APPROACH" }}
+          </div>
           <div v-if="d.approach" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🥾 Route' : '🥾 主要進場' }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "🥾 Route" : "🥾 主要進場" }}
+            </div>
             <div class="info-val approach-text">{{ d.approach }}</div>
           </div>
-          <div v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '🚗 Shuttle' : '🚗 接駁' }}</div>
+          <div
+            v-if="d.ab_shuttle && d.ab_shuttle !== '不需要'"
+            class="info-block"
+          >
+            <div class="info-key">
+              {{ locale === "en" ? "🚗 Shuttle" : "🚗 接駁" }}
+            </div>
             <div class="info-val">{{ d.ab_shuttle }}</div>
           </div>
           <div v-if="d.gps" class="info-block">
-            <div class="info-key">{{ d.gpx_track ? (locale==='en'?'🅿 Parking GPS':'🅿 停車點 GPS') : 'GPS' }}</div>
-            <a v-if="d.gpx_track" class="info-link coord" :href="mapsUrl(d.gps.trim())" target="_blank" rel="noopener">{{ d.gps }} ↗</a>
+            <div class="info-key">
+              {{
+                d.gpx_track
+                  ? locale === "en"
+                    ? "🅿 Parking GPS"
+                    : "🅿 停車點 GPS"
+                  : "GPS"
+              }}
+            </div>
+            <a
+              v-if="d.gpx_track"
+              class="info-link coord"
+              :href="mapsUrl(d.gps.trim())"
+              target="_blank"
+              rel="noopener"
+              >{{ d.gps }} ↗</a
+            >
             <span v-else class="info-val coord">{{ d.gps }}</span>
           </div>
           <!-- GPX waypoints -->
           <template v-if="waypoints.length">
-            <div class="section-label" style="padding-top:14px">{{ locale === 'en' ? 'WAYPOINTS' : '路線航點 WAYPOINTS' }}</div>
+            <div class="section-label" style="padding-top: 14px">
+              {{ locale === "en" ? "WAYPOINTS" : "路線航點 WAYPOINTS" }}
+            </div>
             <div class="wpt-list">
               <div v-for="(w, i) in waypoints" :key="i" class="wpt-item">
                 <button
@@ -204,21 +439,66 @@
                   :class="{ active: activeWptIndex === i }"
                   @click="toggleWpt(i)"
                 >
-                  <span class="wpt-num" :class="{ active: activeWptIndex === i }">{{ i + 1 }}</span>
-                  <span class="wpt-name">{{ w.name || (locale === 'en' ? `Point ${i + 1}` : `點位 ${i + 1}`) }}</span>
-                  <span v-if="w.ele != null" class="wpt-ele">{{ Math.round(w.ele) }}m</span>
-                  <svg class="wpt-chevron" :class="{ open: activeWptIndex === i }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                  <span
+                    class="wpt-num"
+                    :class="{ active: activeWptIndex === i }"
+                    >{{ i + 1 }}</span
+                  >
+                  <span class="wpt-name">{{
+                    w.name ||
+                    (locale === "en" ? `Point ${i + 1}` : `點位 ${i + 1}`)
+                  }}</span>
+                  <span v-if="w.ele != null" class="wpt-ele"
+                    >{{ Math.round(w.ele) }}m</span
+                  >
+                  <svg
+                    class="wpt-chevron"
+                    :class="{ open: activeWptIndex === i }"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </button>
                 <div v-if="activeWptIndex === i" class="wpt-card">
-                  <a :href="mapsUrl(`${w.lat},${w.lon}`)" target="_blank" rel="noopener" class="wpt-card-coord">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                  <a
+                    :href="mapsUrl(`${w.lat},${w.lon}`)"
+                    target="_blank"
+                    rel="noopener"
+                    class="wpt-card-coord"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                    </svg>
                     {{ w.lat.toFixed(6) }}, {{ w.lon.toFixed(6) }} ↗
                   </a>
                 </div>
               </div>
             </div>
           </template>
-          <div v-if="!d.approach_time && !d.total_time && !d.approach && !waypoints.length" class="empty-tab">{{ locale === 'en' ? 'No itinerary data' : '尚無行程資料' }}</div>
+          <div
+            v-if="
+              !d.approach_time &&
+              !d.total_time &&
+              !d.approach &&
+              !waypoints.length
+            "
+            class="empty-tab"
+          >
+            {{ locale === "en" ? "No itinerary data" : "尚無行程資料" }}
+          </div>
         </template>
 
         <!-- TAB: 氣象預報 -->
@@ -226,44 +506,91 @@
           <FiveDayForecast
             :gps="d.gps"
             :detail-url="weatherForecastUrl || undefined"
-            :detail-label="locale === 'en' ? 'CWA detailed forecast' : '中央氣象署詳細預報'"
+            :detail-label="
+              locale === 'en' ? 'CWA detailed forecast' : '中央氣象署詳細預報'
+            "
           />
         </template>
 
         <!-- TAB: 鄰近水文 -->
         <template v-else-if="activeTab === 'hydrology'">
-          <div class="section-label">{{ locale === 'en' ? 'HYDROLOGY' : '鄰近水文 HYDROLOGY' }}</div>
+          <div class="section-label">
+            {{ locale === "en" ? "HYDROLOGY" : "鄰近水文 HYDROLOGY" }}
+          </div>
           <div v-if="nearbyWater || nearbyRainfall" class="hydrology-section">
-            <div class="hydrology-title">{{ locale === 'en' ? 'Nearby hydrology' : '鄰近水文' }}</div>
-            <div class="hydrology-columns">
-              <span>{{ locale === 'en' ? 'Station' : '測站' }}</span>
-              <span>{{ locale === 'en' ? 'Distance from route' : '距離路線' }}</span>
+            <div class="hydrology-title">
+              {{ locale === "en" ? "Nearby hydrology" : "鄰近水文" }}
             </div>
-            <button v-if="nearbyWater" class="hydrology-row" @click="emit('selectWaterStation', nearbyWater.station, nearbyWater.distance)">
+            <div class="hydrology-columns">
+              <span>{{ locale === "en" ? "Station" : "測站" }}</span>
+              <span>{{
+                locale === "en" ? "Distance from route" : "距離路線"
+              }}</span>
+            </div>
+            <button
+              v-if="nearbyWater"
+              class="hydrology-row"
+              @click="
+                emit(
+                  'selectWaterStation',
+                  nearbyWater.station,
+                  nearbyWater.distance,
+                )
+              "
+            >
               <img src="/water-level.svg" alt="" />
               <span class="hydrology-copy">
                 <strong>{{ nearbyWater.station.name }}</strong>
-                <small :class="`tone-${waterSummary.tone}`">{{ waterSummary.text }}</small>
+                <small :class="`tone-${waterSummary.tone}`">{{
+                  waterSummary.text
+                }}</small>
               </span>
-              <span class="hydrology-distance">{{ nearbyWater.distance.toFixed(1) }} km</span>
+              <span class="hydrology-distance"
+                >{{ nearbyWater.distance.toFixed(1) }} km</span
+              >
             </button>
-            <button v-if="nearbyRainfall" class="hydrology-row" @click="emit('selectRainfallStation', nearbyRainfall.station, nearbyRainfall.distance)">
+            <button
+              v-if="nearbyRainfall"
+              class="hydrology-row"
+              @click="
+                emit(
+                  'selectRainfallStation',
+                  nearbyRainfall.station,
+                  nearbyRainfall.distance,
+                )
+              "
+            >
               <img src="/rainfall.svg" alt="" />
               <span class="hydrology-copy">
                 <strong>{{ nearbyRainfall.station.name }}</strong>
-                <small :class="`tone-${rainfallSummary.tone}`">{{ rainfallSummary.text }}</small>
+                <small :class="`tone-${rainfallSummary.tone}`">{{
+                  rainfallSummary.text
+                }}</small>
               </span>
-              <span class="hydrology-distance">{{ nearbyRainfall.distance.toFixed(1) }} km</span>
+              <span class="hydrology-distance"
+                >{{ nearbyRainfall.distance.toFixed(1) }} km</span
+              >
             </button>
           </div>
           <div v-if="d.hazards_zh || d.hazards" class="info-block">
-            <div class="info-key">{{ locale === 'en' ? '⚠️ Hazards' : '⚠️ 危險提示' }}</div>
-            <div class="info-val warning-text">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</div>
+            <div class="info-key">
+              {{ locale === "en" ? "⚠️ Hazards" : "⚠️ 危險提示" }}
+            </div>
+            <div class="info-val warning-text">
+              {{ locale === "en" ? d.hazards : d.hazards_zh || d.hazards }}
+            </div>
           </div>
-          <div v-if="!nearbyWater && !nearbyRainfall && !d.hazards" class="empty-tab">{{ locale === 'en' ? 'No hydrology data within range' : '範圍內沒有水文資料' }}</div>
+          <div
+            v-if="!nearbyWater && !nearbyRainfall && !d.hazards"
+            class="empty-tab"
+          >
+            {{
+              locale === "en"
+                ? "No hydrology data within range"
+                : "範圍內沒有水文資料"
+            }}
+          </div>
         </template>
-
-
       </div>
     </div>
   </Teleport>
@@ -273,7 +600,11 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { vGradeClass } from "../lib/grade";
 import { locale } from "../lib/locale";
-import { fetchWaterLevel, waterTone, type WaterStation } from "../lib/waterLevel";
+import {
+  fetchWaterLevel,
+  waterTone,
+  type WaterStation,
+} from "../lib/waterLevel";
 import { fetchRainfallData } from "../lib/rainfallData";
 import type { RainfallStation } from "../lib/rainfall";
 import FiveDayForecast from "./FiveDayForecast.vue";
@@ -293,9 +624,13 @@ const emit = defineEmits<{
   focusWaypoint: [index: number | null];
 }>();
 
-const { width: panelWidth, isResizing, start: startResize } = useResizableWidth(
+const {
+  width: panelWidth,
+  isResizing,
+  start: startResize,
+} = useResizableWidth(
   452,
-  e => window.innerWidth - e.clientX,
+  (e) => window.innerWidth - e.clientX,
   380,
   () => Math.min(900, window.innerWidth),
 );
@@ -308,34 +643,34 @@ function updatePanelBounds() {
 const panelObserver = new ResizeObserver(updatePanelBounds);
 onMounted(() => {
   if (panelRef.value) panelObserver.observe(panelRef.value);
-  window.addEventListener('resize', updatePanelBounds);
+  window.addEventListener("resize", updatePanelBounds);
 });
 onUnmounted(() => {
   panelObserver.disconnect();
-  window.removeEventListener('resize', updatePanelBounds);
+  window.removeEventListener("resize", updatePanelBounds);
 });
 defineExpose({ panelBounds });
 
-const activeTab = ref<'info' | 'itinerary' | 'weather' | 'hydrology'>('info');
+const activeTab = ref<"info" | "itinerary" | "weather" | "hydrology">("info");
 const activeWptIndex = ref<number | null>(null);
 
 function toggleWpt(i: number) {
   const next = activeWptIndex.value === i ? null : i;
   activeWptIndex.value = next;
-  emit('focusWaypoint', next);
+  emit("focusWaypoint", next);
 }
 
 const tabs = [
-  { id: 'info'       as const, zh: '快速資訊', en: 'Info' },
-  { id: 'itinerary'  as const, zh: '行程規畫', en: 'Itinerary' },
-  { id: 'weather'    as const, zh: '氣象預報', en: 'Weather' },
-  { id: 'hydrology'  as const, zh: '鄰近水文', en: 'Hydrology' },
+  { id: "info" as const, zh: "快速資訊", en: "Info" },
+  { id: "itinerary" as const, zh: "行程規畫", en: "Itinerary" },
+  { id: "weather" as const, zh: "氣象預報", en: "Weather" },
+  { id: "hydrology" as const, zh: "鄰近水文", en: "Hydrology" },
 ];
 
 watch(
   () => props.item,
   () => {
-    activeTab.value = 'info';
+    activeTab.value = "info";
     activeWptIndex.value = null;
   },
 );
@@ -351,67 +686,147 @@ async function loadNearbyHydrology() {
   waterReading.value = props.nearbyWater ? undefined : null;
   rainfall24hr.value = props.nearbyRainfall ? undefined : null;
   const [water, rain] = await Promise.allSettled([
-    props.nearbyWater ? fetchWaterLevel(props.nearbyWater.station.id) : Promise.resolve(null),
-    props.nearbyRainfall ? fetchRainfallData(props.nearbyRainfall.station.station_id) : Promise.resolve(null),
+    props.nearbyWater
+      ? fetchWaterLevel(props.nearbyWater.station.id)
+      : Promise.resolve(null),
+    props.nearbyRainfall
+      ? fetchRainfallData(props.nearbyRainfall.station.station_id)
+      : Promise.resolve(null),
   ]);
   if (requestId !== hydrologyRequestId) return;
-  const waterPoints = water.status === 'fulfilled' ? water.value?.points : null;
-  waterReading.value = waterPoints?.length ? (waterPoints[waterPoints.length - 1].value ?? null) : null;
-  rainfall24hr.value = rain.status === 'fulfilled' ? (rain.value?.past24hr ?? null) : null;
+  const waterPoints = water.status === "fulfilled" ? water.value?.points : null;
+  waterReading.value = waterPoints?.length
+    ? (waterPoints[waterPoints.length - 1].value ?? null)
+    : null;
+  rainfall24hr.value =
+    rain.status === "fulfilled" ? (rain.value?.past24hr ?? null) : null;
 }
 
 watch(
-  () => [props.item.data.id, props.nearbyWater?.station.id, props.nearbyRainfall?.station.station_id],
+  () => [
+    props.item.data.id,
+    props.nearbyWater?.station.id,
+    props.nearbyRainfall?.station.station_id,
+  ],
   loadNearbyHydrology,
   { immediate: true },
 );
 
 const waterSummary = computed(() => {
   const value = waterReading.value;
-  const en = locale.value === 'en';
-  if (value === undefined) return { tone: 'muted', text: en ? 'Loading current level…' : '正在取得即時水位…' };
-  if (value == null || !props.nearbyWater) return { tone: 'muted', text: en ? 'Current level unavailable' : '即時水位暫時無法取得' };
+  const en = locale.value === "en";
+  if (value === undefined)
+    return {
+      tone: "muted",
+      text: en ? "Loading current level…" : "正在取得即時水位…",
+    };
+  if (value == null || !props.nearbyWater)
+    return {
+      tone: "muted",
+      text: en ? "Current level unavailable" : "即時水位暫時無法取得",
+    };
   const s = props.nearbyWater.station;
-  const label = s.alert1 != null && value >= s.alert1 ? (en ? 'Alert Lv.1' : '一級警戒')
-    : s.alert2 != null && value >= s.alert2 ? (en ? 'Alert Lv.2' : '二級警戒')
-      : s.alert3 != null && value >= s.alert3 ? (en ? 'Alert Lv.3' : '三級警戒')
-        : [s.alert1, s.alert2, s.alert3].some(level => level != null) ? (en ? 'Below alert level' : '低於警戒水位')
-          : (en ? 'No alert level set' : '未設定警戒水位');
+  const label =
+    s.alert1 != null && value >= s.alert1
+      ? en
+        ? "Alert Lv.1"
+        : "一級警戒"
+      : s.alert2 != null && value >= s.alert2
+        ? en
+          ? "Alert Lv.2"
+          : "二級警戒"
+        : s.alert3 != null && value >= s.alert3
+          ? en
+            ? "Alert Lv.3"
+            : "三級警戒"
+          : [s.alert1, s.alert2, s.alert3].some((level) => level != null)
+            ? en
+              ? "Below alert level"
+              : "低於警戒水位"
+            : en
+              ? "No alert level set"
+              : "未設定警戒水位";
   return { tone: waterTone(s, value), text: `${label} · ${value} m` };
 });
 
-const TONE_RANK: Record<string, number> = { danger: 4, warning: 3, watch: 2, normal: 1, 'no-threshold': 0, muted: 0 };
+const TONE_RANK: Record<string, number> = {
+  danger: 4,
+  warning: 3,
+  watch: 2,
+  normal: 1,
+  "no-threshold": 0,
+  muted: 0,
+};
 const statusStripTone = computed(() => {
   const tones: string[] = [];
   if (props.nearbyWater) tones.push(waterSummary.value.tone);
   if (props.nearbyRainfall) tones.push(rainfallSummary.value.tone);
-  return tones.reduce((worst, t) => (TONE_RANK[t] > TONE_RANK[worst] ? t : worst), 'muted');
+  return tones.reduce(
+    (worst, t) => (TONE_RANK[t] > TONE_RANK[worst] ? t : worst),
+    "muted",
+  );
 });
 
 const rainfallSummary = computed(() => {
   const value = rainfall24hr.value;
-  const en = locale.value === 'en';
-  if (value === undefined) return { tone: 'muted', text: en ? 'Loading 24-hour rainfall…' : '正在取得 24 小時雨量…' };
-  if (value == null) return { tone: 'muted', text: en ? '24-hour rainfall unavailable' : '24 小時雨量暫時無法取得' };
-  const tone = value >= 200 ? 'danger' : value >= 80 ? 'warning' : value > 0 ? 'watch' : 'normal';
-  const label = value >= 200 ? (en ? 'Extremely heavy rain' : '累積雨量偏高')
-    : value >= 80 ? (en ? 'Heavy rain' : '請留意累積雨量')
-      : value > 0 ? (en ? 'Recent rainfall' : '近期有降雨')
-        : (en ? 'Lower recent rainfall' : '近期降雨較少');
-  return { tone, text: `${label} · 24h ${value} mm` };
+  const en = locale.value === "en";
+  if (value === undefined)
+    return {
+      tone: "muted",
+      text: en ? "Loading 24-hour rainfall…" : "正在取得 24 小時雨量…",
+    };
+  if (value == null)
+    return {
+      tone: "muted",
+      text: en ? "24-hour rainfall unavailable" : "24 小時雨量暫時無法取得",
+    };
+  const tone =
+    value >= 200
+      ? "danger"
+      : value >= 80
+        ? "warning"
+        : value > 0
+          ? "watch"
+          : "normal";
+  const label =
+    value >= 200
+      ? en
+        ? "Extremely heavy rain"
+        : "累積雨量偏高"
+      : value >= 80
+        ? en
+          ? "Heavy rain"
+          : "請留意累積雨量"
+        : value > 0
+          ? en
+            ? "Recent rainfall"
+            : "近期有降雨"
+          : en
+            ? "Lower recent rainfall"
+            : "近期降雨較少";
+  return { tone, text: `${label} · 24hr ${value} mm` };
 });
 
 const title = computed(() => d.value.name);
+const catchmentObserverUrl = computed(() => {
+  const gps = String(d.value.catchment_gps || d.value.gps || "").trim();
+  const [lat, lon] = gps.split(/[\s,]+/).map(Number);
+  return Number.isFinite(lat) && Number.isFinite(lon)
+    ? `https://wiwari.github.io/accTW/?center=${lat},${lon}&zoom=14`
+    : "";
+});
 const eyebrow = computed(() => {
   const r = d.value;
-  const en = locale.value === 'en';
-  return (en ? r.region_en : r.region) || r.region || '';
+  const en = locale.value === "en";
+  return (en ? r.region_en : r.region) || r.region || "";
 });
 const subtitle = computed(() => {
   const r = d.value;
-  return locale.value === 'en' ? (r.subtitle || '') : (r.subtitle_zh || r.subtitle || '');
+  return locale.value === "en"
+    ? r.subtitle || ""
+    : r.subtitle_zh || r.subtitle || "";
 });
-const gradingCompact = computed(() => d.value.grading ?? '');
+const gradingCompact = computed(() => d.value.grading ?? "");
 const kindLabel = computed(() =>
   props.item.kind === "canyon"
     ? d.value.type
@@ -453,49 +868,109 @@ function mapsUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-import cwaTowns from '../data/cwa-towns.json';
+import cwaTowns from "../data/cwa-towns.json";
 
 const WEATHER_COUNTY_IDS: Record<string, string> = {
-  "臺北市": "63", "台北市": "63", 台北: "63", Taipei: "63",
-  "新北市": "65", 新北: "65", "New Taipei": "65",
-  "桃園市": "68", 桃園: "68", Taoyuan: "68",
-  "臺中市": "66", "台中市": "66", 台中: "66", Taichung: "66",
-  "臺南市": "67", "台南市": "67", 台南: "67", Tainan: "67",
-  "高雄市": "64", 高雄: "64", Kaohsiung: "64",
-  "基隆市": "10017", 基隆: "10017", Keelung: "10017",
-  "新竹市": "10018", "Hsinchu City": "10018",
-  "新竹縣": "10004", "Hsinchu County": "10004", 新竹: "10004", Hsinchu: "10004",
-  "苗栗縣": "10005", 苗栗: "10005", Miaoli: "10005",
-  "彰化縣": "10007", 彰化: "10007", Changhua: "10007",
-  "南投縣": "10008", 南投: "10008", Nantou: "10008",
-  "雲林縣": "10009", 雲林: "10009", Yunlin: "10009",
-  "嘉義縣": "10010", "Chiayi County": "10010", 嘉義: "10010", Chiayi: "10010",
-  "嘉義市": "10020", "Chiayi City": "10020",
-  "屏東縣": "10013", 屏東: "10013", Pingtung: "10013",
-  "宜蘭縣": "10002", 宜蘭: "10002", Yilan: "10002",
-  "花蓮縣": "10015", 花蓮: "10015", Hualien: "10015",
-  "臺東縣": "10014", "台東縣": "10014", 台東: "10014", Taitung: "10014",
-  "澎湖縣": "10016", 澎湖: "10016", Penghu: "10016",
-  "金門縣": "09020", Kinmen: "09020",
-  "連江縣": "09007", Lienchiang: "09007",
+  臺北市: "63",
+  台北市: "63",
+  台北: "63",
+  Taipei: "63",
+  新北市: "65",
+  新北: "65",
+  "New Taipei": "65",
+  桃園市: "68",
+  桃園: "68",
+  Taoyuan: "68",
+  臺中市: "66",
+  台中市: "66",
+  台中: "66",
+  Taichung: "66",
+  臺南市: "67",
+  台南市: "67",
+  台南: "67",
+  Tainan: "67",
+  高雄市: "64",
+  高雄: "64",
+  Kaohsiung: "64",
+  基隆市: "10017",
+  基隆: "10017",
+  Keelung: "10017",
+  新竹市: "10018",
+  "Hsinchu City": "10018",
+  新竹縣: "10004",
+  "Hsinchu County": "10004",
+  新竹: "10004",
+  Hsinchu: "10004",
+  苗栗縣: "10005",
+  苗栗: "10005",
+  Miaoli: "10005",
+  彰化縣: "10007",
+  彰化: "10007",
+  Changhua: "10007",
+  南投縣: "10008",
+  南投: "10008",
+  Nantou: "10008",
+  雲林縣: "10009",
+  雲林: "10009",
+  Yunlin: "10009",
+  嘉義縣: "10010",
+  "Chiayi County": "10010",
+  嘉義: "10010",
+  Chiayi: "10010",
+  嘉義市: "10020",
+  "Chiayi City": "10020",
+  屏東縣: "10013",
+  屏東: "10013",
+  Pingtung: "10013",
+  宜蘭縣: "10002",
+  宜蘭: "10002",
+  Yilan: "10002",
+  花蓮縣: "10015",
+  花蓮: "10015",
+  Hualien: "10015",
+  臺東縣: "10014",
+  台東縣: "10014",
+  台東: "10014",
+  Taitung: "10014",
+  澎湖縣: "10016",
+  澎湖: "10016",
+  Penghu: "10016",
+  金門縣: "09020",
+  Kinmen: "09020",
+  連江縣: "09007",
+  Lienchiang: "09007",
 };
 
 const weatherForecastUrl = computed(() => {
   const region = String(d.value.region_zh || d.value.region || "");
-  const normalize = (value: string) => value.toLowerCase().replace(/臺/g, '台').replace(/['’]/g, '');
-  const county = Object.entries(WEATHER_COUNTY_IDS).sort(([a], [b]) => b.length - a.length)
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/臺/g, "台").replace(/['’]/g, "");
+  const county = Object.entries(WEATHER_COUNTY_IDS)
+    .sort(([a], [b]) => b.length - a.length)
     .find(([name]) => normalize(region).startsWith(normalize(name)));
   const countyId = county?.[1];
-  const district = normalize(county ? region.slice(county[0].length) : region).replace(/^[市縣\s·・,，-]+/, '');
-  const towns = countyId ? (cwaTowns as Record<string, { id: string; zh: string; en: string }[]>)[countyId] ?? [] : Object.values(cwaTowns).flat();
-  const matches = towns.filter(t => {
+  const district = normalize(
+    county ? region.slice(county[0].length) : region,
+  ).replace(/^[市縣\s·・,，-]+/, "");
+  const towns = countyId
+    ? ((cwaTowns as Record<string, { id: string; zh: string; en: string }[]>)[
+        countyId
+      ] ?? [])
+    : Object.values(cwaTowns).flat();
+  const matches = towns.filter((t) => {
     const zh = normalize(t.zh);
-    const en = normalize(t.en).replace(/ (district|township|city)$/, '');
-    return district.startsWith(zh) || district === zh.replace(/[區鄉鎮市]$/, '') ||
-      district === en || district.startsWith(`${en} `) || district.startsWith(`${en}(`);
+    const en = normalize(t.en).replace(/ (district|township|city)$/, "");
+    return (
+      district.startsWith(zh) ||
+      district === zh.replace(/[區鄉鎮市]$/, "") ||
+      district === en ||
+      district.startsWith(`${en} `) ||
+      district.startsWith(`${en}(`)
+    );
   });
   const town = matches.length === 1 ? matches[0] : null;
-  if (town) return `https://www.cwa.gov.tw/V8/${locale.value === 'en' ? 'E' : 'C'}/W/Town/Town.html?TID=${town.id}`;
+  if (town)
+    return `https://www.cwa.gov.tw/V8/${locale.value === "en" ? "E" : "C"}/W/Town/Town.html?TID=${town.id}`;
   return countyId
     ? `https://www.cwa.gov.tw/V8/C/W/County/County.html?CID=${countyId}`
     : null;
@@ -580,19 +1055,26 @@ const starTip = computed(() => {
 });
 
 /** Parsed GPX waypoints array. */
-const waypoints = computed<{ lat: number; lon: number; ele?: number; name?: string }[]>(() => {
+const waypoints = computed<
+  { lat: number; lon: number; ele?: number; name?: string }[]
+>(() => {
   if (!d.value.gpx_waypoints) return [];
   try {
-    const parsed = typeof d.value.gpx_waypoints === 'string'
-      ? JSON.parse(d.value.gpx_waypoints)
-      : d.value.gpx_waypoints;
+    const parsed =
+      typeof d.value.gpx_waypoints === "string"
+        ? JSON.parse(d.value.gpx_waypoints)
+        : d.value.gpx_waypoints;
     return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 });
 
 /** Max elevation from GPX waypoints (fallback when track has no ele data). */
 const maxEleFromWaypoints = computed(() => {
-  const eles = waypoints.value.map(p => p.ele).filter((e): e is number => typeof e === 'number');
+  const eles = waypoints.value
+    .map((p) => p.ele)
+    .filter((e): e is number => typeof e === "number");
   return eles.length ? Math.round(Math.max(...eles)) : null;
 });
 
@@ -759,7 +1241,9 @@ ${trksegs}
   overflow: hidden;
 }
 
-.panel.resizing { user-select: none; }
+.panel.resizing {
+  user-select: none;
+}
 
 .resize-handle {
   position: absolute;
@@ -866,6 +1350,20 @@ ${trksegs}
   flex-wrap: wrap;
 }
 
+.catchment-link {
+  color: #6c8ef5;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+.catchment-link:hover,
+.catchment-link:focus-visible {
+  color: #8da6ff;
+  text-decoration-color: currentColor;
+}
+
 .stars {
   color: #f0a030;
   letter-spacing: 2px;
@@ -924,12 +1422,22 @@ ${trksegs}
   border-bottom: 1px solid #1e1e38;
 }
 
-.hydrology-title { color: #888; font-size: 0.75rem; margin-bottom: 4px; }
-.hydrology-columns {
-  display: grid; grid-template-columns: 1fr auto; gap: 12px;
-  padding: 2px 0 4px 37px; color: #666; font-size: 0.65rem;
+.hydrology-title {
+  color: #888;
+  font-size: 0.75rem;
+  margin-bottom: 4px;
 }
-.hydrology-columns span:last-child { text-align: right; }
+.hydrology-columns {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 2px 0 4px 37px;
+  color: #666;
+  font-size: 0.65rem;
+}
+.hydrology-columns span:last-child {
+  text-align: right;
+}
 .hydrology-row {
   width: 100%;
   display: grid;
@@ -943,19 +1451,55 @@ ${trksegs}
   text-align: left;
   cursor: pointer;
 }
-.hydrology-row + .hydrology-row { border-top: 1px solid #1e1e38; }
-.hydrology-row:hover strong { color: #91a8ff; }
-.hydrology-row:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
-.hydrology-row img { width: 24px; height: 24px; object-fit: contain; }
-.hydrology-copy { min-width: 0; display: grid; gap: 2px; }
-.hydrology-copy strong { color: #ddd; font-size: 0.82rem; overflow-wrap: anywhere; }
-.hydrology-copy small { font-size: 0.7rem; }
-.hydrology-distance { color: #999; font-size: 0.72rem; white-space: nowrap; }
-.tone-normal { color: #6abf8a; }
-.tone-watch { color: #d6bd55; }
-.tone-warning { color: #e79a5e; }
-.tone-danger { color: #e87979; }
-.tone-muted, .tone-no-threshold { color: #888; }
+.hydrology-row + .hydrology-row {
+  border-top: 1px solid #1e1e38;
+}
+.hydrology-row:hover strong {
+  color: #91a8ff;
+}
+.hydrology-row:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
+.hydrology-row img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.hydrology-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.hydrology-copy strong {
+  color: #ddd;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+.hydrology-copy small {
+  font-size: 0.7rem;
+}
+.hydrology-distance {
+  color: #999;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.tone-normal {
+  color: #6abf8a;
+}
+.tone-watch {
+  color: #d6bd55;
+}
+.tone-warning {
+  color: #e79a5e;
+}
+.tone-danger {
+  color: #e87979;
+}
+.tone-muted,
+.tone-no-threshold {
+  color: #888;
+}
 
 .grade-stars {
   font-size: 0.75rem;
@@ -1164,12 +1708,25 @@ ${trksegs}
   cursor: pointer;
   transition: background 0.15s;
 }
-.status-strip:hover { background: #21213e; }
-.status-strip:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
-.status-strip.tone-strip-danger { background: rgba(232, 121, 121, 0.12); }
-.status-strip.tone-strip-warning { background: rgba(231, 154, 94, 0.12); }
-.status-strip.tone-strip-watch { background: rgba(214, 189, 85, 0.1); }
-.status-sep { color: #555; }
+.status-strip:hover {
+  background: #21213e;
+}
+.status-strip:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
+.status-strip.tone-strip-danger {
+  background: rgba(232, 121, 121, 0.12);
+}
+.status-strip.tone-strip-warning {
+  background: rgba(231, 154, 94, 0.12);
+}
+.status-strip.tone-strip-watch {
+  background: rgba(214, 189, 85, 0.1);
+}
+.status-sep {
+  color: #555;
+}
 
 /* ── Tab bar ── */
 .tab-bar {
@@ -1180,7 +1737,9 @@ ${trksegs}
   overflow-x: auto;
   scrollbar-width: none;
 }
-.tab-bar::-webkit-scrollbar { display: none; }
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
 
 .tab-btn {
   flex-shrink: 0;
@@ -1194,7 +1753,10 @@ ${trksegs}
   transition: all 0.15s;
   white-space: nowrap;
 }
-.tab-btn:hover { color: #ccc; background: #252545; }
+.tab-btn:hover {
+  color: #ccc;
+  background: #252545;
+}
 .tab-btn.active {
   background: #1e2d6b;
   border-color: #3a5fc0;
@@ -1242,7 +1804,9 @@ ${trksegs}
   color: #6c8ef5;
   text-decoration: none;
 }
-.info-link:hover { text-decoration: underline; }
+.info-link:hover {
+  text-decoration: underline;
+}
 
 .grade-desc-row {
   display: flex;
@@ -1272,7 +1836,9 @@ ${trksegs}
   border: 1px solid #1e1e38;
   transition: border-color 0.13s;
 }
-.wpt-item:has(.wpt-row.active) { border-color: #3a3a5a; }
+.wpt-item:has(.wpt-row.active) {
+  border-color: #3a3a5a;
+}
 .wpt-row {
   width: 100%;
   display: flex;
@@ -1285,14 +1851,18 @@ ${trksegs}
   text-align: left;
   transition: background 0.13s;
 }
-.wpt-row:hover { background: #1a1a38; }
-.wpt-row.active { background: #151530; }
+.wpt-row:hover {
+  background: #1a1a38;
+}
+.wpt-row.active {
+  background: #151530;
+}
 .wpt-num {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(108,142,245,0.15);
+  background: rgba(108, 142, 245, 0.15);
   color: #6c8ef5;
   font-size: 11px;
   font-weight: 700;
@@ -1300,7 +1870,9 @@ ${trksegs}
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.13s, color 0.13s;
+  transition:
+    background 0.13s,
+    color 0.13s;
 }
 .wpt-num.active {
   background: #6c8ef5;
@@ -1326,7 +1898,10 @@ ${trksegs}
   color: #555;
   transition: transform 0.2s;
 }
-.wpt-chevron.open { transform: rotate(180deg); color: #6c8ef5; }
+.wpt-chevron.open {
+  transform: rotate(180deg);
+  color: #6c8ef5;
+}
 
 /* expanded card */
 .wpt-card {
@@ -1375,7 +1950,9 @@ ${trksegs}
     transform: none;
   }
 
-  .resize-handle { display: none; }
+  .resize-handle {
+    display: none;
+  }
 
   .panel-header {
     background: #12122a;

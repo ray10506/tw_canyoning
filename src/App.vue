@@ -786,7 +786,7 @@ async function fetchRoutes(showOverlay: boolean) {
   try {
     const isEn = locale.value === "en";
     const nameF = isEn ? "name_en" : "name";
-    const twFields = 'id,name,name_en,region,region_en,grading,max_drop,approach,total_time,gps,gpx_track,gpx_waypoints,elevation,deep_pool,ab_shuttle,note';
+    const twFields = 'id,name,name_en,region,region_en,grading,max_drop,approach,total_time,gps,gpx_track,gpx_waypoints,elevation,catchment_km2,catchment_sampled,catchment_gps,deep_pool,ab_shuttle,note';
     const [twRecords, nzRecords] = await Promise.all([
       pb.collection("canyon_routes").getFullList({
         sort: nameF,
