@@ -107,6 +107,10 @@
               <dt><span class="ic">🏆</span>{{ locale === 'en' ? 'First Descent' : '首降' }}</dt>
               <dd class="dim">{{ d.first_descent }}</dd>
             </div>
+            <div v-if="d.topo_url" class="row">
+              <dt><span class="ic">🗺</span>{{ locale === 'en' ? 'Topo' : 'Topo 下載' }}</dt>
+              <dd><a :href="d.topo_url" target="_blank" rel="noopener" class="ir-link">{{ locale === 'en' ? 'Download PDF ↗' : '下載 PDF ↗' }}</a></dd>
+            </div>
             <div v-if="d.source_url" class="row">
               <dt><span class="ic">🔗</span>{{ locale === 'en' ? 'Source' : '來源' }}</dt>
               <dd><a :href="d.source_url" target="_blank" rel="noopener" class="ir-link">KiwiCanyons ↗</a></dd>
@@ -335,10 +339,6 @@
             <dd class="highlight">{{ d.max_drop }}</dd>
           </div>
         </dl>
-        <div v-if="d.topo_url" class="row" style="padding:12px 20px">
-          <dt style="font-size:12px;color:var(--dim);font-weight:600">🔗 {{ locale === 'en' ? 'Full Topo' : '完整路線圖' }}</dt>
-          <dd><a :href="d.topo_url" target="_blank" rel="noopener" class="ir-link">{{ locale === 'en' ? 'Download PDF ↗' : '下載 PDF ↗' }}</a></dd>
-        </div>
         <div v-if="!d.hazards && !d.hazards_zh" class="dos-empty">
           {{ locale === 'en' ? 'No risk data' : '尚無風險資料' }}
         </div>
