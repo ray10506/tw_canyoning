@@ -254,7 +254,7 @@
             </span>
           </div>
         </div>
-        <div v-if="!d.approach && !waypoints.length" class="dos-empty">
+        <div v-if="!approachSteps.length && !d.approach && !d.gps && !waypoints.length" class="dos-empty">
           {{ locale === 'en' ? 'No approach data' : '尚無進場資料' }}
         </div>
       </template>
@@ -265,23 +265,20 @@
           <div class="section-sub">
             {{ locale === 'en' ? 'ORIGINAL TOPO' : '原始路線圖 ORIGINAL TOPO' }}
           </div>
-          <p v-if="d.topo_url" class="topo-note">{{ locale === 'en' ? 'Official KiwiCanyons maps and hand-drawn topo.' : 'KiwiCanyons 官方地圖與手繪路線圖。' }}</p>
-          <template v-if="d.topo_url">
-            <div v-if="topoPages.length" class="topo-stack">
-              <a v-for="item in topoPages" :key="item.page"
-                :href="item.asset" target="_blank" rel="noopener"
-                class="topo-figure"
-              >
-                <figcaption>{{ locale === 'en' ? item.en : (item.zh || item.en) }}</figcaption>
-                <img :src="item.asset" :alt="`${d.name_en || d.name} ${item.en || 'topo'}`" class="topo-image" loading="lazy" />
-              </a>
-            </div>
-            <div v-else class="dos-empty">{{ locale === 'en' ? 'Topo images are unavailable.' : '路線圖圖片目前無法使用。' }}</div>
-            <a :href="d.topo_url" target="_blank" rel="noopener" class="topo-dl-btn">
-              ⬇ {{ locale === 'en' ? 'Download Topo PDF' : '下載路線圖 PDF' }}
+          <p v-if="topoPages.length || d.topo_url" class="topo-note">{{ locale === 'en' ? 'Official KiwiCanyons maps and hand-drawn topo.' : 'KiwiCanyons 官方地圖與手繪路線圖。' }}</p>
+          <div v-if="topoPages.length" class="topo-stack">
+            <a v-for="item in topoPages" :key="item.page"
+              :href="item.asset" target="_blank" rel="noopener"
+              class="topo-figure"
+            >
+              <figcaption>{{ locale === 'en' ? item.en : (item.zh || item.en) }}</figcaption>
+              <img :src="item.asset" :alt="`${d.name_en || d.name} ${item.en || 'topo'}`" class="topo-image" loading="lazy" />
             </a>
-          </template>
-          <div v-else class="dos-empty">{{ locale === 'en' ? 'KiwiCanyons has not published an official topo yet.' : 'KiwiCanyons 尚未提供官方路線圖。' }}</div>
+          </div>
+          <a v-if="d.topo_url" :href="d.topo_url" target="_blank" rel="noopener" class="topo-dl-btn">
+            ⬇ {{ locale === 'en' ? 'Download Topo PDF' : '下載路線圖 PDF' }}
+          </a>
+          <div v-if="!topoPages.length && !d.topo_url" class="dos-empty">{{ locale === 'en' ? 'KiwiCanyons has not published an official topo yet.' : 'KiwiCanyons 尚未提供官方路線圖。' }}</div>
         </div>
       </template>
 
@@ -302,7 +299,10 @@
           <div class="section-sub">{{ locale === 'en' ? 'VIDEOS' : '影片' }}</div>
           <div class="video-list">
             <a v-for="item in videos" :key="item.url" :href="item.url" target="_blank" rel="noopener" class="video-row">
-              <span class="video-play" aria-hidden="true">▶</span>
+              <span class="video-icon" aria-hidden="true">
+                <svg v-if="item.provider === 'YouTube'" viewBox="0 0 24 24" width="22" height="22" fill="#FF0000"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="currentColor" class="video-play-generic"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 8l6 4-6 4V8z"/></svg>
+              </span>
               <span>
                 <strong>{{ item.title }}</strong>
                 <small>{{ item.provider }}</small>
@@ -421,6 +421,12 @@ const NZ_FORECASTS = [
     zh: '西部地區',
     en: 'Westland Region',
     url: 'https://www.metservice.com/rural/regions/westland',
+  },
+  {
+    regions: ['arthur’s pass', "arthur's pass", 'canterbury'],
+    zh: 'Arthur’s Pass 國家公園',
+    en: "Arthur's Pass National Park",
+    url: 'https://www.metservice.com/mountains-and-parks/national-parks/arthurs-pass',
   },
 ] as const
 
@@ -726,13 +732,15 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .updates-source { display: block; margin: 14px; color: var(--cyan); font-size: 13px; text-decoration: none; }
 .updates-source:hover { text-decoration: underline; }
 
-.video-list { padding: 0 14px; }
-.video-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; padding: 14px 6px; border-bottom: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.video-list { padding: 0 14px; display: flex; flex-direction: column; gap: 8px; }
+.video-row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 10px; padding: 12px 12px; border-radius: 6px; background: var(--bg2, rgba(255,255,255,.05)); border: 1px solid var(--line); color: var(--text); text-decoration: none; transition: border-color .15s, background .15s; }
+.video-row:hover { border-color: var(--cyan); background: var(--bg3, rgba(255,255,255,.08)); }
 .video-row:hover strong { color: var(--cyan2); }
-.video-play { color: var(--cyan); font-size: 16px; }
+.video-icon { display: flex; align-items: center; justify-content: center; }
+.video-play-generic { color: var(--cyan); }
 .video-row strong { display: block; font-size: 13.5px; line-height: 1.45; transition: color .13s; }
 .video-row small { display: block; margin-top: 3px; color: var(--dim); font-size: 11.5px; }
-.video-open { color: var(--cyan); }
+.video-open { color: var(--cyan); font-size: 15px; }
 
 /* ── Section sub-heading ── */
 .section-sub {

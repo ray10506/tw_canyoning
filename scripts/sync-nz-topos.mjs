@@ -17,6 +17,7 @@ const PDF = {
   general: 'https://www.kiwicanyons.org/wp-content/uploads/2026/05/20180402-The-General-v5a3VI-full-topo-.pdf',
   robinson: 'https://www.kiwicanyons.org/wp-content/uploads/2024/01/Robinson-Creek-CanyonTopo-updated-Jan-24.pdf',
   falls_hollyford: 'https://www.kiwicanyons.org/wp-content/uploads/2021/02/20260113-Falls-Creek-Hollyford-Topo-V4.pdf',
+  dickson: 'https://www.kiwicanyons.org/wp-content/uploads/2022/05/Dickson-River-v2.0.pdf',
 }
 
 const page = (page, asset, en = 'Topo', zh = '路線圖') => ({ page, asset, en, zh })
@@ -25,13 +26,19 @@ const section = (name, zh, time, detail = '', timing = {}) => ({ name, zh, time,
 const update = (date, author, en, zh) => ({ date, author, en, zh })
 const video = (title, url, provider) => ({ title, url, provider })
 
-const generalGpx = readFileSync(new URL('../public/gpx/nz/the-general-intermedio.gpx', import.meta.url), 'utf8')
-const generalPoints = [...generalGpx.matchAll(/<trkpt lat="([^"]+)" lon="([^"]+)"[^>]*>(.*?)<\/trkpt>/gs)].map(match => {
-  const elevation = match[3].match(/<ele>([^<]+)<\/ele>/)?.[1]
-  return [Number(match[1]), Number(match[2]), ...(elevation ? [Math.round(Number(elevation))] : [])]
-})
-const generalTrack = Array.from({ length: 300 }, (_, index) => generalPoints[Math.round(index * (generalPoints.length - 1) / 299)])
-if (generalPoints.length < 300 || generalTrack.some(point => point.some(value => !Number.isFinite(value)))) throw new Error('Invalid The General GPX')
+function readGpxTrack(path, sampleCount = 300) {
+  const gpx = readFileSync(new URL(path, import.meta.url), 'utf8')
+  const points = [...gpx.matchAll(/<trkpt lat="([^"]+)" lon="([^"]+)"[^>]*>(.*?)<\/trkpt>/gs)].map(match => {
+    const elevation = match[3].match(/<ele>([^<]+)<\/ele>/)?.[1]
+    return [Number(match[1]), Number(match[2]), ...(elevation ? [Math.round(Number(elevation))] : [])]
+  })
+  if (!points.length || points.some(point => point.some(value => !Number.isFinite(value)))) throw new Error(`Invalid GPX: ${path}`)
+  const length = Math.min(sampleCount, points.length)
+  return Array.from({ length }, (_, index) => points[Math.round(index * (points.length - 1) / Math.max(1, length - 1))])
+}
+
+const generalTrack = readGpxTrack('../public/gpx/nz/the-general-intermedio.gpx')
+const barrackTrack = readGpxTrack('../public/gpx/nz/barrack-walk-in.gpx')
 
 const ROUTES = {
   'Wilson Creek': {
@@ -252,9 +259,168 @@ const ROUTES = {
       video('Blue Pool Falls — Falls Creek Canyon', 'https://www.youtube.com/watch?v=5XPZ6bFVD_Y', 'YouTube'),
     ],
   },
+  'Dickson River': {
+    source_url: 'https://www.kiwicanyons.org/dickson-river/', topo_url: PDF.dickson, topo_page: 1,
+    grading: 'v3 a4 IV ★★★', max_drop: '', first_descent: 'First full descent: Keith Riley, Zak Shaw & Zack Stone, April 2022',
+    region: '紐西蘭 Mikonui Valley', region_en: 'New Zealand · Mikonui Valley, Westland',
+    location: 'Mikonui Valley, Westland', location_zh: '西部地區 Mikonui Valley',
+    subtitle: 'Relentless bedrock slot with jumps and unlikely-looking problems', subtitle_zh: '連續不間斷的基岩窄峽，包含跳水與多個特殊地形',
+    character: 'Very committing, continuous bedrock canyon with few rope pitches', character_zh: '高承諾度、連續的基岩峽谷，主要以跳水、攀爬與滑瀑推進',
+    gps: '-43.0300598, 170.9108734', elevation: 351,
+    approach_time: '5 hrs', descent_time: '4 hrs 30 min', return_time: '1 hr', total_time: '11 hrs',
+    gear: '1 × 60m rope; carry anchor repair material', gear_zh: '1 條 60m 繩；攜帶固定點維修材料',
+    hazards: 'Enter only with a good forecast. Escapes are occasional, difficult and require a steep bush climb back to the Mikonui Spur track.', hazards_zh: '只在穩定好天氣進入。撤退點少且困難，需陡上灌木林返回 Mikonui Spur 步道。',
+    details: { map_sheet: 'Mikonui Valley', rock: 'Bedrock schist', rock_zh: '基岩片岩', water: 'Low flow is best; medium flow may be manageable by a strong team', water_zh: '低水量最佳；強隊可能可在中等水量通行', catchment: 'Alpine; snowmelt until mid-summer', catchment_zh: '高山集水區；融雪可持續至盛夏', anchors: '3 bolted anchors, 1 tree and 2 bollards', anchors_zh: '3 組螺栓、1 個樹木及 2 個岩角確保點', flood: 'High; good forecast required', flood_zh: '高；必須確認穩定天氣' },
+    approach_steps: [
+      step('From Totara Valley Road, follow the Mikonui River route to Dickson Stream and the marked Mikonui Spur Biv track.', '由 Totara Valley Road 沿 Mikonui River 前進至 Dickson Stream，再接 Mikonui Spur Biv 標示路線。'),
+      step('Near the 1116 m high point, leave the track before the gully and follow the broad spur southwest, keeping left of the slip.', '接近 1116m 高點時，在溪溝前離開步道，沿寬稜向西南，保持在崩塌地左側。'),
+      step('Descend the second slip, then traverse left through bush to the broad ridge toward lower Grimmond Creek.', '由第二處崩塌地下降，再向左橫越林地，接往 lower Grimmond Creek 的寬稜。'),
+    ],
+    route_sections: [section('Main canyon', '主峽谷', '4 hrs 30 min', 'Continuous bedrock slot with mostly jumps, scrambles and slides; rope is needed only occasionally.')],
+    topo_pages: [page(1, '/topos/nz/dickson-map.jpg', 'Approach map', '進場地圖'), page(1, '/topos/nz/dickson-aerial.jpg', 'Aerial approach', '空照進場路線')],
+    photos: [
+      'https://www.kiwicanyons.org/wp-content/uploads/2022/05/Dickson-River-Keith-Riley-1-1.jpeg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2022/05/Dickson-River-Keith-Riley-4.jpeg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2022/05/Dickson-River-Keith-Riley-2-1.jpeg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2022/05/Dickson-River-Keith-Riley-5.jpeg',
+    ],
+    recent_updates: [], videos: [],
+  },
+  'Edwards River': {
+    source_url: 'https://www.kiwicanyons.org/edwards-river-gorge/', topo_url: '', topo_page: 0,
+    grading: 'v3 a4 IV ★★★', max_drop: '45m', first_descent: 'First kayak descent: October 2012; equipped for canyoning by Tom Johns & John Harris, February 2020',
+    region: '紐西蘭 Arthur’s Pass', region_en: 'New Zealand · Arthur’s Pass, Canterbury',
+    location: 'Edwards River, Arthur’s Pass National Park', location_zh: 'Arthur’s Pass 國家公園 Edwards River',
+    subtitle: 'Cold river gorge with long swims, jumps and boulder problems', subtitle_zh: '低溫河川峽谷，包含長距離游泳、跳水與巨石地形',
+    character: 'A high-flow river canyon with 8–9 pitches and mandatory swims', character_zh: '大水量河川峽谷，約 8–9 個落差並有強制游泳段',
+    gps: '-42.9611969, 171.6394043', elevation: 878,
+    approach_time: '2 hrs 15 min', descent_time: '6–7 hrs', return_time: '1 hr 15 min', total_time: '9.5–10.5 hrs',
+    gear: 'Thick 5mm wetsuit, warm layers and an extra sling; R6/7 is 45m combined or R6 is 30m', gear_zh: '厚 5mm 防寒衣、保暖層與額外扁帶；R6／R7 合併為 45m，單走 R6 為 30m',
+    hazards: 'Major pools were gravel-filled after the March 2026 floods. Check every jump. Strong swimmers are required; hydraulic features and the R2 siphon sequence demand careful movement.', hazards_zh: '2026 年 3 月洪水後主要水潭被礫石填高，所有跳水都須重新確認。需要強健泳者，水流地形與 R2 虹吸段必須謹慎通過。',
+    details: { map_sheet: "Arthur's Pass / Waimakariri", rock: 'Not published', rock_zh: '未公布', water: 'River canyon; descend only at low flow. Reference gauge: Waimak Below Otarama under 50 cumecs (ECAN).', water_zh: '河川型峽谷；只適合低水量進入。參考水位站：ECAN 的 Waimak Below Otarama 低於 50 m³/s。', catchment: 'Not published', catchment_zh: '未公布', anchors: 'All rappel bolt anchors are double bolted; white Dyneema cord upgraded February 2025', anchors_zh: '所有垂降螺栓站皆為雙點；白色 Dyneema 繩環於 2025 年 2 月升級', flood: 'High; river flow changes the hazards', flood_zh: '高；河川流量會直接改變風險' },
+    approach_steps: [step('Follow the Edwards Hut Track until the top of the gorge and Edwards Hut are visible.', '沿 Edwards Hut Track 前進，直到可看見峽谷頂端與 Edwards Hut。')],
+    route_sections: [section('River gorge', '河川峽谷', '6–7 hrs', 'Eight to nine pitches with bouldering, downclimbs, jumps and mandatory swims. Multiple true-left escapes exist but are long and steep.')],
+    topo_pages: [page(1, 'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Edwards-Jan-2026-724x1024.jpg')],
+    photos: [
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Edwards-River-Canyon-John-Harris-1.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Edwards-River-Canyon-John-Harris-2.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Edwards-River-Canyon-John-Harris-3.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Edwards-River-Canyon-John-Harris-4.jpg',
+    ],
+    recent_updates: [
+      update('2026-03-21', 'Nola Collie', 'Recent floods filled major pools with gravel, reducing the number of jumps. White Dyneema anchors were in good condition; normal flow, four people, 2.75 / 4 / 2.25 hours.', '近期洪水以礫石填高主要水潭，可跳地形減少。白色 Dyneema 固定點狀況良好；正常水量，4 人，進場／下降／回程為 2.75／4／2.25 小時。'),
+      update('2026-03-07', 'Will Talbot', 'Anchors were usable and older white anchor cord was backed up with blue cord. Several jumps no longer went; three people took 2.75 / 5.5 / 1.5 hours.', '固定點可用，較舊的白色繩環另以藍繩補強。數個跳水已不可行；3 人耗時 2.75／5.5／1.5 小時。'),
+      update('2025-02-15', 'Nola Collie', 'One year since re-bolting; all anchors in great condition. Lots of good jumps. Some gravel had moved on the last major pool. Water temperature was cold despite a hot day — wear layers. Four people, 2.75 / 5 / 1.5 hours.', '重新打螺栓後一年，固定點狀況極佳。跳水地形豐富。最大水潭底部有礫石移動。炎熱天氣下水溫仍冷，建議穿保暖層。4 人，耗時 2.75／5／1.5 小時。'),
+      update('2024-01-13', 'Nola Collie', 'Anchor upgrade completed this trip (took longer than usual). Beautiful blue deep pools, good flow, cold water. Quick walk out on track. Four people, 2.75 / 8 / 1.5 hours.', '本次完成固定點升級作業（耗時較長）。水潭深藍漂亮，水量正常但水溫冷。步道回程快速。4 人，耗時 2.75／8／1.5 小時。'),
+    ],
+    videos: [video('First descent of the Edwards River', 'https://www.youtube.com/watch?v=kiVmk703KHU', 'YouTube')],
+  },
+  'Barrack Creek': {
+    source_url: 'https://www.kiwicanyons.org/barrack-creek-v5a4iv/', topo_url: 'https://app.box.com/s/g2dsbavcrdpz026zxq2vlt1flscx0im0', topo_page: 2,
+    grading: 'v5 a4 IV ★★★', max_drop: '65m', first_descent: 'Chris Harrington & Justin Venable, March 2015',
+    region: '紐西蘭 Otira Valley', region_en: 'New Zealand · Otira Valley, Westland',
+    location: 'Barrack Creek, Otira Valley', location_zh: '西部地區 Otira Valley，Barrack Creek',
+    subtitle: 'Steep aquatic alpine canyon with a dramatic final rappel series', subtitle_zh: '陡峭的大水量高山峽谷，末段為連續大型垂降',
+    character: 'Polished greywacke, blue pools and 19 pitches across four sections', character_zh: '光滑雜砂岩、藍色水潭，共 19 個落差、分為四段',
+    gps: '-42.8472748, 171.5904846', elevation: 1061,
+    gpx_url: '/gpx/nz/barrack-walk-in.gpx', gpx_track: JSON.stringify([barrackTrack]),
+    approach_time: '3 hrs', descent_time: '8 hrs', return_time: '30 min', total_time: '11 hrs 30 min',
+    gear: '2 × 70m ropes; carry substantial replacement webbing and rappel rings', gear_zh: '2 條 70m 繩；攜帶充足替換扁帶與垂降環',
+    hazards: 'Remote and committing after the first middle-section pitch. Anchors range from double bolts to single or natural anchors and may be missing after floods.', hazards_zh: '位置偏遠；拉掉中段第一個落差的繩後即無法撤退。固定點包含雙螺栓、單螺栓與天然點，洪水後可能缺失。',
+    details: { map_sheet: 'BV20 Otira', rock: 'Greywacke', rock_zh: '雜砂岩', water: 'Moderate normal flow; top section about a3 and middle about a4', water_zh: '正常為中等水量；上段約 a3、中段約 a4', catchment: '4 km²', catchment_zh: '4 km²', anchors: 'Bolted and natural anchors', anchors_zh: '螺栓與天然確保點', flood: 'Moderate', flood_zh: '中等' },
+    approach_steps: [
+      step('Park on SH73 before the Rolleston River Bridge, about 3 km before Otira.', '在 Otira 前約 3km、Rolleston River Bridge 前的 SH73 彎道旁停車。'),
+      step('Follow the 4WD track to Barrack Creek, walk 500 m upstream, then climb the marked true-right route above the bush line.', '沿四驅車道到 Barrack Creek，上溯 500m，再走真右岸標記路線爬升至林線上方。'),
+      step('Around 1340 m, sidle across the boulder field and descend open tussock slopes to the entry near 1200 m.', '約 1340m 處橫越巨石坡，再沿開闊草坡下降至約 1200m 的入口。'),
+    ],
+    route_sections: [
+      section('Entry section', '入口段', '30 min', 'R1–R4, followed by about 30 minutes to the top section.'),
+      section('Top section', '上段', '', 'Nine pitches including open rappels, jumps, downclimbs and a narrowing sequence.'),
+      section('Middle section', '中段', '', 'Six smaller pitches; the final three contain water features.'),
+      section('Lower section', '下段', '', 'R16–R19 form the final amphitheatre; R19 starts in a cave-like feature.'),
+    ],
+    topo_pages: [page(1, '/topos/nz/barrack-map.jpg', 'Approach map', '進場地圖'), page(2, '/topos/nz/barrack-topo.jpg')],
+    photos: [
+      'https://www.kiwicanyons.org/wp-content/uploads/2019/05/Barrack-Creek-Nola-Collie-2.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2019/05/Barrack-Creek-Nola-Collie-10.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2019/05/Barrack-Creek-Nola-Collie-18.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2019/05/Barrack-Creek-Nola-Collie-22.jpg',
+    ],
+    recent_updates: [
+      update('2025-03-22', 'Ben Ellis', 'Flow was lower than normal and anchors were good; one odd webbing section was replaced. Three people took 2.5 / 5.5 / 0.5 hours.', '水量低於正常值，固定點狀況良好，並替換一處異常扁帶。3 人耗時 2.5／5.5／0.5 小時。'),
+      update('2023-02-18', 'Grant Prattley', 'The route was updated to 19 pitches and a revised topo. Several pools had deepened; anchor repairs were completed.', '路線更新為 19 個落差並修訂 topo；數個水潭變深，當次亦完成固定點維修。'),
+    ],
+    videos: [video('Barrack Creek canyoning', 'https://www.youtube.com/watch?v=UoQuseaKzr8', 'YouTube')],
+  },
+  'Wesley Creek': {
+    source_url: 'https://www.kiwicanyons.org/wesley-creek/', topo_url: '', topo_page: 0,
+    grading: 'v5 a3 IV ★★★', max_drop: '124m', first_descent: 'Ashley Stewart, Tom Johns, John Harris & Tom Guy, March 2019',
+    region: '紐西蘭 Otira Valley', region_en: 'New Zealand · Otira Valley, Westland',
+    location: 'Wesley Creek, Otira Valley', location_zh: '西部地區 Otira Valley，Wesley Creek',
+    subtitle: 'Long alpine canyon with a 124m three-pitch waterfall', subtitle_zh: '長程高山峽谷，核心地形為 124m 三段式瀑布',
+    character: 'About 13 pitches divided into four widely spaced sections', character_zh: '約 13 個落差，分為四個間隔較遠的區段',
+    gps: '-42.8740158, 171.5677338', elevation: 1092,
+    approach_time: '5 hrs', descent_time: '5 hrs', return_time: 'Included in descent', total_time: '10 hrs',
+    gear: '2 × 70m ropes; natural-anchor rigging material', gear_zh: '2 條 70m 繩；天然固定點架設材料',
+    hazards: 'Fully committed after Section 2 until below the 124m waterfall. Hanging rebelays and rockfall exposure require experienced multipitch rigging. Anyone at the base of the 124m waterfall must stand well back — rockfall dislodged by those still rappelling above is a serious hazard.', hazards_zh: '進入第二段後至 124m 瀑布下方無法撤退。懸空轉站與落石風險需要熟練的多段垂降技術。在 124m 瀑布底部等待者須退至遠處——上方隊員繩降時落石風險極高。',
+    details: { map_sheet: 'Otira Valley', rock: 'Not published', rock_zh: '未公布', water: 'Alpine canyon; published grade a3', water_zh: '高山峽谷；公布水量難度為 a3', catchment: 'Not published', catchment_zh: '未公布', anchors: 'Bolts and natural anchors', anchors_zh: '螺栓與天然確保點', flood: 'High commitment from Section 2 through Section 3', flood_zh: '高；第二至第三段為高承諾區' },
+    approach_steps: [step('Use the published Otira Valley approach to reach Section 1 near the mapped 56 m waterfall.', '沿公布的 Otira Valley 進場路線，抵達地圖標示 56m 瀑布附近的第一段入口。')],
+    route_sections: [
+      section('Section 1', '第一段', '', 'Two short downclimbs and four nearly continuous 10–30 m waterfalls.'),
+      section('Section 2', '第二段', '', 'About 500 m downstream: one 40 m pitch over two waterfalls; commitment begins below it.'),
+      section('Section 3', '第三段', '', 'Another 500 m downstream: the 124 m waterfall is split into R7, R8 and R9 with hanging rebelays.'),
+      section('Section 4', '第四段', '', 'Four pitches from 7–30 m, then roughly 1 km downstream to the road bridge.'),
+    ],
+    topo_pages: [page(1, '/topos/nz/wesley-map.jpg', 'Approach map', '進場地圖'), page(2, '/topos/nz/wesley-topo.jpg')],
+    photos: [
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Wesley-Canyon-Ashley-Stewart-1.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Wesley-Canyon-Ashley-Stewart-3.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Wesley-Canyon-Ashley-Stewart-6.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2020/04/Wesley-Canyon-Ashley-Stewart-11-1.jpg',
+    ],
+    recent_updates: [], videos: [],
+  },
+  'Twin Creek': {
+    source_url: 'https://www.kiwicanyons.org/twincreekv5a2iii/', topo_url: 'https://app.box.com/s/h4mophrv4merrf20wytnmcnverxqaqps', topo_page: 2,
+    grading: 'v5 a2 III ★★★', max_drop: '70m', first_descent: 'Top: Grant Prattley, James Abbott & Nola Collie, 2017; middle: descended commercially before 2000 (first descent unknown); lower: Grant Prattley, James Abbott & Nola Collie, 2016',
+    region: '紐西蘭 Arthur’s Pass', region_en: 'New Zealand · Arthur’s Pass, Canterbury',
+    location: 'Temple Basin, Arthur’s Pass National Park', location_zh: 'Arthur’s Pass 國家公園 Temple Basin',
+    subtitle: 'Three-section alpine canyon with views across to Mt Rolleston', subtitle_zh: '三段式高山峽谷，可眺望 Mt Rolleston',
+    character: 'Friendly top and middle sections followed by a steep, committing lower canyon', character_zh: '上中段較開闊易撤退，下段陡峭且高度封閉',
+    gps: '-42.9105835, 171.5720978', elevation: 1272,
+    approach_time: '1 hr', descent_time: '3 hrs 30 min–5 hrs 30 min', return_time: '1–30 min', total_time: '5–6 hrs 31 min',
+    gear: 'Top + middle: 2 × 50m. Full descent: 2 × 70m, or 2 × 60m with the harder R13 rebelay; an extra 25m rope is recommended for R12.', gear_zh: '上＋中段：2 條 50m。全段：2 條 70m；或以 2 條 60m 使用較困難的 R13 轉站。R12 建議額外攜帶 25m 繩。',
+    hazards: 'The lower canyon has no escape for its first 115 vertical metres. R13 is exposed and has a sharp rope edge; the 70m single-pitch method is strongly recommended.', hazards_zh: '下段前 115m 垂直落差無法撤退。R13 曝露且有銳利繩緣，官方強烈建議以 70m 單段方式下降。',
+    details: { map_sheet: 'BV20 Otira', rock: 'Greywacke', rock_zh: '雜砂岩', water: 'Low normal flow; some top/middle rappels run directly in the water', water_zh: '正常為低水量；上中段部分垂降直接位於主水流', catchment: '2 km²', catchment_zh: '2 km²', anchors: 'Bolted anchors', anchors_zh: '螺栓確保點', flood: 'Low in upper sections; lower section is inescapable', flood_zh: '上段較低；下段無法撤退' },
+    approach_steps: [
+      step('Park at the Temple Basin track and ski-field car park north of Arthur’s Pass Village.', '停在 Arthur’s Pass Village 北側的 Temple Basin 步道／滑雪場停車場。'),
+      step('Climb the Temple Basin track for about one hour to the bridge; R1 is a few metres downstream.', '沿 Temple Basin 步道上行約 1 小時至橋邊，R1 位於橋下游數公尺。'),
+    ],
+    route_sections: [
+      section('Top + middle', '上段＋中段', '5 hrs', 'Eleven pitches with many escape options.', { approach_time: '1 hr', descent_time: '3 hrs 30 min', return_time: '30 min' }),
+      section('Full descent', '全段', '6 hrs 31 min', 'Sixteen pitches with 2 × 70m ropes, including the committing lower section.', { approach_time: '1 hr', descent_time: '5 hrs 30 min', return_time: '1 min' }),
+    ],
+    topo_pages: [
+      page(1, '/topos/nz/twin-map.jpg', 'Approach map', '進場地圖'),
+      page(3, '/topos/nz/twin-topo.jpg', 'Top & Middle topo', '上段＋中段路線圖'),
+      page(8, '/topos/nz/twin-lower.jpg', 'Lower Canyon topo', '下段路線圖'),
+    ],
+    photos: [
+      'https://www.kiwicanyons.org/wp-content/uploads/2011/10/TwinCreek044.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2011/10/TwinCreek052.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2011/10/TwinCreek074.jpg',
+      'https://www.kiwicanyons.org/wp-content/uploads/2016/04/Lower-Twin-Creek-8.jpg',
+    ],
+    recent_updates: [
+      update('2026-04-24', 'Alistair', 'Recent snowfall; icicles and riming down to about 1200 m, but water wasn\'t too cold. R13 is spectacular in the afternoon sun. Views of fresh snow on Rolleston. Three people, 45 min / 4 hrs 45 min approach/descent.', '近期降雪，約 1200m 以上有冰柱與霧淞，但水溫尚可。下午陽光下 R13 極為壯觀，可見 Rolleston 雪景。3 人，進場 45 分鐘，下降 4 小時 45 分。'),
+      update('2026-02-06', 'Zen M', 'Descended in miserable, cold weather and considered bailing, but glad we didn\'t — very pleasant canyon. Normal flow, anchors all in good condition. Eight people, 1 hr 20 min / 3 hrs 40 min / 1 min.', '天氣惡劣寒冷，一度考慮放棄，但最終很慶幸完成。峽谷非常值得。正常水量，固定點狀況全數良好。8 人，耗時 1:20／3:40／1 分鐘。'),
+      update('2026-01-21', 'James', 'Full descent in clear conditions; water unusually cold. Major floods have moved lots of gravel down Twin Creek. R9 anchor station was missing a nut — repaired on the day. R14 single bolt (TR access) had been sheared off; the TL anchor was used to run a handline into the R14 TR bolts. Be prepared to repair anchors on any Arthur\'s Pass trip.', '全段下降，天氣晴朗，但水溫異常冷。洪水已移動大量礫石。R9 固定點少了一顆螺帽，當次修復。R14 進場單螺栓（TR 側）已斷裂，改以 TL 確保點架設輔助繩進入 R14 TR 螺栓。Arthur\'s Pass 所有路線出發前須預備修固定點。5 人。'),
+      update('2025-11-25', 'Caleb', 'Ran all three sections from the very top. Core-shot a rope on the 67 m pitch — recommend bleeding the rope throughout each descent rather than only between rappels. Sunny day, normal flow, anchors all in good condition. Five people.', '由最頂端完成全三段。67m 垂降時損壞一條繩芯外露——建議在下降過程中持續移繩，而非只在各段之間移動。晴天，正常水量，固定點全數良好。5 人。'),
+      update('2024-02-27', 'Chris', 'Top and middle sections one day, middle and lower the next. High flow on day one. R13: recommend being lowered to access R13a anchors then setting a handline. Used two 65 m ropes for the full R13 pitch — barely enough. Stop the last person at R13b to avoid a stuck rope when pulling. Rest of the canyon was great fun.', '第一天走上段與中段，第二天走中段與下段。第一天水量偏高。R13：建議以下放方式到達 R13a 確保點並架設輔助繩。以兩條 65m 繩完成 R13 全程，剛好夠用。最後一人在 R13b 停留以防撤繩時卡繩。其餘峽谷段十分有趣。2 人。'),
+      update('2024-02-12', 'AdamB', 'Fun canyon. Very cold day with gusting wind; flow increased marginally by the end with heavy rain but not enough to cause problems. Did not check or attempt any jumps or slides. Four people.', '有趣的路線。天氣非常冷且風大，下午大雨後水量略增，但尚在可控範圍。未確認或嘗試跳水與滑瀑。4 人。'),
+    ], videos: [],
+  },
 }
-
-if (Object.keys(ROUTES).length !== 14) throw new Error('Expected exactly 14 NZ routes')
 
 const pb = new PocketBase(process.env.VITE_PB_URL || 'https://raych-pocketbase.fly.dev')
 await pb.collection('_superusers').authWithPassword(email, password)
@@ -294,6 +460,8 @@ for (const [name, patch] of routesToSync) {
   }
 }
 
-const finalCount = (await pb.collection('nz_routes').getFullList({ fields: 'id' })).length
-if (finalCount !== 14) throw new Error(`Expected 14 database records, found ${finalCount}`)
+if (!requestedNames.length) {
+  const finalCount = (await pb.collection('nz_routes').getFullList({ fields: 'id' })).length
+  if (finalCount !== Object.keys(ROUTES).length) throw new Error(`Expected ${Object.keys(ROUTES).length} database records, found ${finalCount}`)
+}
 console.log('NZ topo sync complete')
