@@ -29,7 +29,7 @@
             <div class="status-title">{{ rainStatus.title }}</div>
             <div class="rain-summary">
               <span><strong>{{ data.past24hr ?? '—' }}</strong> mm<small>{{ locale === 'en' ? '24 hr' : '24 小時' }}</small></span>
-              <span><strong>{{ data.past3days ?? '—' }}</strong> mm<small>{{ locale === 'en' ? '72 hr' : '72 小時' }}</small></span>
+              <span><strong>{{ data.source === 'wcrc' ? (data.past7days ?? '—') : (data.past3days ?? '—') }}</strong> mm<small>{{ data.source === 'wcrc' ? (locale === 'en' ? '7 days' : '7 日') : (locale === 'en' ? '72 hr' : '72 小時') }}</small></span>
             </div>
             <div class="status-note">{{ rainStatus.note }}</div>
             <div class="safety-note">{{ locale === 'en' ? 'Rainfall alone does not determine canyon safety.' : '雨量不能單獨判斷溪谷是否安全。' }}</div>
@@ -62,6 +62,9 @@
               : `最近 ${currentHistory.days} 個完整日，目前取得 ${currentHistory.daysIncluded} 日` }}
           </div>
         </template>
+        <a v-if="station.source === 'wcrc'" :href="wcrcSourceUrl" target="_blank" rel="noopener" class="source-link">
+          {{ locale === 'en' ? 'WCRC official data' : 'WCRC 官方資料' }} ↗
+        </a>
       </div>
     </div>
   </Teleport>
@@ -138,10 +141,17 @@ const popupStyle = computed(() => {
 })
 
 const arrowStyle = computed(() => ({ top: `${popupLayout.value.arrowTop}px` }))
+const wcrcSourceUrl = computed(() => `https://envirodata.wcrc.govt.nz/dashboards/rainfall/rainfall.php?chart=Y&site=${encodeURIComponent(props.station.station_id)}&name=${encodeURIComponent(props.station.name)}`)
 
 const rainItems = computed(() => {
   if (!data.value) return []
   const en = locale.value === 'en'
+  if (data.value.source === 'wcrc') return [
+    { label: en ? '1 hr' : '一小時', value: `${data.value.past1hr ?? '—'} mm` },
+    { label: en ? '6 hr' : '六小時', value: `${data.value.past6hr ?? '—'} mm` },
+    { label: en ? '24 hr' : '24 小時', value: `${data.value.past24hr ?? '—'} mm` },
+    { label: en ? '7 days' : '7 日', value: `${data.value.past7days ?? '—'} mm` },
+  ]
   return [
     { label: en ? '10 min'   : '十分鐘', value: `${data.value.past10min ?? '—'} mm` },
     { label: en ? '1 hr'     : '一小時',  value: `${data.value.past1hr ?? '—'} mm` },
@@ -157,6 +167,11 @@ const rainItems = computed(() => {
 const rainStatus = computed(() => {
   const rainfall = data.value!
   const en = locale.value === 'en'
+  if (rainfall.source === 'wcrc') return {
+    tone: 'normal',
+    title: en ? 'Official rainfall observation' : '官方雨量觀測',
+    note: en ? 'West Coast Regional Council data. Compare with the route forecast before entering.' : '資料來自 West Coast Regional Council，進入溪谷前仍需比對路線預報。',
+  }
   if (rainfall.past24hr == null || rainfall.past3hr == null || rainfall.past1hr == null || rainfall.past3days == null) return {
     tone: 'muted',
     title: en ? 'Rainfall assessment unavailable' : '暫無法評估雨量',
@@ -220,8 +235,8 @@ async function fetchData() {
   loading.value = true
   error.value = null
   try {
-    if (mode.value === 'live') data.value = await fetchRainfallData(props.station.station_id)
-    else historyCache.value[mode.value] = await fetchRainfallHistory(props.station.station_id, Number(mode.value) as 7 | 14)
+    if (mode.value === 'live') data.value = await fetchRainfallData(props.station.station_id, props.station.source)
+    else historyCache.value[mode.value] = await fetchRainfallHistory(props.station.station_id, Number(mode.value) as 7 | 14, props.station.source)
   } catch (e) {
     error.value = e instanceof Error ? e.message : (locale.value === 'en' ? 'Unable to load rainfall data' : '雨量資料暫時無法載入')
   } finally {
@@ -484,6 +499,16 @@ onMounted(fetchData)
   text-align: right;
   padding-top: 6px;
 }
+.source-link {
+  display: block;
+  margin-top: 8px;
+  color: #6c8ef5;
+  font-size: 0.72rem;
+  text-align: right;
+  text-decoration: none;
+}
+.source-link:hover { text-decoration: underline; }
+.source-link:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 @keyframes sheet-up {
   from { transform: translateY(100%); }

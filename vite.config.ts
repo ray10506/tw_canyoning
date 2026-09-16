@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import rainfallHistoryHandler from './api/cwa/rainfall-history/[stationId].js'
+import nzRainfallHandler from './api/nz/rainfall/[stationId].js'
+import nzRainfallHistoryHandler from './api/nz/rainfall-history/[stationId].js'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -9,24 +11,24 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       {
-        name: 'local-rainfall-history-api',
+        name: 'local-serverless-apis',
         configureServer(server: any) {
-          server.middlewares.use('/api/cwa/rainfall-history/', async (req: any, res: any) => {
+          const mount = (prefix: string, handler: any) => server.middlewares.use(prefix, async (req: any, res: any) => {
             const url = new URL(req.url ?? '', 'http://localhost')
-            const stationId = url.pathname.split('/').filter(Boolean).pop()
-            await rainfallHistoryHandler({
-              query: { stationId, days: url.searchParams.get('days') },
-            }, {
-              status(code: number) {
-                res.statusCode = code
-                return this
-              },
+            const stationId = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '')
+            await handler({ query: { stationId, days: url.searchParams.get('days') } }, {
+              status(code: number) { res.statusCode = code; return this },
+              setHeader(name: string, value: string) { res.setHeader(name, value); return this },
               json(body: unknown) {
                 res.setHeader('Content-Type', 'application/json; charset=utf-8')
                 res.end(JSON.stringify(body))
               },
             })
           })
+
+          mount('/api/cwa/rainfall-history/', rainfallHistoryHandler)
+          mount('/api/nz/rainfall/', nzRainfallHandler)
+          mount('/api/nz/rainfall-history/', nzRainfallHistoryHandler)
         },
       },
     ],

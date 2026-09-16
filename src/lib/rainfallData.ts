@@ -1,4 +1,5 @@
 export interface RainfallData {
+  source?: 'cwa' | 'wcrc'
   stationName: string
   past10min: number | null
   past1hr: number | null
@@ -8,6 +9,7 @@ export interface RainfallData {
   past24hr: number | null
   past2days: number | null
   past3days: number | null
+  past7days?: number | null
   updateTime: string
 }
 
@@ -21,10 +23,19 @@ export interface RainfallHistoryData {
   daily: Array<{ date: string; value: number | null }>
 }
 
-export async function fetchRainfallData(stationId: string): Promise<RainfallData> {
-  const res = await fetch(`/api/cwa/rainfall/${stationId}`)
-  if (!res.ok) throw new Error(`雨量 API 錯誤 (${res.status})`)
+async function jsonResponse(res: Response, label: string) {
+  if (!res.headers.get('content-type')?.includes('application/json'))
+    throw new Error(`${label}服務未正確回傳資料`)
   const json = await res.json()
+  if (!res.ok) throw new Error(json.error || `${label} API 錯誤 (${res.status})`)
+  return json
+}
+
+export async function fetchRainfallData(stationId: string, source: 'cwa' | 'wcrc' = 'cwa'): Promise<RainfallData> {
+  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall/${encodeURIComponent(stationId)}`)
+  const json = await jsonResponse(res, '雨量')
+
+  if (source === 'wcrc') return json
 
   const station = json.records?.Station?.[0]
   if (!station) throw new Error('查無雨量資料')
@@ -54,9 +65,8 @@ export async function fetchRainfallData(stationId: string): Promise<RainfallData
   }
 }
 
-export async function fetchRainfallHistory(stationId: string, days: 7 | 14): Promise<RainfallHistoryData> {
-  const res = await fetch(`/api/cwa/rainfall-history/${stationId}?days=${days}`)
+export async function fetchRainfallHistory(stationId: string, days: 7 | 14, source: 'cwa' | 'wcrc' = 'cwa'): Promise<RainfallHistoryData> {
+  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall-history/${encodeURIComponent(stationId)}?days=${days}`)
   if (res.status === 404) throw new Error('此站暫無歷史雨量資料')
-  if (!res.ok) throw new Error(`歷史雨量 API 錯誤 (${res.status})`)
-  return res.json()
+  return jsonResponse(res, '歷史雨量')
 }

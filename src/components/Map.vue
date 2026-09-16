@@ -152,7 +152,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import type { Canyon } from "../data/canyon";
 import waterStations from "../data/water-stations.json";
 import type { WaterStation } from "../lib/waterLevel";
-import { rainfallStations, type RainfallStation } from "../lib/rainfall";
+import { nzRainfallStations, rainfallStations, type RainfallStation } from "../lib/rainfall";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -204,6 +204,7 @@ const props = withDefaults(
     canyonRouteMarkers: RouteMarker[];
     selectedRouteId: string | null;
     nearbyAnchor: NearbyAnchor | null;
+    nzMode: boolean;
     stationSearch: { water: WaterStation[]; rainfall: RainfallStation[] } | null;
     searchPoints: [number, number][] | null;
     searchPanelOpen: boolean;
@@ -270,7 +271,7 @@ const tileOptions = [
 let currentTile: L.TileLayer | null = null;
 const selectedTile = ref("topo");
 const showWaterStations = ref(false);
-const showRainfallStations = ref(false);
+const showRainfallStations = ref(props.nzMode);
 const waterVisible = computed(() => props.stationSearch !== null ? props.stationSearch.water.length > 0 : showWaterStations.value);
 const rainfallVisible = computed(() => props.stationSearch !== null ? props.stationSearch.rainfall.length > 0 : showRainfallStations.value);
 const showLayersPanel = ref(false);
@@ -469,7 +470,8 @@ function renderRainfallStations() {
           });
         },
       });
-  filterByAnchor(props.stationSearch?.rainfall ?? rainfallStations, props.stationSearch ? null : props.nearbyAnchor).forEach(({ item: s, dist }) => {
+  const routeStations = props.nzMode || (props.nearbyAnchor && props.nearbyAnchor.lat < 0) ? nzRainfallStations : rainfallStations;
+  filterByAnchor(props.stationSearch?.rainfall ?? routeStations, props.stationSearch ? null : props.nearbyAnchor).forEach(({ item: s, dist }) => {
     const label = dist != null ? `${s.name}（${s.county}${s.town}） · ${dist.toFixed(1)} km` : `${s.name}（${s.county}${s.town}）`;
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
       .bindTooltip(label, { direction: "top", offset: [0, -6] })
@@ -504,7 +506,7 @@ function syncNearbyAnchor(anchor: NearbyAnchor | null) {
   if (anchor) {
     // Only auto-enable if the filter actually yields stations within range
     const hasWater = filterByAnchor(waterStations as WaterStation[], anchor).length > 0;
-    const hasRain = filterByAnchor(rainfallStations, anchor).length > 0;
+    const hasRain = filterByAnchor(anchor.lat < 0 ? nzRainfallStations : rainfallStations, anchor).length > 0;
     if (hasWater && !showWaterStations.value) { showWaterStations.value = true; autoEnabledWater = true; }
     if (hasRain && !showRainfallStations.value) { showRainfallStations.value = true; autoEnabledRain = true; }
   } else {
@@ -531,6 +533,18 @@ function syncNearbyAnchor(anchor: NearbyAnchor | null) {
 }
 watch(() => props.nearbyAnchor, syncNearbyAnchor);
 watch(() => props.stationSearch, () => {
+  syncNearbyAnchor(props.nearbyAnchor);
+});
+
+let autoEnabledNzRain = props.nzMode;
+watch(() => props.nzMode, (nzMode) => {
+  if (nzMode && !showRainfallStations.value) {
+    showRainfallStations.value = true;
+    autoEnabledNzRain = true;
+  } else if (!nzMode && autoEnabledNzRain) {
+    showRainfallStations.value = false;
+    autoEnabledNzRain = false;
+  }
   syncNearbyAnchor(props.nearbyAnchor);
 });
 

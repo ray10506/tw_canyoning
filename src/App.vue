@@ -78,6 +78,7 @@
           :canyon-route-markers="canyonRouteMarkers"
           :selected-route-id="selectedRouteId"
           :nearby-anchor="nearbyAnchor"
+          :nz-mode="browseMode === 'nz'"
           :station-search="mapStationScope"
           :search-points="searchPoints"
           :search-panel-open="activePanel === 'search'"
@@ -410,7 +411,7 @@ const routeTrack = computed(() => {
 
 // Anchor for nearby-station filtering: route GPS + sampled GPX track points
 const nearbyAnchor = computed((): { lat: number; lon: number; pts?: [number, number][] } | null => {
-  if (detailItem.value?.kind !== "route") return null;
+  if (detailItem.value?.kind !== "route" && detailItem.value?.kind !== "nz") return null;
   const d = detailItem.value.data;
   const gps = d.gps?.trim();
   if (!gps) return null;
