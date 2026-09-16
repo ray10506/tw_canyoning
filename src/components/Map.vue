@@ -1119,7 +1119,6 @@ watch(
   font-weight: 700;
   color: #fff;
 }
-
 :global(.route-cluster) {
   width: 36px;
   height: 36px;
@@ -1135,19 +1134,21 @@ watch(
   color: #fff;
 }
 
+
 .wp-card {
   position: fixed;
   bottom: max(32px, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   padding: 14px 16px 12px;
   min-width: 260px;
   max-width: 340px;
-  color: #111;
+  color: var(--color-text);
   font-family: inherit;
 }
 .wp-card-top {
@@ -1160,8 +1161,8 @@ watch(
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #111;
-  color: #fff;
+  background: var(--color-raised);
+  color: var(--color-text-strong);
   font-size: 11px;
   font-weight: 700;
   display: flex;
@@ -1171,7 +1172,7 @@ watch(
 .wp-close {
   background: none;
   border: none;
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 14px;
   cursor: pointer;
   padding: 2px 4px;
@@ -1179,7 +1180,7 @@ watch(
   line-height: 1;
 }
 .wp-close:hover {
-  color: #333;
+  color: var(--color-text-strong);
 }
 .wp-close:focus-visible {
   outline: 2px solid #6c8ef5;
@@ -1188,17 +1189,17 @@ watch(
 .wp-name {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #111;
+  color: var(--color-text-strong);
   margin-bottom: 5px;
   line-height: 1.3;
 }
 .wp-time {
-  color: #555;
+  color: var(--color-text-muted);
   font-weight: 400;
 }
 .wp-meta {
   font-size: 0.75rem;
-  color: #555;
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1206,10 +1207,10 @@ watch(
   margin-bottom: 10px;
 }
 .wp-sep {
-  color: #ccc;
+  color: var(--color-line);
 }
 .wp-coords {
-  color: #555;
+  color: var(--color-text-muted);
 }
 .wp-footer {
   display: flex;
@@ -1220,17 +1221,17 @@ watch(
   display: flex;
   align-items: center;
   gap: 5px;
-  background: #f3f3f3;
-  border: none;
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
   cursor: pointer;
 }
 .wp-copy-btn:hover {
-  background: #e5e5e5;
+  background: var(--color-surface);
 }
 .wp-copy-btn:focus-visible {
   outline: 2px solid #6c8ef5;
@@ -1244,9 +1245,9 @@ watch(
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid #e0e0e0;
-  background: #fff;
-  color: #333;
+  border: 1px solid var(--color-line);
+  background: var(--color-raised);
+  color: var(--color-text);
   font-size: 14px;
   cursor: pointer;
   display: flex;
@@ -1254,10 +1255,10 @@ watch(
   justify-content: center;
 }
 .wp-nav-btn:hover:not(:disabled) {
-  background: #f3f3f3;
+  background: var(--color-surface);
 }
 .wp-nav-btn:disabled {
-  color: #ccc;
+  color: var(--color-text-muted);
   cursor: default;
 }
 .wp-nav-btn:focus-visible {

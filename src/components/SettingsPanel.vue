@@ -65,7 +65,6 @@
 
       <div class="menu-btns">
         <button class="menu-btn" @click="view = 'feedback'">
-          <span class="menu-icon">🐛</span>
           <div class="menu-text">
             <strong>{{ t("問題回報", "Report an Issue") }}</strong>
             <small>{{ t("錯誤、功能建議", "Bugs, errors, UX feedback") }}</small>
@@ -73,7 +72,6 @@
           <span class="menu-arrow">›</span>
         </button>
         <button class="menu-btn" @click="view = 'route'">
-          <span class="menu-icon">🗺️</span>
           <div class="menu-text">
             <strong>{{ t("路線回報", "Submit a Route") }}</strong>
             <small>{{ t("回報新路線資訊", "Add a new canyon route") }}</small>
@@ -265,9 +263,9 @@ const view = ref<"main" | "feedback" | "route">("main");
 
 // ── Feedback ──
 const fbTypes = [
-  { value: "bug", zh: "🐛 Bug", en: "🐛 Bug" },
-  { value: "suggestion", zh: "💡 建議", en: "💡 Idea" },
-  { value: "other", zh: "📝 其他", en: "📝 Other" },
+  { value: "bug", zh: "Bug", en: "Bug" },
+  { value: "suggestion", zh: "建議", en: "Idea" },
+  { value: "other", zh: "其他", en: "Other" },
 ];
 const fbType = ref("bug");
 const fbMsg = ref("");
@@ -490,7 +488,7 @@ async function submitRoute() {
   color: #666;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 }
 .lang-opt + .lang-opt {
   border-left: 1px solid #3a3a5a;
@@ -529,11 +527,6 @@ async function submitRoute() {
 }
 .menu-btn:hover {
   border-color: #6c8ef5;
-}
-
-.menu-icon {
-  font-size: 1.2rem;
-  flex-shrink: 0;
 }
 
 .menu-text {

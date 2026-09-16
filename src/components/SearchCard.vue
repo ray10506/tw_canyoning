@@ -379,7 +379,7 @@ const searchPlaceholder = computed(() => {
   color: #888;
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 .region-btn:hover { border-color: #6c8ef5; color: #ccc; }
 .region-btn.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; font-weight: 600; }
@@ -418,7 +418,7 @@ const searchPlaceholder = computed(() => {
   color: #888;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 .clear-btn:hover { border-color: #e05c5c; color: #e05c5c; }
 

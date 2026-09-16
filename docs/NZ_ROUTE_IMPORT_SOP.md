@@ -2,6 +2,8 @@
 
 Use this workflow whenever a KiwiCanyons route URL is added to the project. The goal is one complete `nz_routes` record that works in the existing NZ route panel without follow-up cleanup.
 
+Shared rules: follow [DATA_MODEL.md](./DATA_MODEL.md) for data contracts, [SOURCE_AND_LICENSE_POLICY.md](./SOURCE_AND_LICENSE_POLICY.md) for reuse rights, and [ADMIN_REVIEW_SOP.md](./ADMIN_REVIEW_SOP.md) plus [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md) for publishing.
+
 ## Input
 
 Required:
@@ -139,7 +141,7 @@ Before choosing assets, make a complete media inventory rather than relying on t
 
 1. Add the PDF URL to `PDF` in `scripts/sync-nz-topos.mjs` when applicable.
 2. Add one complete entry to `ROUTES`, keyed by the exact PocketBase `name`.
-3. Save permitted topo images under `public/topos/nz/<route-slug>-<page>.jpg`.
+3. Save permitted topo images under `public/topos/nz/<slug>-<descriptor>.jpg`. Use a descriptor that identifies the content — `map` for approach maps, `topo` for hand-drawn topos, or the original PDF page number for pages extracted from the canyon guide (for example `bartrum-23.jpg`). Do not pad with a plain `1`, `2`, `3` sequence when a more descriptive name is possible.
 4. Save permitted local photos under `public/photos/nz/`.
 5. Save permitted GPX under `public/gpx/nz/`, parse its track, and downsample only enough to fit the current `gpx_track` field.
 6. If the region is not already covered, add and verify its MetService mapping in `NZ_FORECASTS` inside `src/components/NzRouteDetail.vue`.
@@ -150,6 +152,8 @@ $env:PB_EMAIL='...'
 $env:PB_PASSWORD='...'
 node scripts/sync-nz-topos.mjs "Exact Route Name"
 ```
+
+**Important constraint:** on every run — including single-route syncs — the script validates that every record currently in the database has a matching entry in `ROUTES`. If a `ROUTES` entry is removed while its database record still exists, all syncs will fail. Always delete the database record before removing it from `ROUTES`, not after.
 
 Never store PocketBase credentials in source files, documentation, shell history, or Git.
 

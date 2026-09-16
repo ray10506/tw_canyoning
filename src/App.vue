@@ -17,10 +17,11 @@
           'sidebar-wrap',
           { closed: !sidebarOpen || activePanel === 'search', resizing: isResizing },
         ]"
+        :inert="!sidebarOpen || activePanel === 'search'"
         :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }"
       >
         <CanyonList
-          :canyon-routes="filteredRoutes"
+          :canyon-routes="sidebarRoutes"
           :nz-routes="nzRoutes"
           :routes-loading="routesLoading"
           :selected-id="selectedId"
@@ -29,8 +30,8 @@
           :sort-descending="routeSortDescending"
           :browse-mode="browseMode"
           :search-query="searchQuery"
-          :water-stations="stationSearch?.water ?? []"
-          :rainfall-stations="stationSearch?.rainfall ?? []"
+          :water-stations="sidebarWaterStations"
+          :rainfall-stations="sidebarRainfallStations"
           :route-water-tones="routeWaterTones"
           @select="selectedId = $event"
           @close="sidebarOpen = false"
@@ -39,6 +40,8 @@
           @show-detail="openRouteDetail"
           @select-water-station="selectWaterStationFromSearch"
           @select-rainfall-station="selectRainfallStationFromSearch"
+          @update-search-query="searchQuery = $event"
+          @open-search="openSearch"
         />
         <div
           v-if="sidebarOpen && activePanel !== 'search'"
@@ -75,7 +78,7 @@
           :canyon-route-markers="canyonRouteMarkers"
           :selected-route-id="selectedRouteId"
           :nearby-anchor="nearbyAnchor"
-          :station-search="stationSearch"
+          :station-search="mapStationScope"
           :search-points="searchPoints"
           :search-panel-open="activePanel === 'search'"
           @select-route="onSelectRoute"
@@ -129,7 +132,7 @@
         :selected-region="selectedRegion"
         :suggestions="searchSuggestions"
         :result-count="searchResultCount"
-        @close="cancelSearch"
+        @close="closeSearch"
         @confirm="confirmSearch"
         @select-suggestion="selectSearchSuggestion"
         @filter-region="toggleRegion($event)"
@@ -160,7 +163,7 @@
             <button
               class="filter-chip-remove"
               :aria-label="`${locale === 'en' ? 'Clear' : '清除'} ${f.label}`"
-              @click="f.clear()"
+              @click="removeActiveFilter(f)"
             >✕</button>
           </div>
           <button
@@ -180,7 +183,7 @@
             'bar-btn',
             { active: activePanel === 'search' || activeFilters.length > 0 },
           ]"
-          @click="activePanel === 'search' ? cancelSearch() : openSearch()"
+          @click="activePanel === 'search' ? closeSearch() : openSearch()"
           :title="locale === 'en' ? 'Search' : '搜尋'"
         >
           <div class="bar-btn-icon">
@@ -233,14 +236,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { ref, computed, defineAsyncComponent, onMounted, watch, nextTick } from "vue";
 import { locale, localeRegion } from "./lib/locale";
 import Map from "./components/Map.vue";
 import CanyonList from "./components/CanyonList.vue";
-import RouteDetail from "./components/RouteDetail.vue";
-import NzRouteDetail from "./components/NzRouteDetail.vue";
-import WaterStationDetail from "./components/WaterStationDetail.vue";
-import RainfallStationDetail from "./components/RainfallStationDetail.vue";
 import SearchCard from "./components/SearchCard.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { pb } from "./lib/pb";
@@ -252,30 +251,17 @@ import { rainfallStations, type RainfallStation } from "./lib/rainfall";
 import waterStations from "./data/water-stations.json";
 import { theme } from "./lib/theme";
 
+const RouteDetail = defineAsyncComponent(() => import("./components/RouteDetail.vue"));
+const NzRouteDetail = defineAsyncComponent(() => import("./components/NzRouteDetail.vue"));
+const WaterStationDetail = defineAsyncComponent(() => import("./components/WaterStationDetail.vue"));
+const RainfallStationDetail = defineAsyncComponent(() => import("./components/RainfallStationDetail.vue"));
+
 const sidebarOpen = ref(window.innerWidth > 640);
 const activePanel = ref<"search" | "settings" | null>(null);
 const mapRef = ref<InstanceType<typeof Map> | null>(null);
-const routeDetailRef = ref<InstanceType<typeof RouteDetail> | null>(null);
-
-type SearchSnapshot = {
-  browseMode: typeof browseMode.value;
-  query: string;
-  routeFilter: typeof routeFilter.value;
-  gpx: boolean;
-  types: SearchType[];
-  regions: string[];
-};
-let searchSnapshot: SearchSnapshot | null = null;
+const routeDetailRef = ref<{ panelBounds: DOMRect | null } | null>(null);
 
 function openSearch() {
-  searchSnapshot = {
-    browseMode: browseMode.value,
-    query: searchQuery.value,
-    routeFilter: { ...routeFilter.value },
-    gpx: filterGpx.value,
-    types: [...searchTypes.value],
-    regions: [...selectedRegion.value],
-  };
   activePanel.value = "search";
   detailItem.value = null;
   waterStationDetail.value = null;
@@ -283,38 +269,22 @@ function openSearch() {
 }
 
 function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
-  if (mode === "hydrology") {
-    openSearch();                                        // snapshot captures pre-click state
-    browseMode.value = mode;
-    searchQuery.value = "";
-    searchTypes.value = ["water", "rainfall"];
-    nextTick(() => mapRef.value?.focusCountry("route"));
-    return;
-  }
+  clearAllFilters();
   browseMode.value = mode;
-  searchQuery.value = "";
-  searchTypes.value = ["route"];
   activePanel.value = null;
   detailItem.value = null;
-  mapRef.value?.focusCountry(mode);
+  waterStationDetail.value = null;
+  rainfallStationDetail.value = null;
+  nextTick(() => mapRef.value?.focusCountry(mode === "nz" ? "nz" : "route"));
 }
 
-function cancelSearch() {
-  if (searchSnapshot) {
-    browseMode.value = searchSnapshot.browseMode;
-    searchQuery.value = searchSnapshot.query;
-    routeFilter.value = searchSnapshot.routeFilter;
-    filterGpx.value = searchSnapshot.gpx;
-    searchTypes.value = searchSnapshot.types;
-    selectedRegion.value = searchSnapshot.regions;
-  }
-  searchSnapshot = null;
+function closeSearch() {
+  clearAllFilters();
   activePanel.value = null;
 }
 
 async function confirmSearch() {
-  browseMode.value = routeOnlySearch.value ? "route" : "hydrology";
-  searchSnapshot = null;
+  browseMode.value = "search";
   activePanel.value = null;
   sidebarOpen.value = true;
   await nextTick();
@@ -322,7 +292,7 @@ async function confirmSearch() {
 }
 
 function toggleSettings() {
-  if (activePanel.value === "search") cancelSearch();
+  if (activePanel.value === "search") closeSearch();
   activePanel.value = activePanel.value === "settings" ? null : "settings";
 }
 const detailItem = ref<{ kind: "canyon" | "route" | "nz"; data: any } | null>(null);
@@ -385,7 +355,7 @@ const canyonRoutes = ref<any[]>([]);   // Taiwan routes only
 const nzRoutes = ref<any[]>([]);        // NZ routes only
 const routesLoaded = ref(false);
 const routesLoading = ref(false);
-const browseMode = ref<'route' | 'nz' | 'hydrology'>('route');
+const browseMode = ref<'route' | 'nz' | 'hydrology' | 'search'>('route');
 const routeFilter = ref({ v: "", a: "", t: "", drop: "" });
 const filterGpx = ref(false);
 const routeSortDescending = ref(false);
@@ -537,17 +507,20 @@ function openRouteDetail(item: { kind: "canyon" | "route" | "nz"; data: any }) {
   waterStationDetail.value = null;
   rainfallStationDetail.value = null;
   detailItem.value = item;
+  if (window.innerWidth <= 640) sidebarOpen.value = false;
 }
 
 function selectWaterStationFromSearch(station: WaterStation) {
   activePanel.value = null;
   searchStationPoint.value = [station.lat, station.lon];
+  if (window.innerWidth <= 640) sidebarOpen.value = false;
   openWaterStation(station, { x: window.innerWidth / 2, y: window.innerHeight / 2 });
 }
 
 function selectRainfallStationFromSearch(station: RainfallStation) {
   activePanel.value = null;
   searchStationPoint.value = [station.lat, station.lon];
+  if (window.innerWidth <= 640) sidebarOpen.value = false;
   openRainfallStation(station, { x: window.innerWidth / 2, y: window.innerHeight / 2 });
 }
 
@@ -645,8 +618,33 @@ const stationSearch = computed(() => {
   };
 });
 
+const allHydrologyStations = {
+  water: waterStations as WaterStation[],
+  rainfall: rainfallStations,
+};
+
+const sidebarRoutes = computed(() =>
+  browseMode.value === "hydrology" ? [] : filteredRoutes.value,
+);
+const sidebarWaterStations = computed(() =>
+  browseMode.value === "hydrology"
+    ? allHydrologyStations.water
+    : browseMode.value === "search" ? (stationSearch.value?.water ?? []) : [],
+);
+const sidebarRainfallStations = computed(() =>
+  browseMode.value === "hydrology"
+    ? allHydrologyStations.rainfall
+    : browseMode.value === "search" ? (stationSearch.value?.rainfall ?? []) : [],
+);
+const mapStationScope = computed(() => {
+  if (activePanel.value === "search") return stationSearch.value;
+  if (browseMode.value === "hydrology") return allHydrologyStations;
+  if (browseMode.value === "search") return stationSearch.value;
+  return null;
+});
+
 const searchPoints = computed(() => {
-  if (routeOnlySearch.value && !activeFilters.value.length) return null;
+  if (activePanel.value !== "search" && browseMode.value !== "search") return null;
   return [...filteredRouteMarkers.value, ...(stationSearch.value?.water ?? []), ...(stationSearch.value?.rainfall ?? [])]
     .map(s => [s.lat, s.lon] as [number, number]);
 });
@@ -824,9 +822,8 @@ onMounted(async () => {
   // Restore filter state from URL before loading
   const sp = new URLSearchParams(location.search);
   const view = sp.get("view");
-  if (view === "nz" || view === "hydrology") {
+  if (view === "nz" || view === "hydrology" || view === "search") {
     browseMode.value = view;
-    if (view === "hydrology" && !sp.has("type")) searchTypes.value = ["water", "rainfall"];
   }
   if (sp.get("q")) searchQuery.value = sp.get("q")!;
   if (sp.get("type")) {
@@ -957,7 +954,6 @@ const searchResultCount = computed(() =>
 );
 
 function selectSearchSuggestion(suggestion: SearchSuggestion) {
-  searchSnapshot = null;
   activePanel.value = null;
   sidebarOpen.value = true;
   if (suggestion.kind === "route") return onSelectRoute(suggestion.id);
@@ -982,6 +978,14 @@ function clearAllFilters() {
   searchTypes.value = ["route"];
   selectedRegion.value = [];
   selectedId.value = null;
+  searchStationPoint.value = null;
+  waterStationDetail.value = null;
+  rainfallStationDetail.value = null;
+}
+
+function removeActiveFilter(filter: { clear: () => void }) {
+  filter.clear();
+  if (browseMode.value === "search" && !activeFilters.value.length) clearAllFilters();
 }
 
 // Active filter chips — each entry can clear itself
@@ -1024,6 +1028,7 @@ const activeFilters = computed(() => {
     items.push({ label: localeRegion(r), clear: () => toggleRegion(r) });
   return items;
 });
+
 </script>
 
 <style scoped>
@@ -1180,7 +1185,7 @@ const activeFilters = computed(() => {
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 .filter-chip:hover {
   background: #6c8ef5;
@@ -1234,9 +1239,7 @@ const activeFilters = computed(() => {
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
-  background: rgba(18, 18, 42, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-panel);
   border: 1px solid rgba(42, 42, 74, 0.8);
   border-radius: 50px;
   padding: 8px 20px;
@@ -1257,7 +1260,7 @@ const activeFilters = computed(() => {
   cursor: pointer;
   padding: 6px 16px;
   border-radius: 40px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   letter-spacing: 0.3px;
 }
 .bar-btn:hover {

@@ -20,13 +20,13 @@
           <span v-if="subtitle" class="route-subtitle">{{ subtitle }}</span>
           <!-- grade row -->
           <div v-if="d.grading" class="grade-row">
-            <span class="grade-compact">{{ gradingCompact }}</span>
             <span
               v-if="ropeGrade !== '—'"
               :class="['grade-tag', 'rope', ropeGradeClass]"
               :data-tooltip="
                 (locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade]
               "
+              :aria-label="`${ropeGrade}: ${(locale === 'en' ? ROPE_TIPS_EN : ROPE_TIPS)[ropeGrade]}`"
               tabindex="0"
               >{{ ropeGrade }}</span
             >
@@ -36,6 +36,7 @@
               :data-tooltip="
                 (locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade]
               "
+              :aria-label="`${waterGrade}: ${(locale === 'en' ? WATER_TIPS_EN : WATER_TIPS)[waterGrade]}`"
               tabindex="0"
               >{{ waterGrade }}</span
             >
@@ -45,6 +46,7 @@
               :data-tooltip="
                 (locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade]
               "
+              :aria-label="`${timeGrade}: ${(locale === 'en' ? TIME_TIPS_EN : TIME_TIPS)[timeGrade]}`"
               tabindex="0"
               >{{ timeGrade }}</span
             >
@@ -52,6 +54,7 @@
               v-if="gradingStars"
               class="grade-stars"
               :data-tooltip="starTip ?? undefined"
+              :aria-label="starTip ?? undefined"
               tabindex="0"
               >{{ gradingStars }}</span
             >
@@ -73,7 +76,7 @@
           >
             <template v-if="nearbyWater || nearbyRainfall">
               <span v-if="nearbyWater" :class="`tone-${waterSummary.tone}`"
-                >💧 {{ waterSummary.text }}</span
+                >{{ waterSummary.text }}</span
               >
               <span v-if="nearbyWater && nearbyRainfall" class="status-sep"
                 >·</span
@@ -81,7 +84,7 @@
               <span
                 v-if="nearbyRainfall"
                 :class="`tone-${rainfallSummary.tone}`"
-                >🌧 {{ rainfallSummary.text }}</span
+                >{{ rainfallSummary.text }}</span
               >
             </template>
             <span v-else class="tone-muted">{{
@@ -90,13 +93,35 @@
                 : "範圍內沒有水文資料"
             }}</span>
           </button>
+          <!-- hazard banner: hazards live in the Hydrology tab body, but must stay
+               visible from whichever tab is open — a "should I go" read must never
+               close without seeing documented hazards. -->
+          <button
+            v-if="d.hazards_zh || d.hazards"
+            class="status-strip hazard-strip tone-strip-danger"
+            @click="activeTab = 'hydrology'"
+          >
+            <span class="tone-danger hazard-text">{{
+              locale === "en" ? d.hazards : d.hazards_zh || d.hazards
+            }}</span>
+          </button>
         </div>
         <button
           class="close-btn"
           :aria-label="locale === 'en' ? 'Close' : '關閉'"
           @click="$emit('close')"
         >
-          ✕
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
         </button>
       </div>
 
@@ -127,7 +152,7 @@
             class="info-block"
           >
             <div class="info-key">
-              {{ locale === "en" ? "📍 Location" : "📍 地點" }}
+              {{ locale === "en" ? "Location" : "地點" }}
             </div>
             <div class="info-val">
               {{
@@ -146,7 +171,7 @@
 
           <div v-if="d.character_zh || d.character" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🌊 Character" : "🌊 性質" }}
+              {{ locale === "en" ? "Character" : "性質" }}
             </div>
             <div class="info-val">
               {{
@@ -157,7 +182,7 @@
 
           <div v-if="d.grading" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "📊 Grade" : "📊 分級" }}
+              {{ locale === "en" ? "Grade" : "分級" }}
             </div>
             <div class="info-val grade-desc-row">
               <span
@@ -188,7 +213,7 @@
 
           <div v-if="d.gear_zh || d.gear" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🪢 Gear" : "🪢 裝備" }}
+              {{ locale === "en" ? "Gear" : "裝備" }}
             </div>
             <div class="info-val">
               {{ locale === "en" ? d.gear : d.gear_zh || d.gear }}
@@ -261,7 +286,7 @@
           <!-- Max drop for NZ routes -->
           <div v-if="d.location && d.max_drop" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "⬇ Max Drop" : "⬇ 最高落差" }}
+              {{ locale === "en" ? "Max Drop" : "最高落差" }}
             </div>
             <div class="info-val">{{ d.max_drop }}</div>
           </div>
@@ -269,7 +294,7 @@
           <!-- Source link -->
           <div v-if="d.source_url" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🔗 Source" : "🔗 資料來源" }}
+              {{ locale === "en" ? "Source" : "資料來源" }}
             </div>
             <a
               :href="d.source_url"
@@ -288,8 +313,19 @@
                 class="gpx-dl-btn"
                 @click="downloadGpx"
               >
-                {{ locale === "en" ? "⬇ Download GPX" : "⬇ 下載 GPX" }}
+                {{ locale === "en" ? "Download GPX" : "下載 GPX" }}
               </button>
+              <span
+                v-if="gpxError"
+                class="gpx-error tone-danger"
+                role="alert"
+              >
+                {{
+                  locale === "en"
+                    ? "GPX data is invalid — contact the route maintainer"
+                    : "GPX 資料格式有誤，請聯絡路線維護者"
+                }}
+              </span>
               <a
                 v-for="link in noteGpxLinks"
                 :key="link"
@@ -366,25 +402,25 @@
           </div>
           <div v-if="d.approach_time" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🥾 Approach" : "🥾 進場時間" }}
+              {{ locale === "en" ? "Approach" : "進場時間" }}
             </div>
             <div class="info-val">{{ d.approach_time }}</div>
           </div>
           <div v-if="d.descent_time" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🏊 Descent" : "🏊 峽谷時間" }}
+              {{ locale === "en" ? "Descent" : "峽谷時間" }}
             </div>
             <div class="info-val">{{ d.descent_time }}</div>
           </div>
           <div v-if="d.total_time" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "⏱ Total" : "⏱ 全程時間" }}
+              {{ locale === "en" ? "Total" : "全程時間" }}
             </div>
             <div class="info-val">{{ d.total_time }}</div>
           </div>
           <div v-if="d.first_descent" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🏆 First Descent" : "🏆 首降" }}
+              {{ locale === "en" ? "First Descent" : "首降" }}
             </div>
             <div class="info-val">{{ d.first_descent }}</div>
           </div>
@@ -394,7 +430,7 @@
           </div>
           <div v-if="d.approach" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "🥾 Route" : "🥾 主要進場" }}
+              {{ locale === "en" ? "Route" : "主要進場" }}
             </div>
             <div class="info-val approach-text">{{ d.approach }}</div>
           </div>
@@ -403,7 +439,7 @@
             class="info-block"
           >
             <div class="info-key">
-              {{ locale === "en" ? "🚗 Shuttle" : "🚗 接駁" }}
+              {{ locale === "en" ? "Shuttle" : "接駁" }}
             </div>
             <div class="info-val">{{ d.ab_shuttle }}</div>
           </div>
@@ -412,8 +448,8 @@
               {{
                 d.gpx_track
                   ? locale === "en"
-                    ? "🅿 Parking GPS"
-                    : "🅿 停車點 GPS"
+                    ? "Parking GPS"
+                    : "停車點 GPS"
                   : "GPS"
               }}
             </div>
@@ -444,10 +480,17 @@
                     :class="{ active: activeWptIndex === i }"
                     >{{ i + 1 }}</span
                   >
-                  <span class="wpt-name">{{
-                    w.name ||
-                    (locale === "en" ? `Point ${i + 1}` : `點位 ${i + 1}`)
-                  }}</span>
+                  <span
+                    class="wpt-name"
+                    :title="
+                      w.name ||
+                      (locale === 'en' ? `Point ${i + 1}` : `點位 ${i + 1}`)
+                    "
+                    >{{
+                      w.name ||
+                      (locale === "en" ? `Point ${i + 1}` : `點位 ${i + 1}`)
+                    }}</span
+                  >
                   <span v-if="w.ele != null" class="wpt-ele"
                     >{{ Math.round(w.ele) }}m</span
                   >
@@ -550,6 +593,13 @@
               >
             </button>
             <button
+              v-if="nearbyWater && waterSummary.failed"
+              class="hydrology-retry"
+              @click.stop="loadNearbyHydrology"
+            >
+              {{ locale === "en" ? "Retry" : "重試" }}
+            </button>
+            <button
               v-if="nearbyRainfall"
               class="hydrology-row"
               @click="
@@ -571,10 +621,17 @@
                 >{{ nearbyRainfall.distance.toFixed(1) }} km</span
               >
             </button>
+            <button
+              v-if="nearbyRainfall && rainfallSummary.failed"
+              class="hydrology-retry"
+              @click.stop="loadNearbyHydrology"
+            >
+              {{ locale === "en" ? "Retry" : "重試" }}
+            </button>
           </div>
           <div v-if="d.hazards_zh || d.hazards" class="info-block">
             <div class="info-key">
-              {{ locale === "en" ? "⚠️ Hazards" : "⚠️ 危險提示" }}
+              {{ locale === "en" ? "Hazards" : "危險提示" }}
             </div>
             <div class="info-val warning-text">
               {{ locale === "en" ? d.hazards : d.hazards_zh || d.hazards }}
@@ -653,6 +710,7 @@ defineExpose({ panelBounds });
 
 const activeTab = ref<"info" | "itinerary" | "weather" | "hydrology">("info");
 const activeWptIndex = ref<number | null>(null);
+const gpxError = ref(false);
 
 function toggleWpt(i: number) {
   const next = activeWptIndex.value === i ? null : i;
@@ -679,12 +737,16 @@ const d = computed(() => props.item.data);
 
 const waterReading = ref<number | null | undefined>(undefined);
 const rainfall24hr = ref<number | null | undefined>(undefined);
+const waterFetchFailed = ref(false);
+const rainfallFetchFailed = ref(false);
 let hydrologyRequestId = 0;
 
 async function loadNearbyHydrology() {
   const requestId = ++hydrologyRequestId;
   waterReading.value = props.nearbyWater ? undefined : null;
   rainfall24hr.value = props.nearbyRainfall ? undefined : null;
+  waterFetchFailed.value = false;
+  rainfallFetchFailed.value = false;
   const [water, rain] = await Promise.allSettled([
     props.nearbyWater
       ? fetchWaterLevel(props.nearbyWater.station.id)
@@ -694,6 +756,8 @@ async function loadNearbyHydrology() {
       : Promise.resolve(null),
   ]);
   if (requestId !== hydrologyRequestId) return;
+  waterFetchFailed.value = water.status === "rejected";
+  rainfallFetchFailed.value = rain.status === "rejected";
   const waterPoints = water.status === "fulfilled" ? water.value?.points : null;
   waterReading.value = waterPoints?.length
     ? (waterPoints[waterPoints.length - 1].value ?? null)
@@ -719,11 +783,24 @@ const waterSummary = computed(() => {
     return {
       tone: "muted",
       text: en ? "Loading current level…" : "正在取得即時水位…",
+      failed: false,
     };
-  if (value == null || !props.nearbyWater)
+  if (!props.nearbyWater) return { tone: "muted", text: "", failed: false };
+  if (waterFetchFailed.value)
     return {
       tone: "muted",
-      text: en ? "Current level unavailable" : "即時水位暫時無法取得",
+      text: en
+        ? "Can't reach WRA water-level data right now"
+        : "無法連線水利署即時水位資料",
+      failed: true,
+    };
+  if (value == null)
+    return {
+      tone: "muted",
+      text: en
+        ? "No recent reading from this station"
+        : "此測站近期沒有讀數",
+      failed: false,
     };
   const s = props.nearbyWater.station;
   const label =
@@ -746,7 +823,11 @@ const waterSummary = computed(() => {
             : en
               ? "No alert level set"
               : "未設定警戒水位";
-  return { tone: waterTone(s, value), text: `${label} · ${value} m` };
+  return {
+    tone: waterTone(s, value),
+    text: `${label} · ${value} m`,
+    failed: false,
+  };
 });
 
 const TONE_RANK: Record<string, number> = {
@@ -774,11 +855,23 @@ const rainfallSummary = computed(() => {
     return {
       tone: "muted",
       text: en ? "Loading 24-hour rainfall…" : "正在取得 24 小時雨量…",
+      failed: false,
+    };
+  if (rainfallFetchFailed.value)
+    return {
+      tone: "muted",
+      text: en
+        ? "Can't reach CWA rainfall data right now"
+        : "無法連線氣象署雨量資料",
+      failed: true,
     };
   if (value == null)
     return {
       tone: "muted",
-      text: en ? "24-hour rainfall unavailable" : "24 小時雨量暫時無法取得",
+      text: en
+        ? "No recent reading from this station"
+        : "此測站近期沒有讀數",
+      failed: false,
     };
   const tone =
     value >= 200
@@ -804,7 +897,7 @@ const rainfallSummary = computed(() => {
           : en
             ? "Lower recent rainfall"
             : "近期降雨較少";
-  return { tone, text: `${label} · 24hr ${value} mm` };
+  return { tone, text: `${label} · 24hr ${value} mm`, failed: false };
 });
 
 const title = computed(() => d.value.name);
@@ -826,7 +919,6 @@ const subtitle = computed(() => {
     ? r.subtitle || ""
     : r.subtitle_zh || r.subtitle || "";
 });
-const gradingCompact = computed(() => d.value.grading ?? "");
 const kindLabel = computed(() =>
   props.item.kind === "canyon"
     ? d.value.type
@@ -1167,17 +1259,22 @@ const elePolygon = computed(() => {
 function downloadGpx() {
   const route = d.value;
   if (!route.gpx_track) return;
+  gpxError.value = false;
 
   const name = route.name ?? "route";
-  const parsed: number[][] | number[][][] = JSON.parse(route.gpx_track);
+  let parsed: number[][] | number[][][];
+  let wpts: any[] = [];
+  try {
+    parsed = JSON.parse(route.gpx_track);
+    wpts = route.gpx_waypoints ? JSON.parse(route.gpx_waypoints) : [];
+  } catch {
+    gpxError.value = true;
+    return;
+  }
   const isSegmented = parsed.length > 0 && Array.isArray(parsed[0][0]);
   const segments: number[][][] = isSegmented
     ? (parsed as number[][][])
     : [parsed as number[][]];
-
-  const wpts: any[] = route.gpx_waypoints
-    ? JSON.parse(route.gpx_waypoints)
-    : [];
 
   const trksegs = segments
     .map((seg) => {
@@ -1229,8 +1326,8 @@ ${trksegs}
   top: 0;
   right: 0;
   z-index: 1500;
-  background: #12122a;
-  border-left: 1px solid #2a2a4a;
+  background: var(--color-panel);
+  border-left: 1px solid var(--color-line);
   width: min(452px, 100vw);
   height: 100dvh;
   min-width: min(380px, 100vw);
@@ -1254,7 +1351,7 @@ ${trksegs}
 }
 .resize-handle:hover,
 .panel.resizing .resize-handle {
-  background: rgba(108, 142, 245, 0.25);
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 .panel-header {
@@ -1262,7 +1359,7 @@ ${trksegs}
   align-items: flex-start;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid var(--color-line);
   flex-shrink: 0;
 }
 
@@ -1277,40 +1374,42 @@ ${trksegs}
 .route-name {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-text-strong);
 }
 
 .kind-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 600;
   flex-shrink: 0;
 }
 .kind-badge.canyon {
-  background: #1e2d6b;
-  color: #6c8ef5;
+  background: var(--color-primary-selected);
+  color: var(--color-primary);
 }
 .kind-badge.route {
-  background: #3a2800;
-  color: #f5a030;
+  background: color-mix(in srgb, var(--color-rating) 25%, var(--color-panel));
+  color: var(--color-rating);
 }
 
 .close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  color: #666;
-  font-size: 1rem;
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 8px;
   border-radius: 4px;
 }
 .close-btn:hover {
-  background: #2a2a4a;
-  color: #fff;
+  background: var(--color-line);
+  color: var(--color-text-strong);
 }
 .close-btn:focus-visible {
-  outline: 2px solid #6c8ef5;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1327,7 +1426,7 @@ ${trksegs}
   align-items: baseline;
   gap: 12px;
   padding: 10px 20px;
-  border-bottom: 1px solid #1e1e38;
+  border-bottom: 1px solid var(--color-line);
 }
 .row:last-child {
   border-bottom: none;
@@ -1337,12 +1436,12 @@ ${trksegs}
   flex-shrink: 0;
   width: 72px;
   font-size: 0.75rem;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .row-value {
   font-size: 0.875rem;
-  color: #ccc;
+  color: var(--color-text);
   line-height: 1.5;
   display: flex;
   align-items: center;
@@ -1351,7 +1450,7 @@ ${trksegs}
 }
 
 .catchment-link {
-  color: #6c8ef5;
+  color: var(--color-primary);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
   text-decoration: underline;
@@ -1360,23 +1459,23 @@ ${trksegs}
 }
 .catchment-link:hover,
 .catchment-link:focus-visible {
-  color: #8da6ff;
+  color: var(--color-primary-hover);
   text-decoration-color: currentColor;
 }
 
 .stars {
-  color: #f0a030;
+  color: var(--color-rating);
   letter-spacing: 2px;
 }
 .level-text {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .coord {
   font-family: monospace;
   font-size: 0.875rem;
-  color: #6abf8a;
+  color: var(--color-normal);
 }
 
 .gps-link {
@@ -1395,21 +1494,26 @@ ${trksegs}
 
 .gpx-dl-btn {
   background: none;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: #6c8ef5;
+  color: var(--color-primary);
   font-size: 0.78rem;
   padding: 3px 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 .gpx-dl-btn:hover {
-  border-color: #6c8ef5;
-  background: #1e2d6b;
+  border-color: var(--color-primary);
+  background: var(--color-primary-selected);
+}
+
+.gpx-error {
+  font-size: 0.78rem;
+  flex-basis: 100%;
 }
 
 .note-link {
-  color: #6c8ef5;
+  color: var(--color-primary);
   text-decoration: none;
   font-size: 0.875rem;
 }
@@ -1419,11 +1523,11 @@ ${trksegs}
 
 .hydrology-section {
   padding: 8px 20px;
-  border-bottom: 1px solid #1e1e38;
+  border-bottom: 1px solid var(--color-line);
 }
 
 .hydrology-title {
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   margin-bottom: 4px;
 }
@@ -1432,8 +1536,8 @@ ${trksegs}
   grid-template-columns: 1fr auto;
   gap: 12px;
   padding: 2px 0 4px 37px;
-  color: #666;
-  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
 }
 .hydrology-columns span:last-child {
   text-align: right;
@@ -1452,13 +1556,13 @@ ${trksegs}
   cursor: pointer;
 }
 .hydrology-row + .hydrology-row {
-  border-top: 1px solid #1e1e38;
+  border-top: 1px solid var(--color-line);
 }
 .hydrology-row:hover strong {
-  color: #91a8ff;
+  color: var(--color-primary-hover);
 }
 .hydrology-row:focus-visible {
-  outline: 2px solid #6c8ef5;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 .hydrology-row img {
@@ -1480,37 +1584,47 @@ ${trksegs}
   font-size: 0.7rem;
 }
 .hydrology-distance {
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 0.72rem;
   white-space: nowrap;
 }
+.hydrology-retry {
+  margin: -3px 0 7px 37px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.hydrology-retry:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-selected);
+}
 .tone-normal {
-  color: #6abf8a;
+  color: var(--color-normal);
 }
 .tone-watch {
-  color: #d6bd55;
+  color: var(--color-watch);
 }
 .tone-warning {
-  color: #e79a5e;
+  color: var(--color-warning);
 }
 .tone-danger {
-  color: #e87979;
+  color: var(--color-danger);
 }
 .tone-muted,
 .tone-no-threshold {
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .grade-stars {
   font-size: 0.75rem;
-  color: #f0a030;
+  color: var(--color-rating);
   letter-spacing: 1px;
 }
-.grade-stars[data-tooltip] {
-  position: relative;
-  cursor: default;
-}
-
 .grade-tag {
   font-size: 0.75rem;
   font-weight: 700;
@@ -1518,26 +1632,29 @@ ${trksegs}
   border-radius: 6px;
 }
 .grade-tag.rope {
-  background: #1e2d6b;
-  color: #6c8ef5;
+  background: var(--color-primary-selected);
+  color: var(--color-primary);
 } /* fallback */
 .grade-tag.rope:is(.v1, .v2, .v3, .v4, .v5, .v6) {
   background: var(--vg-bg);
   color: var(--vg-fg);
 }
 .grade-tag.water {
-  background: #0e2a3a;
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--color-water) 20%, var(--color-panel));
+  color: var(--color-water);
 }
 .grade-tag.time {
-  background: #2a1e0e;
-  color: #f5a030;
+  background: color-mix(in srgb, var(--color-rating) 20%, var(--color-panel));
+  color: var(--color-rating);
 }
 
 .grade-tag[data-tooltip],
 .grade-stars[data-tooltip] {
   position: relative;
-  cursor: default;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
 }
 
 .grade-tag[data-tooltip]::after,
@@ -1548,13 +1665,13 @@ ${trksegs}
   left: 0;
   transform: none;
   white-space: nowrap;
-  background: #1a1a2e;
-  color: #e0e0f0;
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.7rem;
   font-weight: 400;
   padding: 5px 10px;
   border-radius: 6px;
-  border: 1px solid #2e2e52;
+  border: 1px solid var(--color-line);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
@@ -1562,8 +1679,10 @@ ${trksegs}
 }
 .grade-tag[data-tooltip]:hover::after,
 .grade-tag[data-tooltip]:focus::after,
+.grade-tag[data-tooltip]:active::after,
 .grade-stars[data-tooltip]:hover::after,
-.grade-stars[data-tooltip]:focus::after {
+.grade-stars[data-tooltip]:focus::after,
+.grade-stars[data-tooltip]:active::after {
   opacity: 1;
 }
 
@@ -1572,7 +1691,7 @@ ${trksegs}
   flex-wrap: wrap;
   gap: 6px;
   padding: 10px 20px;
-  border-bottom: 1px solid #1e1e38;
+  border-bottom: 1px solid var(--color-line);
 }
 
 .info-tag {
@@ -1583,21 +1702,21 @@ ${trksegs}
 }
 
 .info-tag.pool {
-  background: #0e2a3a;
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--color-water) 20%, var(--color-panel));
+  color: var(--color-water);
 }
 .info-tag.shuttle {
-  background: #1a2e1a;
-  color: #6abf8a;
+  background: color-mix(in srgb, var(--color-normal) 20%, var(--color-panel));
+  color: var(--color-normal);
 }
 .info-tag.ele {
-  background: #1e1a2e;
-  color: #a78bfa;
+  background: var(--color-raised);
+  color: var(--color-text-muted);
 }
 
 .elevation-section {
   padding: 12px 20px 16px;
-  border-top: 1px solid #1e1e38;
+  border-top: 1px solid var(--color-line);
 }
 
 .ele-header {
@@ -1609,7 +1728,7 @@ ${trksegs}
 
 .ele-title {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .ele-stats {
@@ -1620,10 +1739,10 @@ ${trksegs}
 }
 
 .ele-up {
-  color: #e63946;
+  color: var(--color-danger);
 }
 .ele-down {
-  color: #38bdf8;
+  color: var(--color-water);
 }
 
 .ele-chart-wrap {
@@ -1637,7 +1756,7 @@ ${trksegs}
   flex-direction: column;
   justify-content: space-between;
   font-size: 0.7rem;
-  color: #555;
+  color: var(--color-text-muted);
   text-align: right;
   width: 34px;
   flex-shrink: 0;
@@ -1664,19 +1783,20 @@ ${trksegs}
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .route-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #6c8ef5;
+  color: var(--color-primary);
   line-height: 1.25;
+  text-wrap: balance;
 }
 
 .route-subtitle {
   font-size: 0.78rem;
-  color: #999;
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
@@ -1688,10 +1808,6 @@ ${trksegs}
   margin-top: 2px;
 }
 
-.grade-compact {
-  display: none; /* just badges, no raw string */
-}
-
 .status-strip {
   display: flex;
   align-items: center;
@@ -1701,7 +1817,7 @@ ${trksegs}
   padding: 6px 10px;
   border: none;
   border-radius: 6px;
-  background: #1a1a2e;
+  background: var(--color-surface);
   font-size: 0.78rem;
   font-family: inherit;
   text-align: left;
@@ -1709,10 +1825,10 @@ ${trksegs}
   transition: background 0.15s;
 }
 .status-strip:hover {
-  background: #21213e;
+  background: var(--color-hover);
 }
 .status-strip:focus-visible {
-  outline: 2px solid #6c8ef5;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 .status-strip.tone-strip-danger {
@@ -1725,7 +1841,16 @@ ${trksegs}
   background: rgba(214, 189, 85, 0.1);
 }
 .status-sep {
-  color: #555;
+  color: var(--color-text-muted);
+}
+.hazard-strip {
+  margin-top: 6px;
+}
+.hazard-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ── Tab bar ── */
@@ -1733,7 +1858,7 @@ ${trksegs}
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid #1e1e38;
+  border-bottom: 1px solid var(--color-line);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1748,60 +1873,60 @@ ${trksegs}
   border: 1px solid transparent;
   background: transparent;
   font-size: 12px;
-  color: #888;
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
   white-space: nowrap;
 }
 .tab-btn:hover {
-  color: #ccc;
-  background: #252545;
+  color: var(--color-text);
+  background: var(--color-hover);
 }
 .tab-btn.active {
-  background: #1e2d6b;
-  border-color: #3a5fc0;
-  color: #91a8ff;
+  background: var(--color-primary-selected);
+  border-color: var(--color-primary);
+  color: var(--color-primary-hover);
   font-weight: 600;
 }
 
 /* ── Tab content blocks ── */
 .section-label {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #555;
+  color: var(--color-text-muted);
   padding: 10px 20px 4px;
   text-transform: uppercase;
 }
 
 .info-block {
   padding: 8px 20px;
-  border-bottom: 1px solid #1a1a2e;
+  border-bottom: 1px solid var(--color-surface);
 }
 
 .info-key {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #777;
+  color: var(--color-text-muted);
   margin-bottom: 3px;
 }
 
 .info-val {
   font-size: 0.85rem;
-  color: #ccc;
+  color: var(--color-text);
   line-height: 1.55;
 }
 
 .info-sub {
   font-size: 0.72rem;
-  color: #666;
+  color: var(--color-text-muted);
   margin-top: 2px;
   line-height: 1.4;
 }
 
 .info-link {
   font-size: 0.85rem;
-  color: #6c8ef5;
+  color: var(--color-primary);
   text-decoration: none;
 }
 .info-link:hover {
@@ -1816,7 +1941,7 @@ ${trksegs}
 }
 
 .warning-text {
-  color: #e9a060;
+  color: var(--color-warning);
 }
 
 .approach-text {
@@ -1833,11 +1958,11 @@ ${trksegs}
 .wpt-item {
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #1e1e38;
+  border: 1px solid var(--color-line);
   transition: border-color 0.13s;
 }
 .wpt-item:has(.wpt-row.active) {
-  border-color: #3a3a5a;
+  border-color: var(--color-border);
 }
 .wpt-row {
   width: 100%;
@@ -1845,25 +1970,25 @@ ${trksegs}
   align-items: center;
   gap: 10px;
   padding: 9px 14px;
-  background: #12122a;
+  background: var(--color-panel);
   border: none;
   cursor: pointer;
   text-align: left;
   transition: background 0.13s;
 }
 .wpt-row:hover {
-  background: #1a1a38;
+  background: var(--color-hover);
 }
 .wpt-row.active {
-  background: #151530;
+  background: var(--color-primary-selected);
 }
 .wpt-num {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(108, 142, 245, 0.15);
-  color: #6c8ef5;
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
   font-size: 11px;
   font-weight: 700;
   font-family: monospace;
@@ -1875,14 +2000,14 @@ ${trksegs}
     color 0.13s;
 }
 .wpt-num.active {
-  background: #6c8ef5;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-text-strong);
 }
 .wpt-name {
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: #ccc;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1890,24 +2015,24 @@ ${trksegs}
 .wpt-ele {
   font-size: 11px;
   font-family: monospace;
-  color: #888;
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 .wpt-chevron {
   flex-shrink: 0;
-  color: #555;
+  color: var(--color-text-muted);
   transition: transform 0.2s;
 }
 .wpt-chevron.open {
   transform: rotate(180deg);
-  color: #6c8ef5;
+  color: var(--color-primary);
 }
 
 /* expanded card */
 .wpt-card {
   padding: 10px 14px 12px 46px;
-  background: #0e0e24;
-  border-top: 1px solid #1e1e38;
+  background: var(--color-canvas);
+  border-top: 1px solid var(--color-line);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1918,7 +2043,7 @@ ${trksegs}
   gap: 6px;
   font-size: 12px;
   font-family: monospace;
-  color: #6abf8a;
+  color: var(--color-normal);
   text-decoration: none;
   width: fit-content;
 }
@@ -1929,7 +2054,7 @@ ${trksegs}
 .empty-tab {
   padding: 24px 20px;
   font-size: 0.82rem;
-  color: #555;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -1946,7 +2071,7 @@ ${trksegs}
     min-width: 0;
     max-height: 100dvh;
     border-left: none;
-    border-top: 1px solid #2a2a4a;
+    border-top: 1px solid var(--color-line);
     transform: none;
   }
 
@@ -1955,7 +2080,7 @@ ${trksegs}
   }
 
   .panel-header {
-    background: #12122a;
+    background: var(--color-panel);
     z-index: 1;
   }
 }

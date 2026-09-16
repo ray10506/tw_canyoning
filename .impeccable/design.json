@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-15T00:00:00+10:00",
+  "title": "Design System: Taiwan Canyoneering Map",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "定位藍", "canonical": "#6c8ef5", "tonalRamp": ["#101a36", "#182750", "#243a76", "#3653a5", "#4e70d5", "#6c8ef5", "#a9bbfa", "#e7edff"] },
+      "surface-dark": { "role": "neutral", "displayName": "深色側欄", "canonical": "#1a1a2e", "tonalRamp": ["#0d0d17", "#121220", "#1a1a2e", "#30304a", "#50506c", "#77778f", "#aaaabb", "#ededf2"] },
+      "panel-dark": { "role": "neutral", "displayName": "深色面板", "canonical": "#12122a", "tonalRamp": ["#090915", "#12122a", "#20203d", "#393956", "#5a5a75", "#828299", "#b2b2c0", "#eeeeF2"] },
+      "panel-light": { "role": "neutral", "displayName": "冷灰面板", "canonical": "#e5ebf0", "tonalRamp": ["#17202a", "#293744", "#465765", "#687986", "#91a0aa", "#bac5cc", "#e5ebf0", "#f7f9fa"] },
+      "water": { "role": "secondary", "displayName": "水流藍", "canonical": "#38bdf8", "tonalRamp": ["#082535", "#0a405c", "#0d628c", "#1688bd", "#38bdf8", "#75d1fa", "#b2e6fc", "#e8f8ff"] },
+      "normal": { "role": "tertiary", "displayName": "正常綠", "canonical": "#6abf8a", "tonalRamp": ["#10271a", "#19432a", "#286443", "#3d895d", "#6abf8a", "#98d4ad", "#c8ead4", "#eef9f2"] },
+      "watch": { "role": "tertiary", "displayName": "留意黃", "canonical": "#d6bd55", "tonalRamp": ["#2b240a", "#4b3e10", "#715e18", "#9a8128", "#d6bd55", "#e2d181", "#eee3b4", "#faf6e7"] },
+      "warning": { "role": "tertiary", "displayName": "警告橘", "canonical": "#e79a5e", "tonalRamp": ["#32180a", "#55280f", "#813d18", "#b45d2f", "#e79a5e", "#efb98b", "#f6d8bd", "#fdf2e9"] },
+      "danger": { "role": "tertiary", "displayName": "危險紅", "canonical": "#e87979", "tonalRamp": ["#310d0d", "#541616", "#812424", "#b44343", "#e87979", "#efa1a1", "#f6cccc", "#fceeee"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "介面主標", "purpose": "Route and station names." },
+      "body": { "displayName": "正文", "purpose": "Route descriptions and operational copy." },
+      "label": { "displayName": "操作標籤", "purpose": "Controls, field names, and units." },
+      "data": { "displayName": "測量資料", "purpose": "Coordinates and comparable measurements only." }
+    },
+    "shadows": [
+      { "name": "tool-card", "value": "0 8px 32px rgba(0,0,0,0.5)", "purpose": "Search and settings cards." },
+      { "name": "station-card", "value": "0 4px 24px rgba(0,0,0,0.5)", "purpose": "Map-anchored hydrology cards." },
+      { "name": "right-panel", "value": "-8px 0 40px rgba(0,0,0,0.7)", "purpose": "Desktop route panel only." },
+      { "name": "light-float", "value": "0 8px 28px rgba(30,41,59,0.2)", "purpose": "Floating surfaces in light mode." }
+    ],
+    "motion": [
+      { "name": "state", "value": "150ms ease", "purpose": "Hover, focus, and selected state changes." },
+      { "name": "sidebar", "value": "300ms ease", "purpose": "Sidebar open and close." },
+      { "name": "mobile-sheet", "value": "280ms cubic-bezier(0.32,0.72,0,1)", "purpose": "Mobile detail entrance." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "640px" },
+      { "name": "portrait-panel", "value": "900px portrait" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single committing action in a control group.",
+      "html": "<button class=\"ds-btn-primary\">確認</button>",
+      "css": ".ds-btn-primary{min-height:40px;padding:8px 20px;border:1px solid #6c8ef5;border-radius:8px;background:#6c8ef5;color:#12122a;font:700 .75rem 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}.ds-btn-primary:hover{background:#91a8ff}.ds-btn-primary:focus-visible{outline:2px solid #b5c6ff;outline-offset:2px}.ds-btn-primary:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Download, retry, and non-destructive secondary commands.",
+      "html": "<button class=\"ds-btn-secondary\">下載 PNG</button>",
+      "css": ".ds-btn-secondary{min-height:40px;padding:8px 12px;border:1px solid #3a3a5a;border-radius:8px;background:transparent;color:#e0e0e0;font:600 .75rem 'Noto Sans TC',system-ui,sans-serif;cursor:pointer}.ds-btn-secondary:hover{border-color:#6c8ef5;color:#91a8ff}.ds-btn-secondary:focus-visible{outline:2px solid #6c8ef5;outline-offset:2px}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Literal placeholder copy changes with the active search scope.",
+      "html": "<input class=\"ds-input\" placeholder=\"搜尋路線、溪名或地名…\" />",
+      "css": ".ds-input{width:280px;height:40px;padding:8px 12px;border:1px solid #3a3a5a;border-radius:8px;background:#12122a;color:#e0e0e0;font:400 .875rem 'Noto Sans TC',system-ui,sans-serif;outline:none}.ds-input::placeholder{color:#888}.ds-input:hover{border-color:#65749d}.ds-input:focus-visible{border-color:#6c8ef5;outline:2px solid transparent}"
+    },
+    {
+      "name": "Selected Route Row",
+      "kind": "nav",
+      "description": "Full-row selection without a white outline.",
+      "html": "<button class=\"ds-route-row\"><strong>茄苳瀑布</strong><span>V2 · A2 · III</span><small>新北 汐止</small></button>",
+      "css": ".ds-route-row{width:280px;display:grid;gap:4px;padding:10px 16px;border:0;border-left:3px solid #6c8ef5;background:#1e2d6b;color:#e0e0e0;text-align:left;font-family:'Noto Sans TC',system-ui,sans-serif;cursor:pointer}.ds-route-row strong{font-size:.9rem}.ds-route-row span{font-size:.7rem;color:#91a8ff}.ds-route-row small{font-size:.72rem;color:#888}.ds-route-row:focus-visible{outline:2px solid #6c8ef5;outline-offset:-2px}"
+    },
+    {
+      "name": "Route Grade Tags",
+      "kind": "chip",
+      "description": "Compact, semantic route grading; no empty star placeholders.",
+      "html": "<div class=\"ds-grades\"><span class=\"ds-grade-v\">V3</span><span class=\"ds-grade-a\">A3</span><span class=\"ds-grade-time\">III</span><span class=\"ds-stars\">★★★</span></div>",
+      "css": ".ds-grades{display:flex;align-items:center;gap:4px;font-family:'Noto Sans TC',system-ui,sans-serif}.ds-grades span:not(.ds-stars){padding:2px 8px;border-radius:6px;font-size:.75rem;font-weight:700}.ds-grade-v{background:#2a2200;color:#fbbf24}.ds-grade-a{background:#0e2a3a;color:#38bdf8}.ds-grade-time{background:#2a1e0e;color:#f5a030}.ds-stars{color:#f0a030;font-size:.75rem}"
+    },
+    {
+      "name": "Hydrology Verdict",
+      "kind": "card",
+      "description": "A data interpretation with value and context, never a route safety claim.",
+      "html": "<section class=\"ds-verdict\"><strong>低於警戒水位</strong><div><b>2.06 m</b><time>09/14 21:50</time></div><p>距離一級警戒還有 2.54 m。</p></section>",
+      "css": ".ds-verdict{width:320px;padding:18px 20px;border:1px solid #2f8f5b;border-radius:12px;background:#171733;color:#e0e0e0;font-family:'Noto Sans TC',system-ui,sans-serif}.ds-verdict strong{font-size:1rem;color:#fff}.ds-verdict div{display:flex;align-items:baseline;gap:8px;margin:8px 0 6px}.ds-verdict b{font-size:1.6rem;color:#38bdf8}.ds-verdict time{font-size:.75rem;color:#888}.ds-verdict p{margin:0;color:#bbb;font-size:.875rem}"
+    },
+    {
+      "name": "Route Panel",
+      "kind": "card",
+      "refersTo": "route-panel",
+      "description": "Right-side, resizable desktop detail panel with task-ordered information.",
+      "html": "<aside class=\"ds-panel\"><header><strong>茄苳瀑布</strong><button aria-label=\"關閉\">×</button></header><nav>快速資訊　時間與進場　氣象預報</nav><main>難度 → 地區 → 天氣 → 鄰近水文</main></aside>",
+      "css": ".ds-panel{width:452px;height:420px;display:flex;flex-direction:column;background:#12122a;color:#e0e0e0;box-shadow:-8px 0 40px rgba(0,0,0,.7);font-family:'Noto Sans TC',system-ui,sans-serif}.ds-panel header{display:flex;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #2a2a4a}.ds-panel header strong{color:#6c8ef5;font-size:1.1rem}.ds-panel button{min-width:44px;min-height:44px;border:0;background:transparent;color:#888}.ds-panel button:focus-visible{outline:2px solid #6c8ef5;outline-offset:2px}.ds-panel nav{padding:8px 12px;border-bottom:1px solid #1e1e38;color:#91a8ff;font-size:.75rem;white-space:nowrap}.ds-panel main{padding:20px;font-size:.875rem;line-height:1.55}"
+    }
+  ],
+  "narrative": {
+    "northStar": "溪谷行前控制台",
+    "overview": "這是一套以地圖為主體、為出發前判斷服務的操作介面。視覺應安靜、密度適中、資料導向；品牌感來自精準的藍色互動狀態、水文圖示與一致的資訊層級，而不是裝飾性背景或大量卡片。台灣路線是目前的行為基準。",
+    "keyCharacteristics": ["地圖永遠是主舞台", "深色低眩光、淺色冷灰", "藍色只表達互動", "水文判讀不宣稱安全", "桌面比較、手機聚焦"],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "同一畫面的主要互動色只有 primary。", "section": "colors" },
+      { "name": "The Status Is Data Rule", "body": "狀態色只用於可解釋的實際狀態，並顯示數值、時間與文字判讀。", "section": "colors" },
+      { "name": "The No Pure White Surface Rule", "body": "淺色模式不可使用大面積純白。", "section": "colors" },
+      { "name": "The Literal Unit Rule", "body": "所有測量值必須就近顯示欄位名稱與單位。", "section": "typography" },
+      { "name": "The Map Stays Present Rule", "body": "桌面開啟任何資訊時仍需看得到可操作的地圖。", "section": "layout" },
+      { "name": "The One Result List Rule", "body": "搜尋確認後，結果只出現在 Sidebar。", "section": "layout" },
+      { "name": "The Radius Has Meaning Rule", "body": "相同角色使用相同圓角。", "section": "shapes" }
+    ],
+    "dos": ["Do reuse these tokens and roles before creating a new component.", "Do keep the map and sidebar operable when detail cards are open.", "Do test mobile, portrait tablet, and desktop."],
+    "donts": ["Don't add another primary palette or radius scale.", "Don't use pure-white large surfaces or decorative blur.", "Don't present missing data as zero, normal, or safe."]
+  }
+}

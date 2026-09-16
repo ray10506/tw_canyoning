@@ -9,7 +9,7 @@
       </button>
     </div>
 
-    <div class="browse-switch" role="group" :aria-label="locale === 'en' ? 'Browse content' : '瀏覽內容'">
+    <div :class="['browse-switch', { 'has-search': browseMode === 'search' }]" role="group" :aria-label="locale === 'en' ? 'Browse content' : '瀏覽內容'">
       <button
         :class="['browse-btn', { active: browseMode === 'route' }]"
         :aria-pressed="browseMode === 'route'"
@@ -25,6 +25,11 @@
         :aria-pressed="browseMode === 'hydrology'"
         @click="emit('changeBrowseMode', 'hydrology')"
       >{{ locale === 'en' ? 'Hydrology' : '水文' }}</button>
+      <button
+        v-if="browseMode === 'search'"
+        class="browse-btn active search-results-btn"
+        aria-pressed="true"
+      >{{ locale === 'en' ? 'Results' : '搜尋結果' }}</button>
     </div>
 
     <DifficultyGuide v-if="showGuide" :records="difficultyRecords" :loading="difficultyLoading" @close="showGuide = false" />
@@ -49,9 +54,9 @@
             v-for="route in canyonRoutes"
             :key="route.id"
             :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
-            @click.stop="emit('showDetail', { kind: 'route', data: route })"
           >
-            <div class="canyon-item-inner"><div class="canyon-right">
+            <button class="route-item" type="button" @click.stop="emit('showDetail', { kind: 'route', data: route })">
+              <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
                 <span class="canyon-name-wrap">
                   <span class="canyon-name">{{ route.name }}</span>
@@ -66,7 +71,8 @@
                 <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
               </div>
               <span class="canyon-location">{{ route.region }}</span>
-            </div></div>
+              </div></div>
+            </button>
           </li>
           <li v-if="!canyonRoutes.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
         </template>
@@ -96,9 +102,9 @@
             v-for="route in filteredNzRoutes"
             :key="route.id"
             :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
-            @click.stop="emit('showDetail', { kind: 'nz', data: route })"
           >
-            <div class="canyon-item-inner"><div class="canyon-right">
+            <button class="route-item" type="button" @click.stop="emit('showDetail', { kind: 'nz', data: route })">
+              <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
                 <span class="canyon-name">{{ route.name }}</span>
                 <span v-if="route.max_drop" class="canyon-drop"><span class="drop-label">{{ locale === 'en' ? 'Drop' : '瀑高' }}</span>{{ route.max_drop }}</span>
@@ -110,15 +116,29 @@
                 <span v-if="!route.grading" class="type-badge type-badge--canyon">—</span>
               </div>
               <span class="canyon-location">{{ route.region }}</span>
-            </div></div>
+              </div></div>
+            </button>
           </li>
           <li v-if="!filteredNzRoutes.length" class="empty">{{ locale === 'en' ? 'No results found' : '找不到符合的結果' }}</li>
         </template>
       </ul>
     </template>
 
-    <!-- Hydrology tab (station results) -->
+    <!-- Hydrology browser / confirmed search results -->
     <template v-else>
+      <div v-if="browseMode === 'search'" class="result-search-row">
+        <input
+          type="search"
+          class="result-search-input"
+          :value="searchQuery"
+          :aria-label="locale === 'en' ? 'Search current results' : '搜尋目前結果'"
+          :placeholder="locale === 'en' ? 'Search current results...' : '搜尋目前結果…'"
+          @input="updateSearchQuery"
+        />
+        <button type="button" class="adjust-filter-btn" @click="emit('openSearch')">
+          {{ locale === 'en' ? 'Filters' : '調整篩選' }}
+        </button>
+      </div>
       <div v-if="!routesLoading" class="list-count">
         <span>{{ canyonRoutes.length + waterStations.length + rainfallStations.length }} {{ locale === 'en' ? 'results' : '筆結果' }}</span>
       </div>
@@ -129,9 +149,9 @@
             v-for="route in canyonRoutes"
             :key="route.id"
             :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
-            @click.stop="emit('showDetail', { kind: 'route', data: route })"
           >
-            <div class="canyon-item-inner"><div class="canyon-right">
+            <button class="route-item" type="button" @click.stop="emit('showDetail', { kind: 'route', data: route })">
+              <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
                 <span class="canyon-name-wrap">
                   <span class="canyon-name">{{ route.name }}</span>
@@ -145,7 +165,8 @@
                 <span v-if="starsPart(route.grading)" class="stars-pill">{{ starsPart(route.grading) }}</span>
               </div>
               <span class="canyon-location">{{ route.region }}</span>
-            </div></div>
+              </div></div>
+            </button>
           </li>
           <li
             v-for="station in waterStations"
@@ -196,18 +217,6 @@ import { locale } from '../lib/locale'
 import type { WaterStation, WaterTone } from '../lib/waterLevel'
 import type { RainfallStation } from '../lib/rainfall'
 
-const TONE_LABEL: Record<WaterTone, { zh: string; en: string }> = {
-  danger: { zh: '水位達警戒，請留意', en: 'Water level at alert' },
-  warning: { zh: '水位偏高', en: 'Water level elevated' },
-  watch: { zh: '水位稍高', en: 'Water level watch' },
-  normal: { zh: '水位正常', en: 'Water level normal' },
-  'no-threshold': { zh: '未設定警戒水位', en: 'No alert level set' },
-  muted: { zh: '水位資料暫缺', en: 'Water level unavailable' },
-}
-function waterToneLabel(tone: WaterTone): string {
-  return locale.value === 'en' ? TONE_LABEL[tone].en : TONE_LABEL[tone].zh
-}
-
 const showGuide = ref(false)
 const difficultyRecords = ref<any[]>([])
 const difficultyLoaded = ref(false)
@@ -234,7 +243,7 @@ const props = defineProps<{
   selectedRouteId: string | null
   selectedStationKey: string | null
   sortDescending: boolean
-  browseMode: 'route' | 'nz' | 'hydrology'
+  browseMode: 'route' | 'nz' | 'hydrology' | 'search'
   searchQuery: string
   waterStations: WaterStation[]
   rainfallStations: RainfallStation[]
@@ -249,9 +258,15 @@ const emit = defineEmits<{
   showDetail: [item: { kind: 'canyon' | 'route' | 'nz', data: any }]
   selectWaterStation: [station: WaterStation]
   selectRainfallStation: [station: RainfallStation]
+  updateSearchQuery: [query: string]
+  openSearch: []
 }>()
 
 const nzQuery = ref('')
+
+function updateSearchQuery(event: Event) {
+  emit('updateSearchQuery', (event.target as HTMLInputElement).value)
+}
 
 const filteredNzRoutes = computed(() => {
   const q = nzQuery.value.trim().toLowerCase().replace(/臺/g, '台')
@@ -357,14 +372,58 @@ function starsPart(grading: string): string {
   border-color: #6c8ef5;
 }
 
-[data-theme="light"] .nz-search-input {
-  background: #12122a;
-  color: #1a1a2e;
-  border-color: #c8c8d8;
+.result-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-line);
+  flex-shrink: 0;
 }
 
-[data-theme="light"] .nz-search-input:focus {
-  border-color: #5678e8;
+.result-search-input,
+.adjust-filter-btn {
+  min-height: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.result-search-input {
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  outline: none;
+}
+
+.result-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.result-search-input:focus {
+  border-color: var(--color-primary);
+}
+
+.adjust-filter-btn {
+  padding: 8px 12px;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+:global(html[data-theme='light']) .nz-search-input {
+  background: var(--color-raised);
+  color: var(--color-text-strong);
+  border-color: var(--color-line);
+}
+
+:global(html[data-theme='light']) .nz-search-input:focus {
+  border-color: var(--color-primary);
 }
 
 .browse-btn {
@@ -435,7 +494,7 @@ function starsPart(grading: string): string {
   background: transparent;
   color: #888;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 .guide-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
 .guide-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
@@ -455,7 +514,7 @@ function starsPart(grading: string): string {
   border-radius: 6px;
   cursor: pointer;
   letter-spacing: 0.3px;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s;
 }
 .lang-btn:hover { border-color: #6c8ef5; color: #6c8ef5; }
 .lang-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
@@ -492,7 +551,7 @@ function starsPart(grading: string): string {
   color: #888;
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 .region-tab:hover { border-color: #6c8ef5; color: #ccc; }
 .region-tab.active { background: #6c8ef5; border-color: #6c8ef5; color: #fff; font-weight: 600; }
@@ -513,7 +572,7 @@ function starsPart(grading: string): string {
   font-size: 0.75rem;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .type-tab:hover {
@@ -619,6 +678,24 @@ function starsPart(grading: string): string {
 
 .canyon-item:hover { background: #252545; }
 .canyon-item.active { background: #1e2d6b; border-left: 3px solid #6c8ef5; }
+
+.route-item {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.browse-switch.has-search {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.route-item:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .station-item {
   width: 100%;

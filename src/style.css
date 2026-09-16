@@ -1,16 +1,58 @@
 @import 'leaflet/dist/leaflet.css';
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
 
 :root {
   color: rgb(255, 255, 255);
   background-color: rgb(15, 23, 42);
   color-scheme: dark;
+  --color-primary: #6c8ef5;
+  --color-primary-hover: #91a8ff;
+  --color-canvas: #0f172a;
+  --color-surface: #1a1a2e;
+  --color-panel: #12122a;
+  --color-raised: #171733;
+  --color-line: #2a2a4a;
+  --color-text: #e0e0e0;
+  --color-text-strong: #ffffff;
+  --color-text-muted: #888888;
+  /* Interaction states */
+  --color-primary-selected: #1e2d6b;
+  --color-border: #3a3a5a;
+  --color-hover: #252545;
+  /* Semantic / status */
+  --color-water: #38bdf8;
+  --color-normal: #6abf8a;
+  --color-watch: #d6bd55;
+  --color-warning: #e79a5e;
+  --color-danger: #e87979;
+  --color-rating: #f0a030;
 }
 
 html[data-theme='light'] {
   color: #172033;
   background-color: #dfe5ea;
   color-scheme: light;
+  --color-primary: #4f6fd8;
+  --color-primary-hover: #3656bd;
+  --color-canvas: #dfe5ea;
+  --color-surface: #dfe7ee;
+  --color-panel: #e5ebf0;
+  --color-raised: #f0f3f6;
+  --color-line: #cbd3db;
+  --color-text: #334155;
+  --color-text-strong: #172033;
+  --color-text-muted: #64748b;
+  /* Interaction states */
+  --color-primary-selected: #d2def2;
+  --color-border: #bcc7d1;
+  --color-hover: #dce5ed;
+  /* Semantic / status — darker for readability on light surfaces */
+  --color-water: #0369a1;
+  --color-normal: #16a34a;
+  --color-watch: #92400e;
+  --color-warning: #c2410c;
+  --color-danger: #dc2626;
+  --color-rating: #b45309;
 }
 
 * {
@@ -64,6 +106,11 @@ html[data-theme='light'] :is(.row-value, .status-note, .menu-text strong, .file-
   color: #334155;
 }
 html[data-theme='light'] :is(.hydrology-title, .hydrology-distance, .tone-muted) { color: #64748b; }
+html[data-theme='light'] .tone-normal  { color: var(--color-normal); }
+html[data-theme='light'] .tone-watch   { color: var(--color-watch); }
+html[data-theme='light'] .tone-warning { color: var(--color-warning); }
+html[data-theme='light'] .tone-danger  { color: var(--color-danger); }
+html[data-theme='light'] .coord        { color: var(--color-normal); }
 html[data-theme='light'] .hydrology-copy strong { color: #273449; }
 html[data-theme='light'] :is(.hydrology-section, .hydrology-row + .hydrology-row) { border-color: #c8d2dc; }
 html[data-theme='light'] :is(.station-copy .matched, .suggestion-copy .matched) { color: #3656bd; }
@@ -94,8 +141,17 @@ html[data-theme='light'] :is(.skel-title, .skel-level, .skel-note) {
 body {
   margin: 0;
   overflow-x: hidden;
-  font-family: "Noto Sans TC", "Yu Mincho", "游明朝", serif;
-  letter-spacing: 0.01em;
+  font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 html {
@@ -143,4 +199,28 @@ html {
 @media (pointer: coarse) {
   button { min-height: 44px; }
   button[aria-label] { min-width: 44px; }
+}
+
+@media (max-width: 640px) {
+  :is(.browse-btn, .sort-btn, .tab-btn, .dos-tab, .scope-btn, .region-btn, .type-btn, .period-btn, .adjust-filter-btn) {
+    min-height: 44px !important;
+  }
+
+  .map-mode-select,
+  .layers-fab,
+  .layers-close {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .layers-fab {
+    top: 64px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .layer-row {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
 }

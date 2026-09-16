@@ -15,7 +15,7 @@
           <span v-if="timeGrade !== '—'" class="g-tag roman">{{ timeGrade }}</span>
           <span v-if="gradingStars" class="g-stars">{{ gradingStars }}</span>
           <button v-if="hasRiskSignal" type="button" class="g-tag risk-chip" @click="activeTab = 'risk'">
-            ⚠ {{ riskChipLabel }}
+            {{ riskChipLabel }}
           </button>
         </div>
       </div>
@@ -39,15 +39,15 @@
         <div class="section-sub">{{ locale === 'en' ? 'LOCATION' : '地點' }}</div>
         <dl class="rows">
           <div v-if="d.location || d.location_zh || d.region" class="row">
-            <dt><span class="ic">📍</span>{{ locale === 'en' ? 'Location' : '地點' }}</dt>
+            <dt>{{ locale === 'en' ? 'Location' : '地點' }}</dt>
             <dd>{{ locale === 'en' ? (d.location || d.region) : (d.location_zh || d.location || d.region) }}</dd>
           </div>
           <div class="row">
-            <dt><span class="ic">⬆</span>{{ locale === 'en' ? 'Elevation' : '海拔高度' }}</dt>
+            <dt>{{ locale === 'en' ? 'Elevation' : '海拔高度' }}</dt>
             <dd>{{ routeElevation != null ? `${routeElevation}m` : '—' }}</dd>
           </div>
           <div v-if="d.character || d.character_zh" class="row">
-            <dt><span class="ic">🌊</span>{{ locale === 'en' ? 'Character' : '性質' }}</dt>
+            <dt>{{ locale === 'en' ? 'Character' : '性質' }}</dt>
             <dd>{{ locale === 'en' ? d.character : (d.character_zh || d.character) }}</dd>
           </div>
         </dl>
@@ -56,15 +56,15 @@
           <div class="section-sub">{{ locale === 'en' ? 'TERRAIN & WATER' : '地形與水況' }}</div>
           <dl class="rows">
             <div v-if="details.rock" :class="['row', { unpublished: isUnpublished(localDetail('rock')) }]">
-              <dt><span class="ic">△</span>{{ locale === 'en' ? 'Rock' : '岩性' }}</dt>
+              <dt>{{ locale === 'en' ? 'Rock' : '岩性' }}</dt>
               <dd>{{ localDetail('rock') }}</dd>
             </div>
             <div v-if="details.water" :class="['row', { unpublished: isUnpublished(localDetail('water')) }]">
-              <dt><span class="ic">≈</span>{{ locale === 'en' ? 'Water' : '水況' }}</dt>
+              <dt>{{ locale === 'en' ? 'Water' : '水況' }}</dt>
               <dd>{{ localDetail('water') }}</dd>
             </div>
             <div v-if="details.catchment" :class="['row', { unpublished: isUnpublished(localDetail('catchment')) }]">
-              <dt><span class="ic">⌁</span>{{ locale === 'en' ? 'Catchment' : '集水區' }}</dt>
+              <dt>{{ locale === 'en' ? 'Catchment' : '集水區' }}</dt>
               <dd>{{ localDetail('catchment') }}</dd>
             </div>
           </dl>
@@ -74,19 +74,19 @@
           <div class="section-sub">{{ locale === 'en' ? 'ACCESS & NAVIGATION' : '進場與定位' }}</div>
           <dl class="rows">
             <div v-if="d.approach" class="row">
-              <dt><span class="ic">🥾</span>{{ locale === 'en' ? 'Approach' : '主要進場' }}</dt>
+              <dt>{{ locale === 'en' ? 'Approach' : '主要進場' }}</dt>
               <dd class="prewrap">{{ d.approach }}</dd>
             </div>
             <div v-if="d.gps" class="row">
-              <dt><span class="ic">🗺</span>GPS</dt>
+              <dt>GPS</dt>
               <dd class="mono"><a :href="mapsUrl(d.gps)" target="_blank" rel="noopener" class="coord-link">{{ d.gps }} ↗</a></dd>
             </div>
             <div v-if="d.gpx_url" class="row">
-              <dt><span class="ic">📥</span>GPX</dt>
+              <dt>GPX</dt>
               <dd><a :href="d.gpx_url" download class="ir-link">{{ locale === 'en' ? 'Download GPX' : '下載 GPX' }} ↓</a></dd>
             </div>
             <div v-if="details.map_sheet" class="row">
-              <dt><span class="ic">▧</span>{{ locale === 'en' ? 'Map' : '圖幅' }}</dt>
+              <dt>{{ locale === 'en' ? 'Map' : '圖幅' }}</dt>
               <dd>{{ details.map_sheet }}</dd>
             </div>
           </dl>
@@ -96,23 +96,23 @@
           <div class="section-sub">{{ locale === 'en' ? 'GEAR & CREDITS' : '裝備與來源' }}</div>
           <dl class="rows">
             <div v-if="details.anchors" :class="['row', { unpublished: isUnpublished(localDetail('anchors')) }]">
-              <dt><span class="ic">⌾</span>{{ locale === 'en' ? 'Anchors' : '確保點' }}</dt>
+              <dt>{{ locale === 'en' ? 'Anchors' : '確保點' }}</dt>
               <dd>{{ localDetail('anchors') }}</dd>
             </div>
             <div v-if="d.gear || d.gear_zh" class="row">
-              <dt><span class="ic">🪢</span>{{ locale === 'en' ? 'Gear' : '裝備' }}</dt>
+              <dt>{{ locale === 'en' ? 'Gear' : '裝備' }}</dt>
               <dd>{{ locale === 'en' ? d.gear : (d.gear_zh || d.gear) }}</dd>
             </div>
             <div v-if="d.first_descent" class="row">
-              <dt><span class="ic">🏆</span>{{ locale === 'en' ? 'First Descent' : '首降' }}</dt>
+              <dt>{{ locale === 'en' ? 'First Descent' : '首降' }}</dt>
               <dd class="dim">{{ d.first_descent }}</dd>
             </div>
             <div v-if="d.topo_url" class="row">
-              <dt><span class="ic">🗺</span>{{ locale === 'en' ? 'Topo' : 'Topo 下載' }}</dt>
+              <dt>{{ locale === 'en' ? 'Topo' : 'Topo 下載' }}</dt>
               <dd><a :href="d.topo_url" target="_blank" rel="noopener" class="ir-link">{{ locale === 'en' ? 'Download PDF ↗' : '下載 PDF ↗' }}</a></dd>
             </div>
             <div v-if="d.source_url" class="row">
-              <dt><span class="ic">🔗</span>{{ locale === 'en' ? 'Source' : '來源' }}</dt>
+              <dt>{{ locale === 'en' ? 'Source' : '來源' }}</dt>
               <dd><a :href="d.source_url" target="_blank" rel="noopener" class="ir-link">KiwiCanyons ↗</a></dd>
             </div>
           </dl>
@@ -140,6 +140,9 @@
               <span>{{ item.author }}</span>
             </div>
             <p>{{ locale === 'en' ? item.en : (item.zh || item.en) }}</p>
+            <a v-if="item.url" :href="item.url" target="_blank" rel="noopener" class="updates-source">
+              {{ locale === 'en' ? 'Read full report ↗' : '閱讀完整紀錄 ↗' }}
+            </a>
           </article>
           <a v-if="d.source_url" :href="`${d.source_url}#comments`" target="_blank" rel="noopener" class="updates-source">
             {{ locale === 'en' ? 'Read original trip reports' : '查看原始探訪回報' }} ↗
@@ -239,7 +242,7 @@
 
         <dl class="rows">
           <div v-if="d.gps" class="row">
-            <dt><span class="ic">🗺</span>GPS</dt>
+            <dt>GPS</dt>
             <dd class="mono"><a :href="mapsUrl(d.gps)" target="_blank" rel="noopener" class="coord-link">{{ d.gps }} ↗</a></dd>
           </div>
         </dl>
@@ -275,13 +278,21 @@
               :href="item.asset" target="_blank" rel="noopener"
               class="topo-figure"
             >
-              <figcaption>{{ locale === 'en' ? item.en : (item.zh || item.en) }}</figcaption>
+              <span class="topo-caption">{{ locale === 'en' ? item.en : (item.zh || item.en) }}</span>
               <img :src="item.asset" :alt="`${d.name_en || d.name} ${item.en || 'topo'}`" class="topo-image" loading="lazy" />
             </a>
           </div>
           <a v-if="d.topo_url" :href="d.topo_url" target="_blank" rel="noopener" class="topo-dl-btn">
-            ⬇ {{ locale === 'en' ? 'Download Topo PDF' : '下載路線圖 PDF' }}
+            {{ locale === 'en' ? 'Download Topo PDF' : '下載路線圖 PDF' }}
           </a>
+          <template v-if="!d.topo_url && topoPages.length">
+            <a v-for="item in topoPages" :key="`dl-${item.page}`"
+              :href="item.asset" :download="`${d.name_en || d.name} - ${item.en}.jpg`"
+              class="topo-dl-btn"
+            >
+              {{ locale === 'en' ? `Download ${item.en} (JPG)` : `下載 ${item.zh || item.en}（JPG）` }}
+            </a>
+          </template>
           <div v-if="!topoPages.length && !d.topo_url" class="dos-empty">{{ locale === 'en' ? 'KiwiCanyons has not published an official topo yet.' : 'KiwiCanyons 尚未提供官方路線圖。' }}</div>
         </div>
       </template>
@@ -325,17 +336,17 @@
           <strong>{{ localDetail('flood') }}</strong>
         </div>
         <div v-if="d.hazards || d.hazards_zh" class="risk-block">
-          <div class="risk-label">⚠ {{ locale === 'en' ? 'HAZARDS & RISK NOTES' : '危險注意 HAZARD NOTES' }}</div>
+          <div class="risk-label">{{ locale === 'en' ? 'HAZARDS & RISK NOTES' : '危險注意 HAZARD NOTES' }}</div>
           <div class="risk-text">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</div>
         </div>
         <!-- Gear reminder in risk context -->
         <dl v-if="d.gear || d.gear_zh" class="rows" style="margin-top:8px">
           <div class="row">
-            <dt><span class="ic">🪢</span>{{ locale === 'en' ? 'Required Gear' : '必備裝備' }}</dt>
+            <dt>{{ locale === 'en' ? 'Required Gear' : '必備裝備' }}</dt>
             <dd>{{ locale === 'en' ? d.gear : (d.gear_zh || d.gear) }}</dd>
           </div>
           <div v-if="d.max_drop" class="row">
-            <dt><span class="ic">⬇</span>{{ locale === 'en' ? 'Max Drop' : '最高落差' }}</dt>
+            <dt>{{ locale === 'en' ? 'Max Drop' : '最高落差' }}</dt>
             <dd class="highlight">{{ d.max_drop }}</dd>
           </div>
         </dl>
@@ -539,16 +550,18 @@ function mapsUrl(lat: number | string, lon?: number) {
 
 /* All vars on the component root — `:root` in scoped styles doesn't work in Vue */
 .nz-dossier {
-  --bg:     #1a1a2e;
-  --bg2:    #12122a;
-  --bg3:    #252545;
-  --line:   #2a2a4a;
-  --text:   #e0e0e0;
+  /* Aliases to global tokens — values flow from style.css, including light-mode overrides */
+  --bg:    var(--color-surface);
+  --bg2:   var(--color-panel);
+  --bg3:   var(--color-hover);
+  --line:  var(--color-line);
+  --text:  var(--color-text);
+  --cyan:  var(--color-primary);
+  --cyan2: var(--color-primary-hover);
+  --cdim:  var(--color-primary-selected);
+  /* Component-local tokens — no global equivalent */
   --muted:  #9898b8;
-  --dim:    #7878a8  /* reads 3.1:1 on #1a1a2e – secondary labels only */
-  --cyan:   #6c8ef5;
-  --cyan2:  #91a8ff;
-  --cdim:   #1e2d6b;
+  --dim:    #7878a8; /* reads 3.1:1 on #1a1a2e – secondary labels only */
   --risk:   #ff7f50;
   --risk-bg:#1a0b04;
   --green:  #4fc88a;
@@ -632,7 +645,7 @@ function mapsUrl(lat: number | string, lon?: number) {
 }
 .dos-title {
   font-family: var(--cond); font-size: 24px; font-weight: 700;
-  color: var(--cyan2); line-height: 1.15; margin: 0;
+  color: var(--cyan2); line-height: 1.15; margin: 0; text-wrap: balance;
 }
 .dos-subtitle { font-size: 13px; color: var(--muted); font-style: italic; margin: 0; }
 .dos-grades { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
@@ -686,7 +699,7 @@ function mapsUrl(lat: number | string, lon?: number) {
   flex-shrink: 0; padding: 5px 12px; border-radius: 999px;
   border: 1px solid transparent; background: transparent;
   font-size: 12.5px; font-family: var(--sans);
-  color: var(--muted); cursor: pointer; transition: all 0.13s; white-space: nowrap;
+  color: var(--muted); cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s; white-space: nowrap;
 }
 .dos-tab:hover  { color: var(--text); background: var(--bg3); }
 .dos-tab.active { background: #1e2d6b; border-color: #3a5fc0; color: var(--cyan2); font-weight: 600; }
@@ -711,7 +724,6 @@ dt {
   display: flex; align-items: flex-start; gap: 5px; padding-right: 8px;
   font-size: 12px; font-weight: 600; color: var(--dim);
 }
-.ic { font-size: 14px; line-height: 1.2; flex-shrink: 0; }
 dd { margin: 0; font-size: 14px; color: var(--text); line-height: 1.6; }
 dd.prewrap   { white-space: pre-line; font-size: 13.5px; }
 dd.highlight { color: var(--cyan2); font-weight: 600; }
@@ -849,12 +861,12 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .wpt-coord:hover { text-decoration: underline; }
 
 /* ── Topo images ── */
-.topo-wrap { display: flex; flex-direction: column; height: 100%; }
+.topo-wrap { display: flex; flex-direction: column; height: 100%; padding-bottom: 20px; }
 .topo-note { font-size: 12.5px; color: var(--dim); padding: 0 20px 10px; margin: 0; }
 .topo-stack { display: flex; flex-direction: column; }
 .topo-figure { margin: 0; background: #fff; display: block; cursor: default; }
 .topo-figure + .topo-figure { border-top: 8px solid var(--bg); }
-.topo-figure figcaption { padding: 8px 20px; background: var(--bg2); color: var(--cyan2); font-size: 12px; font-weight: 700; }
+.topo-caption { display: block; padding: 8px 20px; background: var(--bg2); color: var(--cyan2); font-size: 12px; font-weight: 700; }
 .topo-figure:hover .topo-image { opacity: 0.88; }
 .topo-image { display: block; width: 100%; height: auto; background: #fff; transition: opacity 0.15s; cursor: zoom-in; }
 .topo-dl-btn {

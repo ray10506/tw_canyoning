@@ -1,4 +1,4 @@
-# 台灣溪降地圖 — 開發標準
+# 溪降地圖 — 開發標準
 
 > 這份文件列出專案的技術標準、架構慣例與開發規範。
 > 每次新增功能或修改前先對照，避免不一致。
@@ -7,9 +7,9 @@
 
 ## 一、專案定位
 
-台灣溪降地圖（Taiwan Canyoneering Map）是一個 Progressive Web App，整合：
+本專案是一個以台灣為核心、並收錄紐西蘭路線的溪降地圖 Web App，整合：
 
-- **溪降路線資料** — 難度、GPS、地區、季節、接駁等
+- **TW／NZ 溪降路線資料** — 難度、GPS、地區、GPX、進場與接駁等
 - **即時水位** — 水利署開放資料 + PocketBase 歷史紀錄
 - **即時雨量** — 氣象署 (CWA) 開放資料 API
 - **搜尋** — 路線 / 水位站 / 雨量站三種類型統一搜尋
@@ -47,7 +47,7 @@ src/
     Map.vue             # Leaflet 地圖、圖層、marker cluster
     CanyonList.vue      # 路線列表 + 篩選器
     RouteDetail.vue     # 路線詳情卡
-    SearchCard.vue      # 搜尋結果卡（路線 / 水位站 / 雨量站）
+    SearchCard.vue      # 搜尋與篩選編輯卡（結果確認後顯示於 Sidebar）
     WaterStationDetail.vue   # 水位站詳情 + 7/14 天圖表
     WaterLevelChart.vue      # Chart.js 折線圖元件
     RainfallStationDetail.vue # 雨量站詳情 + 歷史雨量
@@ -65,7 +65,7 @@ src/
     chart.ts            # Chart.js 共用設定
     clamp.ts            # 數值工具
   data/
-    canyon.ts           # Canyon 介面定義（型別來源）
+    water-stations.json     # 水位站靜態清單
     rainfall-stations.json  # 雨量站靜態清單
 api/
   report.js             # POST /api/report — 問題 / 路線回報，送 Resend
@@ -91,6 +91,8 @@ api/
 | `CWA_API_KEY` | 氣象署開放資料 API 金鑰 |
 | `RESEND_API_KEY` | Resend Email API 金鑰 |
 
+水位歷史收集 workflow 另使用 GitHub Actions secrets：`PB_URL`、`PB_EMAIL`、`PB_PASSWORD`。
+
 > **安全規則**：credentials 只能從環境變數讀取，絕對不寫死在程式碼裡。
 > PocketBase 生產位址：`https://raych-pocketbase.fly.dev`
 
@@ -100,7 +102,7 @@ api/
 
 - **預設語言**：繁體中文（`zh`）
 - **切換**：`locale` ref 來自 `src/lib/locale.ts`，同步至 URL `?lang=en`
-- **翻譯函式**：`t(zh, en)` — 所有 UI 文字使用此函式，不用 ternary
+- **翻譯函式**：新增或修改 UI 文字時優先使用 `t(zh, en)`；既有以 `locale` 選擇資料欄位的邏輯可保留
   ```ts
   import { t } from '../lib/locale'
   // 正確
@@ -132,6 +134,7 @@ api/
 
 | URL 參數 | 值 | 說明 |
 |---|---|---|
+| `view` | `route`, `nz`, `hydrology`, `search` | 目前的瀏覽模式；TW 預設可省略 |
 | `q` | 搜尋字串 | 目前的搜尋 query |
 | `type` | `route,water,rainfall` 的組合 | 搜尋類型（預設 `route` 時省略） |
 | `route` | route id | 目前展開的路線 |
@@ -145,18 +148,36 @@ api/
 ## 八、資料來源標準
 
 ### 路線資料
-- 來源：PocketBase `routes` collection
-- 必填：`name`, `region`, `grading`, GPS 座標
-- 選填：`name_en`, `type`, `max_drop`, `approach`, `total_time`, `deep_pool`, `ab_shuttle`, `gpx_link`, `note`
+- 台灣：PocketBase `canyon_routes` collection，前端只載入 `type = '溪降'`
+- 紐西蘭：PocketBase `nz_routes` collection
+- TW 正式發布必填：`name`, `region`, `type`, `grading`, `gps`
+- GPX 使用 `gpx_track` 與 `gpx_waypoints` JSON；不使用 `gpx_link`
+- 欄位與 migration 規則見 `docs/DATA_MODEL.md`
 
 ### 水位資料
 - 即時：水利署開放資料 API（WRA Realtime）→ `api/wra/` proxy
 - 歷史：PocketBase `water_level_observations` collection（自動排程收集）
+- 排程：每 3 小時一次；保留 90 日
 
 ### 雨量資料
 - 站點清單：靜態 `src/data/rainfall-stations.json`
 - 即時：CWA API → `api/cwa/rainfall/[stationId]` proxy
 - 歷史：CWA API → `api/cwa/rainfall-history/[stationId]`（含本地 dev middleware）
+
+水文時間、缺測、門檻與距離規則見 `docs/HYDROLOGY_DATA_GUIDELINE.md`。
+
+### 文件索引
+
+| 文件 | 用途 |
+|---|---|
+| `DESIGN.md` | UI 色彩、元件、行為與 RWD 規則 |
+| `docs/DATA_MODEL.md` | Collection、欄位、JSON 與 schema migration |
+| `docs/TW_ROUTE_IMPORT_GUIDELINE.md` | 台灣路線審核與匯入 |
+| `docs/NZ_ROUTE_IMPORT_SOP.md` | 紐西蘭路線審核與匯入 |
+| `docs/HYDROLOGY_DATA_GUIDELINE.md` | 水位／雨量資料與判讀 |
+| `docs/SOURCE_AND_LICENSE_POLICY.md` | 外部資料、GPX、圖片與 topo 授權 |
+| `docs/ADMIN_REVIEW_SOP.md` | 管理員審核、發布、修改與下架 |
+| `docs/RELEASE_CHECKLIST.md` | 開發、資料、裝置與部署驗收 |
 
 ---
 

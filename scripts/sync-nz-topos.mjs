@@ -154,8 +154,10 @@ const ROUTES = {
     ],
     topo_pages: [page(1, '/topos/nz/gloomy-topo.jpg', 'Hand-drawn Topo (Nic Barth, 2013)', '手繪路線圖（Nic Barth, 2013）')],
     recent_updates: [
-      update('2024-01-01', 'Nic Barth', 'Pre-staged the approach the day before and bivied below the first waterfall; completed 9.5 hrs of canyoning the following day.', '前一日完成進場並在第一瀑下方 bivy；次日 9.5 hr 完成 canyoning。'),
-      update('2018-01-01', 'Expedition team', '5-day expedition; 3 nights bivied inside the canyon.', '5 天遠征，峽谷內 3 晚 bivy。'),
+      { ...update('2024-03-01', 'Nic Barth et al.', 'Pre-staged the approach the day before and bivied below the first waterfall; completed 9.5 hrs of canyoning the following day. Video footage on Instagram.', '前一日完成進場並在第一瀑下方 bivy；次日 9.5 hr 完成 canyoning。影片記錄見 Instagram。'), url: 'https://www.instagram.com/reel/C5soeolr_zD/' },
+      { ...update('2018-03-11', 'Sou Aikawa / Finetrack', '5-day expedition (March 11–15); 3 nights bivied inside the canyon. Finetrack Global blog includes photo documentation that is "as close to a picture topo as exists".', '5 天遠征（3/11–15），峽谷內 3 晚 bivy。Finetrack Global 部落格含豐富照片紀錄，被評為目前最接近圖解 topo 的資料。'), url: 'https://www.finetrackglobal.com/en_US/blog/new-zealand-gloomy-gorge-canyoning-expedition.html' },
+      { ...update('2013-03-09', 'Nic Barth', 'First full canyoning descent (March 9–10). 20-hour push through the complete canyon with Alain Rohr, Annette Phillips and Neil Silverwood. Full trip report on Nic Barth\'s blog.', '首次完整峽谷下降（3/9–10），與 Alain Rohr、Annette Phillips、Neil Silverwood 共同完成，全程約 20 小時。'), url: 'https://travels.ncbarth.com/2013/03/gloomy-gorge-mar-9-10.html' },
+      { ...update('2013-02-26', 'French Aotearoa Expedition', 'Six-day first exploration (Feb 26 – Mar 2): French team systematically installed equipment across the canyon over 5 days, connecting upper and lower sections on Day 6. Full account on the expedition blog.', '6 天首次探路（2/26–3/2）：法國隊用 5 天逐段架設設備，第 6 天完成上下段銜接。完整紀錄見探險部落格。'), url: 'https://aotearoaexpedition.wordpress.com/carnet-dexpedition/gloomy-gorge/' },
     ],
     videos: [video('Gloomy Gorge expedition - Part 1', 'https://www.youtube.com/watch?v=Gz7UG4kIhhk', 'YouTube'), video('Gloomy Gorge, March 2013', 'https://www.youtube.com/watch?v=SMB5OiTMSqI&t=39s', 'YouTube')],
   },
