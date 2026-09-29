@@ -15,9 +15,6 @@ export default async function handler(req, res) {
     })
 
     const body = await upstream.text()
-    console.log('[wra] status:', upstream.status)
-    console.log('[wra] content-type:', upstream.headers.get('Content-Type'))
-    console.log('[wra] body preview:', body.slice(0, 500))
     res.status(upstream.status)
       .setHeader('Content-Type', upstream.headers.get('Content-Type') ?? 'text/html')
       .send(body)

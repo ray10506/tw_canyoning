@@ -1,18 +1,7 @@
-const STATIONS = new Set([
-  'Arthurs Pass EWS',
-  'Cropp Rv @ Waterfall',
-  'Haast Rv @ Moa Ck',
-  'Haast Rv @ Roaring Billy',
-  'Ivory Rv @ Ripplerock',
-  'Tuke Rv @ Tuke Hut',
-  'Waiho Rv @ Douglas Hut',
-])
+import { nzDate, readingValue } from '../water-level/[stationId].js'
+import stations from '../../../src/data/nz-rainfall-stations.json' with { type: 'json' }
 
-function nzDate(date) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(date)
-}
+const STATIONS = new Set(stations.map(s => s.station_id))
 
 export default async function handler(req, res) {
   const stationId = String(req.query.stationId ?? '')
@@ -33,12 +22,15 @@ export default async function handler(req, res) {
   url.searchParams.set('endate', dates[dates.length - 1])
 
   try {
-    const upstream = await fetch(url, { headers: { Accept: 'text/html' } })
-    if (!upstream.ok) return res.status(upstream.status).json({ error: 'WCRC rainfall history unavailable' })
+    const upstream = await fetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
+    if (!upstream.ok) return res.status(502).json({ error: 'WCRC rainfall history unavailable' })
     const html = await upstream.text()
     const raw = html.match(/var data = (\{"raindata":[\s\S]*?\});/)?.[1]
     if (!raw) return res.status(404).json({ error: 'No rainfall history for station' })
-    const byDate = new Map(JSON.parse(raw).raindata.map(item => [nzDate(new Date(item.x)), Number(item.y)]))
+    const byDate = new Map(JSON.parse(raw).raindata.map(item => {
+      const value = readingValue(item.y)
+      return [nzDate(new Date(item.x)), Number.isFinite(value) && value >= 0 ? value : null]
+    }))
     const daily = dates.map(date => ({ date, value: byDate.has(date) ? byDate.get(date) : null }))
     const available = daily.filter(item => item.value != null)
     if (!available.length) return res.status(404).json({ error: 'No rainfall history for station' })
@@ -54,7 +46,7 @@ export default async function handler(req, res) {
       daysIncluded: available.length,
       daily,
     })
-  } catch (error) {
-    res.status(502).json({ error: String(error) })
+  } catch {
+    res.status(502).json({ error: 'WCRC rainfall history unavailable' })
   }
 }

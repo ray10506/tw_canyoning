@@ -10,7 +10,7 @@ const detail = read('../components/RainfallStationDetail.vue')
 const route = read('../components/RouteDetail.vue')
 const context = {
   computed: fn => ({ get value() { return fn() } }),
-  data: { value: null }, locale: { value: 'en' }, rainfall24hr: { value: null },
+  data: { value: null }, locale: { value: 'en' }, rainfall24hr: { value: null }, rainfallFetchFailed: { value: false },
 }
 vm.runInNewContext(ts.transpile(
   detail.slice(detail.indexOf('const rainItems ='), detail.indexOf('const currentHistory =')) +
@@ -21,7 +21,7 @@ vm.runInNewContext(ts.transpile(
 const keys = ['Past10Min', 'Past1hr', 'Past3hr', 'Past6hr', 'Past12hr', 'Past24hr', 'Past2days', 'Past3days']
 const originalFetch = globalThis.fetch
 let elements
-globalThis.fetch = async () => ({ ok: true, json: async () => ({ records: { Station: [{ RainfallElement: elements }] } }) })
+globalThis.fetch = async () => ({ ok: true, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ records: { Station: [{ RainfallElement: elements }] } }) })
 try {
   for (const raw of [-99, '-998', -0.1, null, undefined, '', 'invalid', 'Infinity', 0, '0', '12.34']) {
     elements = Object.fromEntries(keys.map(key => [key, { Precipitation: raw }]))
@@ -35,7 +35,7 @@ try {
     for (const item of context.result.rainItems.value) assert.equal(item.value, `${expected ?? '—'} mm`)
     if (expected == null) {
       assert.match(context.result.rainStatus.value.title, /unavailable/)
-      assert.match(context.result.rainfallSummary.value.text, /unavailable/)
+      assert.match(context.result.rainfallSummary.value.text, /No recent reading/)
     }
   }
   for (elements of [undefined, {}, { Past24hr: {} }]) {

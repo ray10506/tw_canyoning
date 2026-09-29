@@ -13,15 +13,19 @@
           <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
         </div>
 
+        <div v-if="isNz && station.hasFlow" class="period-row" :aria-label="t('觀測項目', 'Measurement')">
+          <button class="period-btn" :class="{ active: metric === 'level' }" :aria-pressed="metric === 'level'" @click="selectMetric('level')">{{ t('水位 (m)', 'Water level (m)') }}</button>
+          <button class="period-btn" :class="{ active: metric === 'flow' }" :aria-pressed="metric === 'flow'" @click="selectMetric('flow')">{{ t('流量 (m³/s)', 'Flow (m³/s)') }}</button>
+        </div>
         <div class="period-row">
-          <button :class="['period-btn', { active: mode === 'live' }]" @click="selectMode('live')">{{ locale === 'en' ? 'Live' : '即時' }}</button>
-          <button :class="['period-btn', { active: mode === '7' }]" @click="selectMode('7')">{{ locale === 'en' ? '7 days' : '近 7 天' }}</button>
-          <button :class="['period-btn', { active: mode === '14' }]" @click="selectMode('14')">{{ locale === 'en' ? '14 days' : '近 14 天' }}</button>
+          <button :class="['period-btn', { active: mode === 'live' }]" :aria-pressed="mode === 'live'" @click="selectMode('live')">{{ locale === 'en' ? 'Live' : '即時' }}</button>
+          <button :class="['period-btn', { active: mode === '7' }]" :aria-pressed="mode === '7'" @click="selectMode('7')">{{ locale === 'en' ? '7 days' : '近 7 天' }}</button>
+          <button :class="['period-btn', { active: mode === '14' }]" :aria-pressed="mode === '14'" @click="selectMode('14')">{{ locale === 'en' ? '14 days' : '近 14 天' }}</button>
         </div>
 
-        <div class="panel-body">
+        <div class="panel-body" aria-live="polite" :aria-busy="loading">
           <!-- Loading: skeleton shaped like the status card so the user sees where the answer will appear -->
-          <div v-if="loading" class="status-skeleton" aria-label="載入中">
+          <div v-if="loading" class="status-skeleton" role="status" :aria-label="t('水文資料載入中', 'Loading river data')">
             <div class="skel-title"></div>
             <div class="skel-level"></div>
             <div class="skel-note"></div>
@@ -30,7 +34,7 @@
           <!-- Error: card-shaped container so it sits in the same visual slot as the verdict -->
           <template v-else-if="error">
             <div class="status-card status-error-card">
-              <div class="status-title">{{ locale === 'en' ? 'Could not load water level' : '水位資料載入失敗' }}</div>
+              <div class="status-title">{{ t('水文資料載入失敗', 'Could not load river data') }}</div>
               <div class="status-note error-note">{{ error }}</div>
             </div>
             <button class="retry-btn" @click="load">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
@@ -39,20 +43,23 @@
           <!-- Data: status card FIRST — the safety verdict is the answer to "should I go?" -->
           <template v-else-if="series">
             <div class="status-card" :class="levelStatus ? `status-${levelStatus.tone}` : 'status-unknown'">
-              <div class="status-title">{{ levelStatus?.title ?? (locale === 'en' ? 'No recent reading' : '無近期水位記錄') }}</div>
+              <div class="status-title">{{ levelStatus?.title ?? t('無有效觀測', 'No valid reading') }}</div>
               <div v-if="latest != null" class="status-level-line">
-                <strong class="level-value">{{ latest }} m</strong>
+                <strong class="level-value">{{ latest }} {{ metric === 'flow' ? 'm³/s' : 'm' }}</strong>
                 <span class="level-time">{{ latestTime }}</span>
               </div>
               <div class="status-note">{{ levelStatus?.note ?? (locale === 'en' ? 'Station may be offline.' : '測站可能暫時離線。') }}</div>
-              <div v-if="hasAlertLevels" class="alert-levels">
+              <div v-if="hasAlertLevels && metric === 'level'" class="alert-levels">
                 <span v-if="station.alert1 != null">{{ locale === 'en' ? 'Lv.1' : '一級' }} {{ formatLevel(station.alert1) }}m</span>
                 <span v-if="station.alert2 != null">{{ locale === 'en' ? 'Lv.2' : '二級' }} {{ formatLevel(station.alert2) }}m</span>
                 <span v-if="station.alert3 != null">{{ locale === 'en' ? 'Lv.3' : '三級' }} {{ formatLevel(station.alert3) }}m</span>
               </div>
             </div>
-            <WaterLevelChart v-if="series.points.length > 1" :series="chartSeries" :y-label="locale === 'en' ? 'Level (m)' : '水位 (m)'" />
+            <WaterLevelChart v-if="series.points.length > 1" :series="chartSeries" :y-label="measurementLabel" :time-zone="timeZone" :span-gaps="!isNz" :x-label="isNz ? t('日期／時間（紐西蘭）', 'Date / time (New Zealand)') : undefined" />
           </template>
+
+          <p v-if="isNz" class="source-note">{{ t('WCRC 原始觀測，尚未完整檢核；時間以紐西蘭當地時間顯示。', 'WCRC raw observations, not fully verified. Times are local to New Zealand.') }}</p>
+          <a v-if="isNz" class="source-link" :href="sourceUrl" target="_blank" rel="noopener">{{ t('WCRC 官方水文資料', 'WCRC official river data') }} ↗</a>
 
           <!-- Station metadata: collapsed by default, out of the critical decision path -->
           <details class="station-details">
@@ -72,9 +79,9 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
 import WaterLevelChart from './WaterLevelChart.vue'
-import { fetchWaterLevel, fetchWaterLevelHistory, taipeiParts, type WaterLevelDays, type WaterLevelSeries, type WaterStation } from '../lib/waterLevel'
+import { fetchWaterLevel, fetchWaterLevelHistory, taipeiParts, type WaterMetric, type WaterLevelDays, type WaterLevelSeries, type WaterStation } from '../lib/waterLevel'
 import type { ChartSeries } from '../lib/chart'
-import { locale } from '../lib/locale'
+import { locale, t, loadErrorText } from '../lib/locale'
 import { clamp } from '../lib/clamp'
 
 const props = withDefaults(defineProps<{ station: WaterStation; pos: { x: number; y: number }; days?: number; distance?: number }>(), {
@@ -86,8 +93,13 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const series = ref<WaterLevelSeries | null>(null)
 const mode = ref<'live' | '7' | '14'>('live')
-const historyCache = ref<Record<'7' | '14', WaterLevelSeries | null>>({ '7': null, '14': null })
+const metric = ref<WaterMetric>('level')
+const isNz = computed(() => props.station.source === 'wcrc')
+const timeZone = computed(() => isNz.value ? 'Pacific/Auckland' : 'Asia/Taipei')
+const measurementLabel = computed(() => metric.value === 'flow' ? t('流量 (m³/s)', 'Flow (m³/s)') : t('水位 (m)', 'Level (m)'))
+const sourceUrl = computed(() => `https://envirodata.wcrc.govt.nz/dashboards/riverlevels/riverlevels.php?chart=Y&site=${encodeURIComponent(props.station.id.slice(5))}&type=${metric.value === 'flow' ? 'Flow' : 'Level'}`)
 let loadRequestId = 0
+const STALE_AFTER_MS = 3 * 3600000
 
 const MARGIN = 16
 const CARD_OFFSET = 28
@@ -131,14 +143,13 @@ async function load() {
   series.value = null
   try {
     const nextSeries = mode.value === 'live'
-      ? await fetchWaterLevel(stationId)
-      : await fetchWaterLevelHistory(stationId, Number(mode.value) as WaterLevelDays)
+      ? await fetchWaterLevel(stationId, metric.value)
+      : await fetchWaterLevelHistory(stationId, Number(mode.value) as WaterLevelDays, metric.value)
     if (!isCurrentRequest()) return
     series.value = nextSeries
-    if (mode.value !== 'live') historyCache.value[mode.value] = nextSeries
   } catch (e) {
     if (!isCurrentRequest()) return
-    error.value = e instanceof Error ? e.message : (locale.value === 'en' ? 'Unable to load water level data' : '水位資料暫時無法載入')
+    error.value = loadErrorText(e, isNz.value ? 'WCRC' : t('水利署', 'WRA'))
   } finally {
     if (isCurrentRequest()) loading.value = false
   }
@@ -147,38 +158,37 @@ async function load() {
 function selectMode(next: 'live' | '7' | '14') {
   mode.value = next
   error.value = null
-  if (next === 'live') return load()
-  const cached = historyCache.value[next]
-  if (cached) {
-    series.value = cached
-    return
-  }
+  load()
+}
+
+function selectMetric(next: WaterMetric) {
+  metric.value = next
   load()
 }
 
 onMounted(load)
-watch(() => [props.station.id, props.days], load)
+watch(() => [props.station.id, props.days], () => {
+  metric.value = 'level'
+  mode.value = 'live'
+  load()
+})
+
+const latestPoint = computed(() => {
+  const points = series.value?.points ?? []
+  // A missing latest observation must not be replaced by an older measured value.
+  if (isNz.value) return points[points.length - 1]
+  return [...points].reverse().find(point => point.value != null)
+})
 
 const latest = computed(() => {
-  const points = series.value?.points
-  if (!points) return null
-  for (let i = points.length - 1; i >= 0; i--) {
-    const v = points[i].value
-    if (v != null) return v
-  }
-  return null
+  const value = latestPoint.value?.value
+  return value != null ? Number(value.toFixed(3)) : null
 })
 
 const latestTime = computed(() => {
-  const points = series.value?.points
-  if (!points) return ''
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i].value != null) {
-      const parts = taipeiParts(points[i].time)
-      return `${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`
-    }
-  }
-  return ''
+  if (!latestPoint.value) return ''
+  const parts = taipeiParts(latestPoint.value.time, timeZone.value)
+  return `${parts.year}/${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`
 })
 
 const hasAlertLevels = computed(() => [props.station.alert1, props.station.alert2, props.station.alert3].some(level => level != null))
@@ -191,6 +201,17 @@ const levelStatus = computed(() => {
   const value = latest.value
   const isEn = locale.value === 'en'
   if (value == null) return null
+  // An old reading must never earn a "below alert" verdict: stations go offline and the feed keeps the last value.
+  if (Date.now() - Date.parse(latestPoint.value!.time) > STALE_AFTER_MS) return {
+    tone: 'unknown',
+    title: t('觀測已超過 3 小時', 'Reading is over 3 hours old'),
+    note: t('測站可能延遲或離線，請至官方來源確認。', 'The station may be delayed or offline. Check the official source.'),
+  }
+  if (isNz.value) return {
+    tone: 'unknown',
+    title: metric.value === 'flow' ? t('流量觀測', 'Flow reading') : t('水位觀測', 'Water-level reading'),
+    note: t('未提供警戒門檻；請搭配上游雨量與天氣判斷。', 'No alert threshold provided. Check upstream rain and weather.'),
+  }
   if (!hasAlertLevels.value) {
     return {
       tone: 'unknown',
@@ -241,8 +262,9 @@ const chartSeries = computed<ChartSeries[]>(() => {
   const points = series.value?.points
   if (!points) return []
   const result: ChartSeries[] = [
-    { label: '水位 (m)', color: '#43AEDB', points },
+    { label: measurementLabel.value, color: '#43AEDB', points },
   ]
+  if (metric.value === 'flow') return result
   const addAlert = (level: number | null, label: string, color: string) => {
     if (level == null) return
     result.push({
@@ -346,9 +368,12 @@ const chartSeries = computed<ChartSeries[]>(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .station-name {
+  overflow-wrap: anywhere;
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
@@ -460,6 +485,7 @@ const chartSeries = computed<ChartSeries[]>(() => {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  flex-wrap: wrap;
   margin: 8px 0 6px;
 }
 .level-value {
@@ -470,8 +496,13 @@ const chartSeries = computed<ChartSeries[]>(() => {
 }
 .level-time {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
+
+.source-note { color: var(--color-text-muted); font-size: 0.8rem; line-height: 1.5; margin: 12px 0 6px; }
+.source-link { color: var(--color-primary-hover); display: inline-block; padding: 8px 0; font-size: 0.85rem; }
+.period-btn:focus-visible, .source-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.period-btn:hover { border-color: var(--color-primary); }
 
 /* Error variant */
 .status-error-card { border-color: #4a2020; background: #1a1010; }

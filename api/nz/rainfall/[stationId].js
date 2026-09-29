@@ -1,12 +1,7 @@
-const STATIONS = new Set([
-  'Arthurs Pass EWS',
-  'Cropp Rv @ Waterfall',
-  'Haast Rv @ Moa Ck',
-  'Haast Rv @ Roaring Billy',
-  'Ivory Rv @ Ripplerock',
-  'Tuke Rv @ Tuke Hut',
-  'Waiho Rv @ Douglas Hut',
-])
+import { nzTimestamp } from '../water-level/[stationId].js'
+import stations from '../../../src/data/nz-rainfall-stations.json' with { type: 'json' }
+
+const STATIONS = new Set(stations.map(s => s.station_id))
 
 const SOURCE = 'https://envirodata.wcrc.govt.nz/dashboards/overview/map_rainfall.php'
 
@@ -20,8 +15,8 @@ export default async function handler(req, res) {
   if (!STATIONS.has(stationId)) return res.status(404).json({ error: 'Unknown NZ rainfall station' })
 
   try {
-    const upstream = await fetch(SOURCE, { headers: { Accept: 'text/html' } })
-    if (!upstream.ok) return res.status(upstream.status).json({ error: 'WCRC rainfall service unavailable' })
+    const upstream = await fetch(SOURCE, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
+    if (!upstream.ok) return res.status(502).json({ error: 'WCRC rainfall service unavailable' })
     const html = await upstream.text()
     const block = [...html.matchAll(/var myLatlng\d+[\s\S]*?(?=var myLatlng\d+|$)/g)]
       .map(match => match[0])
@@ -47,8 +42,9 @@ export default async function handler(req, res) {
       past3days: null,
       past7days: value(block, '7 Days'),
       updateTime,
+      observedAt: nzTimestamp(updateTime),
     })
-  } catch (error) {
-    res.status(502).json({ error: String(error) })
+  } catch {
+    res.status(502).json({ error: 'WCRC rainfall service unavailable' })
   }
 }

@@ -12,6 +12,19 @@
 - 收集排程：GitHub Actions 每 3 小時一次，於 UTC 小時的第 17 分執行。
 - 保留期：90 日。
 
+### 紐西蘭西岸水位／流量（WCRC）
+
+- 測站清單：`src/data/nz-water-stations.json`，2026-09-29 從 WCRC 公開河川地圖整理 52 站，保留各站 ESNZ／TDC／Manawa Energy 等名稱標示。
+- API：`/api/nz/water-level/[stationId]?days=1|7|14&metric=level|flow`；站號以 `wcrc:` 區別 WRA。
+- 即時值：WCRC `dashboards/overview/map_river_level.php`；保留水位與流量各自的觀測時間，通訊中斷文字視為缺測。
+- 歷史值：WCRC `dashboards/riverlevels/highcharts_data.php` 的 `riversdata` JSON；明確指定 `type=Level|Flow` 並驗證回傳項目。`highstock.php` 頁面可能忽略所選項目，不用它解析河川資料。
+- 無新增蒐集排程或資料庫寫入；伺服器快取 5 分鐘。近 7／14 天為向前 7／14 × 24 小時的查詢範圍；上游最後觀測不一定與即時地圖一致。
+- 歷史 Unix 毫秒直接轉 ISO；地圖當地時間依 `Pacific/Auckland`（包含夏令時間）轉 ISO，UI 以紐西蘭時間及完整年份顯示。
+- 水位可為負數（測站基準），流量不得為負；缺值保留 `null`，歷史折線不跨缺值連線，最新缺測不以舊值替代。
+- 未匯入警戒門檻，不標示「正常／安全」；超過 3 小時的有效觀測明示資料可能延遲，這是本產品的提示門檻。
+- 官方來源：https://www.wcrc.govt.nz/environment/water/river-levels-rainfall 。WCRC 說明網頁資料為尚未完整檢核的原始觀測；測站卡顯示來源與原始資料連結。
+- 驗證：`node api/nz/water-level/wcrc.test.mjs`。
+
 ### 雨量
 
 - 測站清單：`src/data/rainfall-stations.json`。
@@ -75,6 +88,10 @@
 
 ## UI 規則
 
+- TW／NZ 的水位／雨量圖層預設關閉，兩國選擇分別保存在瀏覽器；點開路線不得自動開啟。
+- 每次進入水文 tab，暫時開啟水位／雨量並隱藏路線，圖層開關同步且可操作；離開時恢復原本的路線及各國水文圖層設定，不將暫時選擇寫入偏好。
+- 水文 tab 沿用剛才瀏覽的國家，提供台灣／紐西蘭切換；清單列出該國測站，仍可從清單直接查看單站。
+- 水文國家以 `?view=hydrology&country=tw|nz` 保留；明確的測站搜尋結果不受一般圖層開關影響，也不覆寫圖層偏好。
 - 水位與雨量卡都顯示站名、位置、主要數值、判讀、時間序列、更新時間與來源。
 - 圖表必須有 X/Y 軸名稱、年份與單位。
 - 測站卡靠近對應 icon，定位完成前不要先顯示分離的箭頭。
@@ -88,4 +105,3 @@
 - 上游回傳空陣列或全部無效時，排程應失敗並留下紀錄。
 - 改動 parser、時區或門檻後，至少執行相對應的小型測試與正式 build。
 - 變更資料來源、收集頻率或保留期時，同步更新本文件與 UI 資料來源說明。
-

@@ -126,6 +126,10 @@
 
     <!-- Hydrology browser / confirmed search results -->
     <template v-else>
+      <div v-if="browseMode === 'hydrology'" class="hydrology-country" role="group" :aria-label="locale === 'en' ? 'Hydrology country' : '水文國家'">
+        <button class="browse-btn" :class="{ active: hydrologyCountry === 'tw' }" :aria-pressed="hydrologyCountry === 'tw'" @click="emit('changeHydrologyCountry', 'tw')">{{ locale === 'en' ? 'Taiwan' : '台灣' }}</button>
+        <button class="browse-btn" :class="{ active: hydrologyCountry === 'nz' }" :aria-pressed="hydrologyCountry === 'nz'" @click="emit('changeHydrologyCountry', 'nz')">{{ locale === 'en' ? 'New Zealand' : '紐西蘭' }}</button>
+      </div>
       <div v-if="browseMode === 'search'" class="result-search-row">
         <input
           type="search"
@@ -244,6 +248,7 @@ const props = defineProps<{
   selectedStationKey: string | null
   sortDescending: boolean
   browseMode: 'route' | 'nz' | 'hydrology' | 'search'
+  hydrologyCountry: 'tw' | 'nz'
   searchQuery: string
   waterStations: WaterStation[]
   rainfallStations: RainfallStation[]
@@ -255,6 +260,7 @@ const emit = defineEmits<{
   close: []
   toggleSort: []
   changeBrowseMode: [mode: 'route' | 'nz' | 'hydrology']
+  changeHydrologyCountry: [country: 'tw' | 'nz']
   showDetail: [item: { kind: 'canyon' | 'route' | 'nz', data: any }]
   selectWaterStation: [station: WaterStation]
   selectRainfallStation: [station: RainfallStation]
@@ -348,6 +354,14 @@ function starsPart(grading: string): string {
   border: 1px solid #2a2a4a;
   border-radius: 6px;
   background: #12122a;
+  flex-shrink: 0;
+}
+
+.hydrology-country {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 8px 16px 4px;
   flex-shrink: 0;
 }
 

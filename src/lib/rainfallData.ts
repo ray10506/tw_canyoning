@@ -1,3 +1,5 @@
+import { t } from './locale.ts'
+
 export interface RainfallData {
   source?: 'cwa' | 'wcrc'
   stationName: string
@@ -10,7 +12,9 @@ export interface RainfallData {
   past2days: number | null
   past3days: number | null
   past7days?: number | null
-  updateTime: string
+  updateTime?: string
+  /** ISO instant of the observation, when the source gives a parseable time. */
+  observedAt?: string | null
 }
 
 export interface RainfallHistoryData {
@@ -23,22 +27,25 @@ export interface RainfallHistoryData {
   daily: Array<{ date: string; value: number | null }>
 }
 
+const FETCH_TIMEOUT_MS = 20000
+
 async function jsonResponse(res: Response, label: string) {
   if (!res.headers.get('content-type')?.includes('application/json'))
-    throw new Error(`${label}服務未正確回傳資料`)
+    throw new Error(t(`${label}服務未正確回傳資料（${res.status}）`, `The rainfall service returned an unexpected response (${res.status})`))
   const json = await res.json()
-  if (!res.ok) throw new Error(json.error || `${label} API 錯誤 (${res.status})`)
+  // Upstream error text is English/technical; show a localized sentence and keep the status for support.
+  if (!res.ok) throw new Error(t(`${label}服務暫時無法提供資料（${res.status}）`, `Rainfall data is temporarily unavailable (${res.status})`))
   return json
 }
 
 export async function fetchRainfallData(stationId: string, source: 'cwa' | 'wcrc' = 'cwa'): Promise<RainfallData> {
-  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall/${encodeURIComponent(stationId)}`)
+  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall/${encodeURIComponent(stationId)}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
   const json = await jsonResponse(res, '雨量')
 
   if (source === 'wcrc') return json
 
   const station = json.records?.Station?.[0]
-  if (!station) throw new Error('查無雨量資料')
+  if (!station) throw new Error(t('氣象署目前沒有此測站的觀測，測站可能暫停。', 'CWA has no current reading for this station; it may be offline.'))
 
   const el = station.RainfallElement ?? {}
   const get = (key: string): number | null => {
@@ -46,10 +53,8 @@ export async function fetchRainfallData(stationId: string, source: 'cwa' | 'wcrc
     return !Number.isFinite(v) || v < 0 ? null : Math.round(v * 10) / 10
   }
 
-  const rawTime = station.ObsTime?.DateTime ?? ''
-  const updateTime = rawTime
-    ? new Date(rawTime).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
-    : ''
+  const observed = new Date(station.ObsTime?.DateTime ?? '')
+  const observedAt = Number.isNaN(observed.getTime()) ? null : observed.toISOString()
 
   return {
     stationName: station.StationName ?? stationId,
@@ -61,12 +66,12 @@ export async function fetchRainfallData(stationId: string, source: 'cwa' | 'wcrc
     past24hr: get('Past24hr'),
     past2days: get('Past2days'),
     past3days: get('Past3days'),
-    updateTime,
+    observedAt,
   }
 }
 
 export async function fetchRainfallHistory(stationId: string, days: 7 | 14, source: 'cwa' | 'wcrc' = 'cwa'): Promise<RainfallHistoryData> {
-  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall-history/${encodeURIComponent(stationId)}?days=${days}`)
-  if (res.status === 404) throw new Error('此站暫無歷史雨量資料')
+  const res = await fetch(`/api/${source === 'wcrc' ? 'nz' : 'cwa'}/rainfall-history/${encodeURIComponent(stationId)}?days=${days}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+  if (res.status === 404) throw new Error(t(`此站最近 ${days} 日沒有可用的歷史雨量。`, `No rainfall history for this station in the last ${days} days.`))
   return jsonResponse(res, '歷史雨量')
 }

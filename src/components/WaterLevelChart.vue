@@ -32,20 +32,23 @@ const props = withDefaults(defineProps<{
   yLabel?: string
   type?: 'line' | 'bar'
   heightPx?: number
-}>(), { type: 'line' })
+  timeZone?: string
+  spanGaps?: boolean
+  xLabel?: string
+}>(), { type: 'line', timeZone: 'Asia/Taipei', spanGaps: true })
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 
 // Bar mode plots one point per day — no hour to show.
 function formatLabel(iso: string) {
-  const parts = taipeiParts(iso)
+  const parts = taipeiParts(iso, props.timeZone)
   const date = `${parts.month}/${parts.day}`
   return props.type === 'bar' ? date : `${date} ${parts.hour}:${parts.minute}`
 }
 
 function formatTooltipTitle(iso: string) {
-  const parts = taipeiParts(iso)
+  const parts = taipeiParts(iso, props.timeZone)
   const date = `${parts.year}/${parts.month}/${parts.day}`
   return props.type === 'bar' ? date : `${date} ${parts.hour}:${parts.minute}`
 }
@@ -98,7 +101,7 @@ function buildConfig() {
             pointHitRadius: s.dashed ? 0 : 15,
             pointHoverRadius: s.dashed ? 0 : 4,
             borderWidth: s.dashed ? 1 : 2,
-            spanGaps: true,
+            spanGaps: props.spanGaps,
             tension: 0.2,
           }),
     },
@@ -120,6 +123,7 @@ function buildConfig() {
       },
       scales: {
         x: {
+          title: { display: !!props.xLabel, text: props.xLabel, color: textColor },
           ticks: { color: mutedColor, maxTicksLimit: 8, autoSkip: props.type !== 'bar', maxRotation: 0, font: { size: 10 } },
           grid: { color: gridColor },
         },
@@ -143,7 +147,7 @@ function render() {
 }
 
 onMounted(render)
-watch([() => props.series, theme], render, { deep: true })
+watch([() => props.series, () => props.timeZone, () => props.yLabel, () => props.xLabel, theme], render, { deep: true })
 onUnmounted(() => chart?.destroy())
 
 // Native canvas export — no need to redraw the chart a second time for a PNG.

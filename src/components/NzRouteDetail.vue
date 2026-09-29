@@ -52,6 +52,11 @@
           </div>
         </dl>
 
+        <button v-if="nearbyWater" class="nearby-water" @click="$emit('select-water-station', nearbyWater.station, nearbyWater.distance)">
+          <span>{{ t('鄰近水位站', 'Nearby river station') }} · {{ nearbyWater.station.name }}</span>
+          <span>{{ t('距路線', 'From route') }} {{ nearbyWater.distance.toFixed(1) }} km · {{ t('查看水文', 'View readings') }} →</span>
+        </button>
+
         <template v-if="details.rock || details.water || details.catchment">
           <div class="section-sub">{{ locale === 'en' ? 'TERRAIN & WATER' : '地形與水況' }}</div>
           <dl class="rows">
@@ -361,13 +366,14 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { locale } from '../lib/locale'
+import { locale, t } from '../lib/locale'
+import type { WaterStation } from '../lib/waterLevel'
 import { vGradeClass } from '../lib/grade'
 import FiveDayForecast from './FiveDayForecast.vue'
 import { useResizableWidth } from '../lib/useResizableWidth'
 
-const props = defineProps<{ item: { kind: string; data: any } }>()
-defineEmits<{ close: []; 'focus-waypoint': [index: number | null] }>()
+const props = defineProps<{ item: { kind: string; data: any }; nearbyWater?: { station: WaterStation; distance: number } | null }>()
+defineEmits<{ close: []; 'focus-waypoint': [index: number | null]; 'select-water-station': [station: WaterStation, distance: number] }>()
 
 const { width: panelWidth, isResizing, start: startResize } = useResizableWidth(
   452,
@@ -547,6 +553,22 @@ function mapsUrl(lat: number | string, lon?: number) {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Mono&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+.nearby-water {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-primary-hover);
+  text-align: left;
+  cursor: pointer;
+}
+.nearby-water:hover { color: var(--color-text-strong); }
+.nearby-water:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
 
 /* All vars on the component root — `:root` in scoped styles doesn't work in Vue */
 .nz-dossier {

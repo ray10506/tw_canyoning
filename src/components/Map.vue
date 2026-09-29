@@ -28,18 +28,19 @@
     <div v-if="showLayersPanel" class="layers-panel">
       <div class="layers-header">
         <span class="layers-title">{{
-          locale === "en" ? "Layers" : "圖層"
+          isStationSearch ? (locale === 'en' ? 'Search layers' : '搜尋圖層') : nzCountry ? (locale === 'en' ? 'New Zealand hydrology' : '紐西蘭水文') : (locale === 'en' ? 'Taiwan hydrology' : '台灣水文')
         }}</span>
         <button class="layers-close" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="showLayersPanel = false">✕</button>
       </div>
       <div class="layers-list">
+        <p v-if="isStationSearch" class="layer-note">{{ locale === 'en' ? 'Showing stations from your search.' : '目前顯示搜尋結果中的測站。' }}</p>
         <div class="layer-row">
           <img class="layer-icon" src="/water-level.svg" alt="" />
           <span class="layer-label">{{
             locale === "en" ? "River Level" : "水位站"
           }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="showWaterStations" />
+            <input type="checkbox" v-model="showWaterStations" :disabled="isStationSearch" :aria-label="locale === 'en' ? 'Water stations' : '水位站'" />
             <span class="toggle-track" :class="{ on: showWaterStations }">
               <span class="toggle-thumb"></span>
             </span>
@@ -51,7 +52,7 @@
             locale === "en" ? "Rain Gauge" : "雨量站"
           }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="showRainfallStations" />
+            <input type="checkbox" v-model="showRainfallStations" :disabled="isStationSearch" :aria-label="locale === 'en' ? 'Rainfall stations' : '雨量站'" />
             <span class="toggle-track" :class="{ on: showRainfallStations }">
               <span class="toggle-thumb"></span>
             </span>
@@ -64,10 +65,10 @@
             <circle cx="12" cy="9" r="2.5" />
           </svg>
           <span class="layer-label">{{
-            locale === "en" ? "Locations" : "地點"
+            locale === "en" ? "Routes" : "路線"
           }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="showLocationMarkers" />
+            <input type="checkbox" v-model="showLocationMarkers" :aria-label="locale === 'en' ? 'Routes' : '路線'" />
             <span class="toggle-track" :class="{ on: showLocationMarkers }">
               <span class="toggle-thumb"></span>
             </span>
@@ -151,7 +152,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import type { Canyon } from "../data/canyon";
 import waterStations from "../data/water-stations.json";
-import type { WaterStation } from "../lib/waterLevel";
+import { nzWaterStations, type WaterStation } from "../lib/waterLevel";
 import { nzRainfallStations, rainfallStations, type RainfallStation } from "../lib/rainfall";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -205,6 +206,7 @@ const props = withDefaults(
     selectedRouteId: string | null;
     nearbyAnchor: NearbyAnchor | null;
     nzMode: boolean;
+    hydrologyMode: boolean;
     stationSearch: { water: WaterStation[]; rainfall: RainfallStation[] } | null;
     searchPoints: [number, number][] | null;
     searchPanelOpen: boolean;
@@ -270,12 +272,49 @@ const tileOptions = [
 
 let currentTile: L.TileLayer | null = null;
 const selectedTile = ref("topo");
-const showWaterStations = ref(false);
-const showRainfallStations = ref(props.nzMode);
-const waterVisible = computed(() => props.stationSearch !== null ? props.stationSearch.water.length > 0 : showWaterStations.value);
-const rainfallVisible = computed(() => props.stationSearch !== null ? props.stationSearch.rainfall.length > 0 : showRainfallStations.value);
+const nzCountry = computed(() => props.nearbyAnchor ? props.nearbyAnchor.lat < 0 : props.nzMode);
+const isStationSearch = computed(() => props.stationSearch !== null && !props.hydrologyMode);
+// Hydrology is a temporary view; its toggles must not overwrite browsing preferences.
+const hydrologyLayers = ref({ water: true, rainfall: true, routes: false });
+watch(() => props.hydrologyMode, (active) => {
+  if (active) hydrologyLayers.value = { water: true, rainfall: true, routes: false };
+}, { flush: 'sync' });
+const routeLayerPreference = ref(true);
+const showLocationMarkers = computed({
+  get: () => props.hydrologyMode ? hydrologyLayers.value.routes : routeLayerPreference.value,
+  set: (value: boolean) => {
+    if (props.hydrologyMode) hydrologyLayers.value.routes = value;
+    else routeLayerPreference.value = value;
+  },
+});
+const layerPreferences = ref<Record<string, boolean>>({});
+for (const country of ['tw', 'nz']) {
+  for (const layer of ['water', 'rainfall']) {
+    const key = `hydrology-${country}-${layer}`;
+    try { layerPreferences.value[key] = localStorage.getItem(key) === 'true'; } catch { /* Storage may be blocked. */ }
+  }
+}
+const prefKey = (layer: string) => `hydrology-${nzCountry.value ? 'nz' : 'tw'}-${layer}`;
+function stationLayer(layer: 'water' | 'rainfall') {
+  return computed({
+    get: () => isStationSearch.value
+      ? props.stationSearch![layer].length > 0
+      : props.hydrologyMode ? hydrologyLayers.value[layer]
+      : layerPreferences.value[prefKey(layer)] === true,
+    set: (value: boolean) => {
+      if (props.hydrologyMode) {
+        hydrologyLayers.value[layer] = value;
+        return;
+      }
+      layerPreferences.value[prefKey(layer)] = value;
+      try { localStorage.setItem(prefKey(layer), String(value)); } catch { /* Keep the choice for this session. */ }
+    },
+  });
+}
+const showWaterStations = stationLayer('water');
+const showRainfallStations = stationLayer('rainfall');
+const routeWaterStations = computed(() => nzCountry.value ? nzWaterStations : waterStations as WaterStation[]);
 const showLayersPanel = ref(false);
-const showLocationMarkers = ref(true);
 
 const selectedWpIndex = ref<number | null>(null);
 const currentWaypoints = ref<WaypointData[]>([]);
@@ -427,7 +466,7 @@ function renderWaterStations() {
           });
         },
       });
-  filterByAnchor(props.stationSearch?.water ?? waterStations as WaterStation[], props.stationSearch ? null : props.nearbyAnchor, props.stationSearch ? undefined : 5).forEach(({ item: s, dist }) => {
+  filterByAnchor(props.stationSearch?.water ?? routeWaterStations.value, props.stationSearch ? null : props.nearbyAnchor, props.stationSearch ? undefined : 5).forEach(({ item: s, dist }) => {
     const label = dist != null ? `${s.name}（${s.river}） · ${dist.toFixed(1)} km` : `${s.name}（${s.river}）`;
     L.marker([s.lat, s.lon], { icon: waterStationIcon })
       .bindTooltip(
@@ -443,7 +482,7 @@ function renderWaterStations() {
   });
 }
 
-watch(waterVisible, (show) => {
+watch(showWaterStations, (show) => {
   if (!map) return;
   if (show) {
     if (!waterStationLayer) renderWaterStations(); // lazy build; anchor re-renders are driven by nearbyAnchor watcher
@@ -470,7 +509,7 @@ function renderRainfallStations() {
           });
         },
       });
-  const routeStations = props.nzMode || (props.nearbyAnchor && props.nearbyAnchor.lat < 0) ? nzRainfallStations : rainfallStations;
+  const routeStations = nzCountry.value ? nzRainfallStations : rainfallStations;
   filterByAnchor(props.stationSearch?.rainfall ?? routeStations, props.stationSearch ? null : props.nearbyAnchor).forEach(({ item: s, dist }) => {
     const label = dist != null ? `${s.name}（${s.county}${s.town}） · ${dist.toFixed(1)} km` : `${s.name}（${s.county}${s.town}）`;
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
@@ -484,7 +523,7 @@ function renderRainfallStations() {
   });
 }
 
-watch(rainfallVisible, (show) => {
+watch(showRainfallStations, (show) => {
   if (!map) return;
   if (show) {
     if (!rainfallStationLayer) renderRainfallStations();
@@ -494,36 +533,19 @@ watch(rainfallVisible, (show) => {
   }
 });
 
-// Track whether we auto-enabled each layer so we can restore state on route close.
-let autoEnabledWater = false;
-let autoEnabledRain = false;
-
-// When a route is selected: auto-enable both station layers with distance filter.
-// When deselected: turn off only the layers we auto-enabled, then rebuild unfiltered.
-// Extracted so onMounted can call it for URL-restored routes (watcher fires too early).
-function syncNearbyAnchor(anchor: NearbyAnchor | null) {
+// Rebuild visible layers when the country, route, or station scope changes.
+function syncNearbyAnchor() {
   if (!map) return;
-  if (anchor) {
-    // Only auto-enable if the filter actually yields stations within range
-    const hasWater = filterByAnchor(waterStations as WaterStation[], anchor).length > 0;
-    const hasRain = filterByAnchor(anchor.lat < 0 ? nzRainfallStations : rainfallStations, anchor).length > 0;
-    if (hasWater && !showWaterStations.value) { showWaterStations.value = true; autoEnabledWater = true; }
-    if (hasRain && !showRainfallStations.value) { showRainfallStations.value = true; autoEnabledRain = true; }
-  } else {
-    // Route closed — restore the state that was in place before we intervened
-    if (autoEnabledWater) { showWaterStations.value = false; autoEnabledWater = false; }
-    if (autoEnabledRain) { showRainfallStations.value = false; autoEnabledRain = false; }
-  }
   // Rebuild both layers to apply/remove the distance filter.
   // renderWaterStations/renderRainfallStations each call .remove() internally before rebuilding.
-  if (waterVisible.value) {
+  if (showWaterStations.value) {
     renderWaterStations();
     waterStationLayer?.addTo(map);
   } else {
     waterStationLayer?.remove();
     waterStationLayer = null;
   }
-  if (rainfallVisible.value) {
+  if (showRainfallStations.value) {
     renderRainfallStations();
     rainfallStationLayer?.addTo(map);
   } else {
@@ -531,22 +553,7 @@ function syncNearbyAnchor(anchor: NearbyAnchor | null) {
     rainfallStationLayer = null;
   }
 }
-watch(() => props.nearbyAnchor, syncNearbyAnchor);
-watch(() => props.stationSearch, () => {
-  syncNearbyAnchor(props.nearbyAnchor);
-});
-
-let autoEnabledNzRain = props.nzMode;
-watch(() => props.nzMode, (nzMode) => {
-  if (nzMode && !showRainfallStations.value) {
-    showRainfallStations.value = true;
-    autoEnabledNzRain = true;
-  } else if (!nzMode && autoEnabledNzRain) {
-    showRainfallStations.value = false;
-    autoEnabledNzRain = false;
-  }
-  syncNearbyAnchor(props.nearbyAnchor);
-});
+watch([() => props.nearbyAnchor, () => props.stationSearch, nzCountry], syncNearbyAnchor);
 
 function focusSearchResults() {
   if (!map || !props.searchPoints?.length) return;
@@ -649,7 +656,7 @@ onMounted(() => {
   renderMarkers();
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId);
   // Handle routes restored from URL (?route=...) — watcher fires before map exists
-  syncNearbyAnchor(props.nearbyAnchor);
+  syncNearbyAnchor();
   focusSearchResults();
 });
 
@@ -940,6 +947,16 @@ watch(
 
 .layers-list {
   padding: 6px 0;
+}
+
+.layer-note {
+  margin: 6px 16px;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+}
+.toggle-switch input:disabled + .toggle-track {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .layer-row {

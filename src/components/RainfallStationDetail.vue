@@ -13,13 +13,13 @@
       </div>
 
       <div class="badge-row">
-        <button :class="['period-btn', { active: mode === 'live' }]" @click="selectMode('live')">{{ locale === 'en' ? 'Live' : '即時' }}</button>
-        <button :class="['period-btn', { active: mode === '7' }]" @click="selectMode('7')">{{ locale === 'en' ? '7 days' : '近 7 天' }}</button>
-        <button :class="['period-btn', { active: mode === '14' }]" @click="selectMode('14')">{{ locale === 'en' ? '14 days' : '近 14 天' }}</button>
+        <button :class="['period-btn', { active: mode === 'live' }]" :aria-pressed="mode === 'live'" @click="selectMode('live')">{{ locale === 'en' ? 'Live' : '即時' }}</button>
+        <button :class="['period-btn', { active: mode === '7' }]" :aria-pressed="mode === '7'" @click="selectMode('7')">{{ locale === 'en' ? '7 days' : '近 7 天' }}</button>
+        <button :class="['period-btn', { active: mode === '14' }]" :aria-pressed="mode === '14'" @click="selectMode('14')">{{ locale === 'en' ? '14 days' : '近 14 天' }}</button>
       </div>
 
-      <div class="popup-body">
-        <div v-if="loading" class="state">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</div>
+      <div class="popup-body" aria-live="polite" :aria-busy="loading">
+        <div v-if="loading" class="state" role="status">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</div>
         <template v-else-if="error">
           <div class="state error">{{ error }}</div>
           <button class="retry-btn" @click="fetchData">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
@@ -38,7 +38,8 @@
             <span class="row-label">{{ item.label }}</span>
             <span class="row-value">{{ item.value }}</span>
           </div>
-          <div v-if="data.updateTime" class="update-time">{{ data.updateTime }} {{ locale === 'en' ? 'updated' : '更新' }}</div>
+          <div v-if="observedText" class="update-time">{{ locale === 'en' ? `Observed ${observedText}` : `觀測時間 ${observedText}` }}</div>
+          <div v-else-if="data.updateTime" class="update-time">{{ data.updateTime }} {{ locale === 'en' ? 'updated' : '更新' }}</div>
         </template>
         <template v-else-if="currentHistory">
           <div class="history-total">
@@ -71,11 +72,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { RainfallStation } from '../lib/rainfall'
 import { fetchRainfallData, fetchRainfallHistory, type RainfallData, type RainfallHistoryData } from '../lib/rainfallData'
 import { clamp } from '../lib/clamp'
-import { locale } from '../lib/locale'
+import { locale, t, loadErrorText } from '../lib/locale'
+import { taipeiParts } from '../lib/waterLevel'
 import WaterLevelChart from './WaterLevelChart.vue'
 import type { ChartSeries } from '../lib/chart'
 
@@ -167,8 +169,14 @@ const rainItems = computed(() => {
 const rainStatus = computed(() => {
   const rainfall = data.value!
   const en = locale.value === 'en'
+  // An old reading must not produce a "low rainfall" verdict; offline gauges keep their last totals.
+  if (rainfall.observedAt && Date.now() - Date.parse(rainfall.observedAt) > 3 * 3600000) return {
+    tone: 'muted',
+    title: en ? 'Reading is over 3 hours old' : '觀測已超過 3 小時',
+    note: en ? 'The gauge may be delayed or offline. Check the official source.' : '測站可能延遲或離線，請至官方來源確認。',
+  }
   if (rainfall.source === 'wcrc') return {
-    tone: 'normal',
+    tone: 'muted',
     title: en ? 'Official rainfall observation' : '官方雨量觀測',
     note: en ? 'West Coast Regional Council data. Compare with the route forecast before entering.' : '資料來自 West Coast Regional Council，進入溪谷前仍需比對路線預報。',
   }
@@ -197,6 +205,13 @@ const rainStatus = computed(() => {
     title: en ? 'Lower recent rainfall' : '近期累積雨量較低',
     note: en ? 'Conditions can still differ across the catchment.' : '集水區各處狀況仍可能不同。',
   }
+})
+
+const observedText = computed(() => {
+  const iso = data.value?.observedAt
+  if (!iso) return ''
+  const p = taipeiParts(iso, props.station.source === 'wcrc' ? 'Pacific/Auckland' : 'Asia/Taipei')
+  return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`
 })
 
 const currentHistory = computed(() => mode.value === 'live' ? null : historyCache.value[mode.value])
@@ -231,16 +246,26 @@ function downloadHistoryImage() {
   })
 }
 
+let requestId = 0
+
 async function fetchData() {
+  const id = ++requestId
+  const { station_id: stationId, source } = props.station
+  const target = mode.value
   loading.value = true
   error.value = null
   try {
-    if (mode.value === 'live') data.value = await fetchRainfallData(props.station.station_id, props.station.source)
-    else historyCache.value[mode.value] = await fetchRainfallHistory(props.station.station_id, Number(mode.value) as 7 | 14, props.station.source)
+    if (target === 'live') {
+      const next = await fetchRainfallData(stationId, source)
+      if (id === requestId) data.value = next
+    } else {
+      const next = await fetchRainfallHistory(stationId, Number(target) as 7 | 14, source)
+      if (id === requestId) historyCache.value[target] = next
+    }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : (locale.value === 'en' ? 'Unable to load rainfall data' : '雨量資料暫時無法載入')
+    if (id === requestId) error.value = loadErrorText(e, source === 'wcrc' ? 'WCRC' : t('氣象署', 'CWA'))
   } finally {
-    loading.value = false
+    if (id === requestId) loading.value = false
   }
 }
 
@@ -248,10 +273,20 @@ function selectMode(next: 'live' | '7' | '14') {
   mode.value = next
   error.value = null // clear stale error from previous mode before checking cache
   const cached = next === 'live' ? data.value : historyCache.value[next]
-  if (!cached) fetchData()
+  if (cached) {
+    requestId++ // drop any in-flight load for the mode we just left
+    loading.value = false
+  } else fetchData()
 }
 
 onMounted(fetchData)
+// App reuses this card when another rainfall station is clicked; never show the previous station's numbers.
+watch(() => props.station.station_id, () => {
+  data.value = null
+  historyCache.value = { '7': null, '14': null }
+  mode.value = 'live'
+  fetchData()
+})
 </script>
 
 <style scoped>
@@ -303,9 +338,11 @@ onMounted(fetchData)
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px;
+  min-width: 0;
 }
 
 .name {
+  overflow-wrap: anywhere;
   font-size: 0.95rem;
   font-weight: 700;
   color: #fff;

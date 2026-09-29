@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import rainfallHistoryHandler from './api/cwa/rainfall-history/[stationId].js'
 import nzRainfallHandler from './api/nz/rainfall/[stationId].js'
 import nzRainfallHistoryHandler from './api/nz/rainfall-history/[stationId].js'
+import nzWaterLevelHandler from './api/nz/water-level/[stationId].js'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -16,7 +17,7 @@ export default defineConfig(({ mode }) => {
           const mount = (prefix: string, handler: any) => server.middlewares.use(prefix, async (req: any, res: any) => {
             const url = new URL(req.url ?? '', 'http://localhost')
             const stationId = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '')
-            await handler({ query: { stationId, days: url.searchParams.get('days') } }, {
+            await handler({ method: req.method, query: { stationId, days: url.searchParams.get('days'), metric: url.searchParams.get('metric') ?? undefined } }, {
               status(code: number) { res.statusCode = code; return this },
               setHeader(name: string, value: string) { res.setHeader(name, value); return this },
               json(body: unknown) {
@@ -29,6 +30,7 @@ export default defineConfig(({ mode }) => {
           mount('/api/cwa/rainfall-history/', rainfallHistoryHandler)
           mount('/api/nz/rainfall/', nzRainfallHandler)
           mount('/api/nz/rainfall-history/', nzRainfallHistoryHandler)
+          mount('/api/nz/water-level/', nzWaterLevelHandler)
         },
       },
     ],

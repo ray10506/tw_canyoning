@@ -20,6 +20,7 @@ function parseRain(value) {
 export default async function handler(req, res) {
   const stationId = String(req.query.stationId ?? '').toUpperCase()
   const days = Number(req.query.days)
+  if (!/^[A-Z0-9]{4,8}$/.test(stationId)) return res.status(400).json({ error: 'Invalid station id' })
   if (![7, 14].includes(days)) return res.status(400).json({ error: 'days must be 7 or 14' })
 
   // All-digit IDs → CWA ground stations; letter-prefix IDs → auto_{first-2-chars} per CODiS convention
@@ -57,9 +58,11 @@ export default async function handler(req, res) {
         'X-Requested-With': 'XMLHttpRequest',
       },
       body,
+      signal: AbortSignal.timeout(15000),
     })
+    if (!upstream.ok || !upstream.headers.get('content-type')?.includes('json'))
+      return res.status(502).json({ error: 'CWA rainfall history unavailable' })
     const json = await upstream.json()
-    if (!upstream.ok) return res.status(upstream.status).json(json)
 
     const entries = json.day?.data?.[0]?.dts ?? []
     const values = entries
@@ -74,6 +77,7 @@ export default async function handler(req, res) {
     const available = daily.filter(item => item.value != null)
     if (!available.length) return res.status(404).json({ error: json.day?.message || 'No rainfall history for station' })
 
+    res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600')
     res.status(200).json({
       stationId,
       days,
@@ -84,7 +88,7 @@ export default async function handler(req, res) {
       daysIncluded: available.length,
       daily,
     })
-  } catch (err) {
-    res.status(502).json({ error: String(err) })
+  } catch {
+    res.status(502).json({ error: 'CWA rainfall history unavailable' })
   }
 }

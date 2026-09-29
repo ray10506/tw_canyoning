@@ -135,6 +135,7 @@ api/
 | URL 參數 | 值 | 說明 |
 |---|---|---|
 | `view` | `route`, `nz`, `hydrology`, `search` | 目前的瀏覽模式；TW 預設可省略 |
+| `country` | `tw`, `nz` | 水文 tab 的國家；從 TW／NZ 進入時沿用該國家 |
 | `q` | 搜尋字串 | 目前的搜尋 query |
 | `type` | `route,water,rainfall` 的組合 | 搜尋類型（預設 `route` 時省略） |
 | `route` | route id | 目前展開的路線 |
@@ -158,6 +159,7 @@ api/
 - 即時：水利署開放資料 API（WRA Realtime）→ `api/wra/` proxy
 - 歷史：PocketBase `water_level_observations` collection（自動排程收集）
 - 排程：每 3 小時一次；保留 90 日
+- 紐西蘭西岸：WCRC 公開地圖提供最新水位／流量，JSON 圖表端點提供 7／14 天歷史；經 `/api/nz/water-level/[stationId]`，無額外蒐集排程。
 
 ### 雨量資料
 - 站點清單：靜態 `src/data/rainfall-stations.json`

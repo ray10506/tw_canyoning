@@ -1,6 +1,6 @@
 import { ref, watch } from 'vue'
 
-const urlLang = new URLSearchParams(location.search).get('lang')
+const urlLang = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('lang')
 export const locale = ref<'zh' | 'en'>(urlLang === 'en' ? 'en' : 'zh')
 
 // Sync locale → URL so the link is shareable
@@ -36,4 +36,16 @@ const CITY_EN: Record<string, string> = {
   '台南市': 'Tainan',    '臺南市': 'Tainan',   '高雄市': 'Kaohsiung',
   '屏東縣': 'Pingtung',  '澎湖縣': 'Penghu',
   '花蓮縣': 'Hualien',   '台東縣': 'Taitung',  '臺東縣': 'Taitung',
+}
+
+/** Readable, localized text for a failed data load: offline, timeout and malformed responses read differently. */
+export function loadErrorText(e: unknown, source: string): string {
+  const name = e instanceof Error ? e.name : ''
+  if (name === 'TimeoutError')
+    return t(`${source} 回應逾時，請稍後重試。`, `${source} took too long to respond. Try again shortly.`)
+  if (name === 'TypeError' || !navigator.onLine)
+    return t('無法連線，請確認網路後重試。', 'Could not connect. Check your network and retry.')
+  if (name === 'SyntaxError')
+    return t(`${source} 回傳的資料格式異常。`, `${source} returned data in an unexpected format.`)
+  return e instanceof Error && e.message ? e.message : t(`${source} 暫時無法提供資料。`, `${source} data is temporarily unavailable.`)
 }
