@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import live from './[stationId].js'
-import history from '../rainfall-history/[stationId].js'
+import live from '../../../../api/nz/rainfall/[stationId].js'
+import history from '../../../../api/nz/rainfall-history/[stationId].js'
 
 const originalFetch = globalThis.fetch
 const stationId = 'Haast Rv @ Moa Ck'

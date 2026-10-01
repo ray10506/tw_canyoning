@@ -188,6 +188,13 @@ api/
 
 位置：`api/` 目錄，Vercel Functions 格式。
 
+### 部署數量限制與測試位置
+
+- 本專案使用 Vercel Hobby 方案，每次部署最多 **12 個 Serverless Functions**（2026-10-01 部署錯誤確認）。新增 API 前必須確認部署後不超過上限。
+- `api/` 只放正式 API 入口；測試檔可能被當成 Function，**不得放在 `api/` 內**。API 測試統一放在 `tests/api/`，沿用對應的子目錄結構；共用工具也應放在 `api/` 外。
+- 移動測試時同步更新 import 路徑與文件中的執行指令，並重新執行測試。
+- `npm run build` 通過不代表符合 Vercel 的 Functions 數量限制；部署時仍須確認 Functions 清單與部署結果。接近上限時先評估整合相關 API，再考慮升級方案。
+
 ```js
 // 必須
 export default async function handler(req, res) { ... }
@@ -241,4 +248,5 @@ GPX 上傳：僅接受 `.gpx` 格式，前端驗證 + base64 轉換後放入 `gp
 - [ ] 手機畫面（640px 以下）正常嗎？
 - [ ] 新的 credentials 有放進環境變數（不寫死）嗎？
 - [ ] 如果有新的 API proxy，有加 method 驗證和錯誤處理嗎？
+- [ ] 新增 API 後是否仍在 Vercel Hobby 的 12 個 Functions 上限內，且測試檔都放在 `api/` 外？
 - [ ] 元件新增了 prop 或 emit，有加型別嗎？

@@ -1,8 +1,8 @@
-// node api/nz/water-level/wcrc.test.mjs
+// node tests/api/nz/water-level/wcrc.test.mjs
 import assert from 'node:assert/strict'
-import handler, { nzTimestamp } from './[stationId].js'
-import rainfallHistory from '../rainfall-history/[stationId].js'
-import stations from '../../../src/data/nz-water-stations.json' with { type: 'json' }
+import handler, { nzTimestamp } from '../../../../api/nz/water-level/[stationId].js'
+import rainfallHistory from '../../../../api/nz/rainfall-history/[stationId].js'
+import stations from '../../../../src/data/nz-water-stations.json' with { type: 'json' }
 
 const originalFetch = globalThis.fetch
 const originalNow = Date.now
@@ -88,7 +88,7 @@ try {
   assert.equal(rain.body.total, 8.5)
   assert.deepEqual(rain.body.daily.map(p => p.value), [8.5, 0, null, null, null, null, null])
   // Live rainfall: expose the observation instant for staleness checks; outages are a generic 502, never a pass-through 404.
-  const rainLive = (await import('../rainfall/[stationId].js')).default
+  const rainLive = (await import('../../../../api/nz/rainfall/[stationId].js')).default
   const rainQuery = { query: { stationId: 'Haast Rv @ Roaring Billy' } }
   globalThis.fetch = async () => ({ ok: true, text: async () => "var myLatlng1 = 0; <h3>Haast</h3> site=Haast%20Rv%20@%20Roaring%20Billy&name=H <strong>24 Hours: </strong></td><td>12.5mm</td><strong>Last Sample: </strong></td><td>29-09-2026 2:00am</td>" })
   const live = response()

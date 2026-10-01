@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { parseQpfWindow, QPF_BOUNDS } from './qpf-grid.js'
-import { bandIndex, QPF_SCALE } from '../../src/lib/rainfallMap.ts'
+import { parseQpfWindow, QPF_BOUNDS } from '../../../api/cwa/qpf-grid.js'
+import { bandIndex, QPF_SCALE } from '../../../src/lib/rainfallMap.ts'
 
 const row = i => Array.from({ length: 130 }, (_, j) => (i === 0 && j === 0 ? '1.2598824e-01' : i === 0 && j === 1 ? '-9.9e+01' : '3.05e+00')).join(',')
 const json = text => ({ cwaopendata: { Dataset: {

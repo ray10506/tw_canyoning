@@ -23,7 +23,7 @@
 - 水位可為負數（測站基準），流量不得為負；缺值保留 `null`，歷史折線不跨缺值連線，最新缺測不以舊值替代。
 - 未匯入警戒門檻，不標示「正常／安全」；超過 3 小時的有效觀測明示資料可能延遲，這是本產品的提示門檻。
 - 官方來源：https://www.wcrc.govt.nz/environment/water/river-levels-rainfall 。WCRC 說明網頁資料為尚未完整檢核的原始觀測；測站卡顯示來源與原始資料連結。
-- 驗證：`node api/nz/water-level/wcrc.test.mjs`。
+- 驗證：`node tests/api/nz/water-level/wcrc.test.mjs`。
 
 ### 雨量
 
@@ -40,7 +40,7 @@
 - 原圖為經緯度等距，前端先轉為 Web Mercator 再疊圖，否則台灣中部約偏 2 km。
 - 圖例與圖層列顯示「今日最大累積」級距（由圖上像素判讀）；全圖無色時明示「今日尚未測得降雨」，避免使用者誤以為圖層故障。圖例固定於地圖右下、底部工具列上方，不與圖層面板重疊。
 - 取得失敗時移除圖層並顯示重試，不保留舊圖。僅台灣顯示；預設關閉，模式（`off`／`today`／`qpf6`／`qpf12`）存於 `rainfall-map-tw`。雨量圖一次只顯示一種模式。
-- 驗證：`node api/cwa/rainfall-map.test.mjs`。
+- 驗證：`node tests/api/cwa/rainfall-map.test.mjs`。
 
 ### 台灣降雨預報
 
@@ -49,7 +49,7 @@
 - 平時 CWA 仍保留最後一期格點；第 1 時段結束後 API 回 `active: false`，預報圖層按鈕停用並說明僅颱風警報期間提供，不得把舊預報當成目前預報。
 - 實際檔案把 16 900 個值放在同一行（與規格書的 130 行不同），parser 以值的數量驗證。負值視為缺值。
 - 預報色階為 0.5／1／2／5／10…mm（與觀測的 1／2／6 不同），見 `QPF_SCALE`。TWD67 與 WGS84 約差 0.8 km，小於 5 km 格距，目前不做轉換。
-- 驗證：`node api/cwa/qpf-grid.test.mjs`。
+- 驗證：`node tests/api/cwa/qpf-grid.test.mjs`。
 
 ## 時間規則
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import JSZip from 'jszip'
-import { parseRainfallKmz } from './rainfall-map.js'
-import { maxRainIndex, sourceRow } from '../../src/lib/rainfallMap.ts'
+import { parseRainfallKmz } from '../../../api/cwa/rainfall-map.js'
+import { maxRainIndex, sourceRow } from '../../../src/lib/rainfallMap.ts'
 
 const zip = new JSZip()
 zip.file('doc.kml', '<kml><Document><name>2026-09-29_1500_當日累積雨量</name></Document></kml>')
