@@ -46,6 +46,7 @@ Create a `.env.local` file with:
 
 ```env
 VITE_PB_URL=https://your-pocketbase-instance.fly.dev
+VITE_CARTO_KEY=your_carto_basemaps_key
 CWA_API_KEY=your_cwa_api_key
 ```
 
@@ -56,6 +57,7 @@ The app deploys to Vercel. Set the following environment variables in your Verce
 | Variable | Description |
 |---|---|
 | `VITE_PB_URL` | PocketBase instance URL |
+| `VITE_CARTO_KEY` | CARTO basemaps key for the "Clear" map ([request](https://carto.com/basemaps/apikey)) |
 | `CWA_API_KEY` | Central Weather Administration API key ([register](https://opendata.cwa.gov.tw/)) |
 | `RESEND_API_KEY` | Resend API key for email submissions ([register](https://resend.com/)) |
 

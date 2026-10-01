@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="nz-dossier" :class="{ resizing: isResizing }" :style="{ width: panelWidth + 'px' }" @click.stop>
     <!-- ── Left resize handle ── -->
     <div class="nz-resize-handle" @mousedown.prevent="startResize" />
@@ -6,20 +6,26 @@
     <!-- ── Header ── -->
     <div class="dos-header">
       <div class="dos-meta">
-        <span class="dos-eyebrow">{{ eyebrow }}</span>
+        <span class="dos-region">{{ eyebrow }}</span>
         <h2 class="dos-title">{{ d.name_en || d.name }}</h2>
         <p v-if="subtitle" class="dos-subtitle">{{ subtitle }}</p>
-        <div v-if="d.grading || hasRiskSignal" class="dos-grades">
+        <div v-if="d.grading" class="dos-grades">
           <span v-if="ropeGrade !== '—'" :class="['g-tag', 'rope', ropeGradeClass]">{{ ropeGrade }}</span>
           <span v-if="waterGrade !== '—'" class="g-tag water">{{ waterGrade }}</span>
           <span v-if="timeGrade !== '—'" class="g-tag roman">{{ timeGrade }}</span>
           <span v-if="gradingStars" class="g-stars">{{ gradingStars }}</span>
-          <button v-if="hasRiskSignal" type="button" class="g-tag risk-chip" @click="activeTab = 'risk'">
-            {{ riskChipLabel }}
-          </button>
         </div>
+        <ForecastGlance v-if="d.gps" :gps="String(d.gps)" @open="activeTab = 'weather'" @days="forecastDays = $event" />
+        <p v-if="rainNote" class="strip-note">{{ rainNote }}</p>
+        <!-- Hazard banner, full text: a go/no-go read must never see a truncated safety note. -->
+        <button v-if="hasRiskSignal" type="button" class="hazard-strip" @click="activeTab = 'risk'">
+          <span v-if="details.flood"><strong>{{ t('暴洪風險', 'Flash-flood risk') }}：</strong>{{ localDetail('flood') }}</span>
+          <span v-if="d.hazards || d.hazards_zh">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</span>
+        </button>
       </div>
-      <button class="dos-close" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
+      <button class="dos-close" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
     </div>
 
     <!-- ── Tabs ── -->
@@ -36,7 +42,7 @@
 
       <!-- 快速資訊 -->
       <template v-if="activeTab === 'info'">
-        <div class="section-sub">{{ locale === 'en' ? 'LOCATION' : '地點' }}</div>
+        <h3 class="section-sub">{{ locale === 'en' ? 'Location' : '地點' }}</h3>
         <dl class="rows">
           <div v-if="d.location || d.location_zh || d.region" class="row">
             <dt>{{ locale === 'en' ? 'Location' : '地點' }}</dt>
@@ -58,7 +64,7 @@
         </button>
 
         <template v-if="details.rock || details.water || details.catchment">
-          <div class="section-sub">{{ locale === 'en' ? 'TERRAIN & WATER' : '地形與水況' }}</div>
+          <h3 class="section-sub">{{ locale === 'en' ? 'Terrain & water' : '地形與水況' }}</h3>
           <dl class="rows">
             <div v-if="details.rock" :class="['row', { unpublished: isUnpublished(localDetail('rock')) }]">
               <dt>{{ locale === 'en' ? 'Rock' : '岩性' }}</dt>
@@ -76,7 +82,7 @@
         </template>
 
         <template v-if="d.approach || d.gps || d.gpx_url || details.map_sheet">
-          <div class="section-sub">{{ locale === 'en' ? 'ACCESS & NAVIGATION' : '進場與定位' }}</div>
+          <h3 class="section-sub">{{ locale === 'en' ? 'Access & navigation' : '進場與定位' }}</h3>
           <dl class="rows">
             <div v-if="d.approach" class="row">
               <dt>{{ locale === 'en' ? 'Approach' : '主要進場' }}</dt>
@@ -98,7 +104,7 @@
         </template>
 
         <template v-if="details.anchors || d.gear || d.gear_zh || d.first_descent || d.source_url">
-          <div class="section-sub">{{ locale === 'en' ? 'GEAR & CREDITS' : '裝備與來源' }}</div>
+          <h3 class="section-sub">{{ locale === 'en' ? 'Gear & credits' : '裝備與來源' }}</h3>
           <dl class="rows">
             <div v-if="details.anchors" :class="['row', { unpublished: isUnpublished(localDetail('anchors')) }]">
               <dt>{{ locale === 'en' ? 'Anchors' : '確保點' }}</dt>
@@ -160,7 +166,7 @@
         <div v-if="!hasTimedOptions && (d.approach_time || d.descent_time || d.total_time)">
           <div class="time-plan-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            {{ locale === 'en' ? 'TIME / EXPEDITION PLAN' : '時間規劃 TIME / EXPEDITION PLAN' }}
+            {{ locale === 'en' ? 'Timing' : '時間規劃' }}
           </div>
           <div class="time-plan">
             <div v-if="d.approach_time" class="time-row">
@@ -204,7 +210,7 @@
         <div v-if="sections.length">
           <div class="time-plan-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            {{ locale === 'en' ? 'ROUTE OPTIONS' : '分段選擇 ROUTE OPTIONS' }}
+            {{ locale === 'en' ? 'Route options' : '分段選擇' }}
           </div>
           <div class="time-plan">
             <div v-for="part in sections" :key="part.name" class="struct-row" :class="{ 'struct-row--timed': hasTimedOptions }">
@@ -231,7 +237,7 @@
         <div v-if="approachSteps.length || d.approach">
           <div class="time-plan-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M5 17C5 13 9 11 12 11s7-2 7-6"/></svg>
-            {{ locale === 'en' ? 'APPROACH' : '進場路線 APPROACH' }}
+            {{ locale === 'en' ? 'Approach' : '進場路線' }}
           </div>
           <div class="time-plan">
             <div v-for="(item, index) in approachSteps" :key="index" class="struct-row">
@@ -252,7 +258,7 @@
           </div>
         </dl>
         <div v-if="waypoints.length" class="wpt-section">
-          <div class="section-sub">{{ locale === 'en' ? 'Waypoints' : '路線點' }}</div>
+          <h3 class="section-sub">{{ locale === 'en' ? 'Waypoints' : '路線點' }}</h3>
           <div v-for="(w, index) in waypoints" :key="w.seq" class="wpt-row">
             <span class="wpt-seq">{{ w.seq }}</span>
             <span class="wpt-body">
@@ -272,11 +278,11 @@
       </template>
 
       <!-- 原始路線圖 (Topo) -->
-      <template v-else-if="activeTab === 'topo'">
+      <template v-else-if="activeTab === 'media'">
         <div class="topo-wrap">
-          <div class="section-sub">
-            {{ locale === 'en' ? 'ORIGINAL TOPO' : '原始路線圖 ORIGINAL TOPO' }}
-          </div>
+          <h3 class="section-sub">
+            {{ locale === 'en' ? 'Original topo' : '原始路線圖' }}
+          </h3>
           <p v-if="topoPages.length || d.topo_url" class="topo-note">{{ locale === 'en' ? 'Official KiwiCanyons maps and hand-drawn topo.' : 'KiwiCanyons 官方地圖與手繪路線圖。' }}</p>
           <div v-if="topoPages.length" class="topo-stack">
             <a v-for="item in topoPages" :key="item.page"
@@ -300,10 +306,7 @@
           </template>
           <div v-if="!topoPages.length && !d.topo_url" class="dos-empty">{{ locale === 'en' ? 'KiwiCanyons has not published an official topo yet.' : 'KiwiCanyons 尚未提供官方路線圖。' }}</div>
         </div>
-      </template>
-
-      <!-- 代表照片 -->
-      <template v-else-if="activeTab === 'photos'">
+        <h3 v-if="photos.length" class="section-sub">{{ locale === 'en' ? 'Photos' : '代表照片' }}</h3>
         <div v-if="photos.length" class="photo-grid">
           <a v-for="(url, i) in photos" :key="i"
             :href="url" target="_blank" rel="noopener"
@@ -316,7 +319,7 @@
           {{ locale === 'en' ? 'Photos © KiwiCanyons contributors' : '照片 © KiwiCanyons 貢獻者' }}
         </p>
         <template v-if="videos.length">
-          <div class="section-sub">{{ locale === 'en' ? 'VIDEOS' : '影片' }}</div>
+          <h3 class="section-sub">{{ locale === 'en' ? 'Videos' : '影片' }}</h3>
           <div class="video-list">
             <a v-for="item in videos" :key="item.url" :href="item.url" target="_blank" rel="noopener" class="video-row">
               <span class="video-icon" aria-hidden="true">
@@ -331,21 +334,20 @@
             </a>
           </div>
         </template>
-        <div v-if="!photos.length && !videos.length" class="dos-empty">{{ locale === 'en' ? 'No photos or videos available' : '尚無照片或影片' }}</div>
       </template>
 
       <!-- 風險注意 -->
       <template v-else-if="activeTab === 'risk'">
         <div v-if="details.flood" class="flood-card">
-          <small>{{ locale === 'en' ? 'FLASH-FLOOD RISK' : '暴洪風險' }}</small>
+          <small>{{ locale === 'en' ? 'Flash-flood risk' : '暴洪風險' }}</small>
           <strong>{{ localDetail('flood') }}</strong>
         </div>
         <div v-if="d.hazards || d.hazards_zh" class="risk-block">
-          <div class="risk-label">{{ locale === 'en' ? 'HAZARDS & RISK NOTES' : '危險注意 HAZARD NOTES' }}</div>
+          <div class="risk-label">{{ locale === 'en' ? 'Hazards' : '危險注意' }}</div>
           <div class="risk-text">{{ locale === 'en' ? d.hazards : (d.hazards_zh || d.hazards) }}</div>
         </div>
         <!-- Gear reminder in risk context -->
-        <dl v-if="d.gear || d.gear_zh" class="rows" style="margin-top:8px">
+        <dl v-if="d.gear || d.gear_zh" class="rows risk-gear">
           <div class="row">
             <dt>{{ locale === 'en' ? 'Required Gear' : '必備裝備' }}</dt>
             <dd>{{ locale === 'en' ? d.gear : (d.gear_zh || d.gear) }}</dd>
@@ -370,6 +372,8 @@ import { locale, t } from '../lib/locale'
 import type { WaterStation } from '../lib/waterLevel'
 import { vGradeClass } from '../lib/grade'
 import FiveDayForecast from './FiveDayForecast.vue'
+import ForecastGlance from './ForecastGlance.vue'
+import { forecastRainNote, type ForecastDay } from '../lib/forecast'
 import { useResizableWidth } from '../lib/useResizableWidth'
 
 const props = defineProps<{ item: { kind: string; data: any }; nearbyWater?: { station: WaterStation; distance: number } | null }>()
@@ -381,9 +385,12 @@ const { width: panelWidth, isResizing, start: startResize } = useResizableWidth(
   380,
   () => Math.min(900, window.innerWidth),
 )
+defineExpose({ panelWidth })
 
 const d = computed(() => props.item.data)
-type TabId = 'info'|'weather'|'updates'|'approach'|'topo'|'photos'|'risk'
+const forecastDays = ref<ForecastDay[]>([])
+const rainNote = computed(() => forecastRainNote(forecastDays.value))
+type TabId = 'info'|'weather'|'updates'|'approach'|'media'|'risk'
 const activeTab = ref<TabId>('info')
 const tabsRef = ref<HTMLElement | null>(null)
 watch(() => props.item, () => {
@@ -398,13 +405,13 @@ watch(activeTab, async () => {
   bar.scrollTo({ left: offset, behavior: 'smooth' })
 })
 
+// Same order as the TW panel (info → itinerary → weather → risk); topo and photos share one tab.
 const BASE_TABS = [
   { id: 'info'     as const, zh: '快速資訊', en: 'Info' },
+  { id: 'approach' as const, zh: '行程規畫', en: 'Itinerary' },
   { id: 'weather'  as const, zh: '氣象預報', en: 'Weather' },
-  { id: 'approach' as const, zh: '行程規劃', en: 'Plan' },
-  { id: 'topo'     as const, zh: '原始路線圖', en: 'Topo' },
-  { id: 'photos'   as const, zh: '代表照片', en: 'Photos' },
   { id: 'risk'     as const, zh: '風險注意', en: 'Risk' },
+  { id: 'media'    as const, zh: '路線圖與照片', en: 'Topo & photos' },
 ] as const
 
 const eyebrow = computed(() =>
@@ -531,28 +538,12 @@ function isUnpublished(value: unknown) {
 
 const hasRiskSignal = computed(() => !!(details.value.flood || d.value.hazards || d.value.hazards_zh))
 
-// Flood entries range from a bare severity word ("Extreme", "極高") to a full
-// sentence ("No easy escape after the first drop"). Take the first clause and
-// cap its length so the header chip stays short; the full text still lives on
-// the Risk tab.
-const FLOOD_CHIP_MAX = 8
-const riskChipLabel = computed(() => {
-  const flood = localDetail('flood')
-  if (flood) {
-    const clause = flood.split(/[;,.。，；]/)[0].trim()
-    const short = clause.length > FLOOD_CHIP_MAX ? `${clause.slice(0, FLOOD_CHIP_MAX)}…` : clause
-    return locale.value === 'en' ? `Flood: ${short}` : `暴洪：${short}`
-  }
-  return locale.value === 'en' ? 'Hazards' : '危險注意'
-})
-
 function mapsUrl(lat: number | string, lon?: number) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lon == null ? String(lat) : `${lat},${lon}`)}`
 }
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Mono&family=Noto+Sans+TC:wght@400;500;700&display=swap');
 .nearby-water {
   display: flex;
   flex-direction: column;
@@ -581,16 +572,11 @@ function mapsUrl(lat: number | string, lon?: number) {
   --cyan:  var(--color-primary);
   --cyan2: var(--color-primary-hover);
   --cdim:  var(--color-primary-selected);
-  /* Component-local tokens — no global equivalent */
-  --muted:  #9898b8;
-  --dim:    #7878a8; /* reads 3.1:1 on #1a1a2e – secondary labels only */
-  --risk:   #ff7f50;
-  --risk-bg:#1a0b04;
-  --green:  #4fc88a;
-  --gold:   #e8bc44;
-  --sans:   'IBM Plex Sans', 'Noto Sans TC', sans-serif;
-  --cond:   'IBM Plex Sans Condensed', sans-serif;
-  --mono:   'IBM Plex Mono', monospace;
+  --muted:  var(--color-text-muted);
+  --risk:   var(--color-danger);
+  --risk-bg: color-mix(in srgb, var(--color-danger) 12%, var(--color-panel));
+  --gold:   var(--color-rating);
+  --mono:   ui-monospace, SFMono-Regular, Consolas, monospace;
 
   position: fixed;
   top: 0; right: 0;
@@ -600,12 +586,11 @@ function mapsUrl(lat: number | string, lon?: number) {
   max-width: min(900px, 100vw);
   min-height: min(420px, 100dvh);
   max-height: 100dvh;
-  background: var(--bg);
+  background: var(--color-panel);
   border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   z-index: 1400;
-  font-family: var(--sans);
   color: var(--text);
   overflow: hidden;
   box-shadow: -8px 0 40px rgba(0,0,0,0.7);
@@ -655,51 +640,48 @@ function mapsUrl(lat: number | string, lon?: number) {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px 18px 14px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--line);
-  background: var(--bg2);
   flex-shrink: 0;
 }
 .dos-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.dos-eyebrow {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--cyan); opacity: 0.8;
-}
+.dos-region { font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); }
 .dos-title {
-  font-family: var(--cond); font-size: 24px; font-weight: 700;
-  color: var(--cyan2); line-height: 1.15; margin: 0; text-wrap: balance;
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--color-primary); line-height: 1.25; margin: 0; text-wrap: balance;
 }
-.dos-subtitle { font-size: 13px; color: var(--muted); font-style: italic; margin: 0; }
-.dos-grades { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-.g-tag {
-  font-size: 12px; font-weight: 700; padding: 2px 8px;
-  border-radius: 5px; font-family: var(--mono);
+.dos-subtitle { font-size: 0.78rem; color: var(--muted); margin: 0; }
+.dos-grades { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.g-tag { font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.g-tag.rope { background: var(--color-primary-selected); color: var(--color-primary); }
+.g-tag.rope:is(.v1, .v2, .v3, .v4, .v5, .v6) { background: var(--vg-bg); color: var(--vg-fg); }
+.g-tag.water { background: color-mix(in srgb, var(--color-water) 20%, var(--color-panel)); color: var(--color-water); }
+.g-tag.roman { background: color-mix(in srgb, var(--color-rating) 20%, var(--color-panel)); color: var(--color-rating); }
+.g-stars { font-size: 0.75rem; color: var(--gold); letter-spacing: 1px; }
+.strip-note { margin: 6px 2px 0; font-size: 0.75rem; line-height: 1.45; color: var(--color-text-muted); }
+.hazard-strip {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; margin-top: 6px; padding: 6px 10px;
+  border: none; border-radius: 6px;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  font: inherit; font-size: 0.78rem; line-height: 1.5;
+  text-align: left; white-space: pre-line; cursor: pointer;
+  transition: background 0.15s;
 }
-.g-tag.rope              { background: #1a1a48; color: var(--cyan); }
-.g-tag.rope.v1, .g-tag.rope.v2, .g-tag.rope.v3,
-.g-tag.rope.v4, .g-tag.rope.v5, .g-tag.rope.v6 { background: var(--vg-bg); color: var(--vg-fg); }
-.g-tag.water  { background: #0e0e3a; color: #7eaaff; }
-.g-tag.roman  { background: #1c1c3e; color: var(--muted); }
-.g-stars      { font-size: 13px; color: var(--gold); letter-spacing: 2px; }
-.g-tag.risk-chip {
-  display: inline-flex; align-items: center; gap: 3px;
-  background: var(--risk-bg); color: var(--risk);
-  border: 1px solid rgba(255,127,80,.4);
-  font-family: var(--sans); cursor: pointer;
-}
-.g-tag.risk-chip:hover, .g-tag.risk-chip:focus-visible {
-  background: rgba(255,127,80,.18); outline: none;
-}
+.hazard-strip:hover { background: color-mix(in srgb, var(--color-danger) 18%, transparent); }
+.hazard-strip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .dos-close {
-  background: none; border: none; color: var(--dim);
-  font-size: 17px; cursor: pointer; padding: 4px;
-  border-radius: 4px; flex-shrink: 0; margin-top: 2px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--color-text-muted);
+  cursor: pointer; padding: 8px; border-radius: 4px; flex-shrink: 0;
 }
-.dos-close:hover { background: var(--bg3); color: var(--text); }
+.dos-close:hover { background: var(--line); color: var(--color-text-strong); }
+.dos-close:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ── Tabs ── */
 .dos-tabs {
-  display: flex; gap: 4px; padding: 8px 14px;
+  display: flex; gap: 4px; padding: 8px 12px;
   border-bottom: 1px solid var(--line);
   overflow-x: auto; scrollbar-width: none;
   flex-shrink: 0; background: var(--bg2);
@@ -707,8 +689,8 @@ function mapsUrl(lat: number | string, lon?: number) {
      are actually scrolled past it, so a clipped tab (e.g. Risk) is never
      silently invisible. Pure CSS, no scroll-position JS needed. */
   background-image:
-    linear-gradient(to right, var(--bg2) 40%, rgba(18,18,42,0)),
-    linear-gradient(to left, var(--bg2) 40%, rgba(18,18,42,0)),
+    linear-gradient(to right, var(--bg2) 40%, transparent),
+    linear-gradient(to left, var(--bg2) 40%, transparent),
     linear-gradient(to right, rgba(0,0,0,.4), rgba(0,0,0,0)),
     linear-gradient(to left, rgba(0,0,0,.4), rgba(0,0,0,0));
   background-repeat: no-repeat;
@@ -720,11 +702,11 @@ function mapsUrl(lat: number | string, lon?: number) {
 .dos-tab {
   flex-shrink: 0; padding: 5px 12px; border-radius: 999px;
   border: 1px solid transparent; background: transparent;
-  font-size: 12.5px; font-family: var(--sans);
+  font-size: 12px; font-family: inherit;
   color: var(--muted); cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s; white-space: nowrap;
 }
 .dos-tab:hover  { color: var(--text); background: var(--bg3); }
-.dos-tab.active { background: #1e2d6b; border-color: #3a5fc0; color: var(--cyan2); font-weight: 600; }
+.dos-tab.active { background: var(--color-primary-selected); border-color: var(--color-primary); color: var(--color-primary-hover); font-weight: 600; }
 
 /* ── Body ── */
 .dos-body {
@@ -744,13 +726,13 @@ function mapsUrl(lat: number | string, lon?: number) {
 .row.unpublished { opacity: .48; }
 dt {
   display: flex; align-items: flex-start; gap: 5px; padding-right: 8px;
-  font-size: 12px; font-weight: 600; color: var(--dim);
+  font-size: 12px; font-weight: 600; color: var(--muted);
 }
 dd { margin: 0; font-size: 14px; color: var(--text); line-height: 1.6; }
 dd.prewrap   { white-space: pre-line; font-size: 13.5px; }
 dd.highlight { color: var(--cyan2); font-weight: 600; }
 dd.dim       { color: var(--muted); }
-dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green); }
+dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--color-primary-hover); }
 .coord-link  { color: inherit; text-decoration: none; }
 .coord-link:hover { text-decoration: underline; }
 
@@ -761,7 +743,7 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .updates-note { margin: 0; padding: 8px 14px 12px; color: var(--muted); font-size: 12px; line-height: 1.55; border-bottom: 1px solid var(--line); }
 .update-row { padding: 14px; border-bottom: 1px solid var(--line); }
 .update-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--cyan); font: 10.5px var(--mono); }
-.update-meta span { color: var(--dim); font-family: var(--sans); }
+.update-meta span { color: var(--muted); font-family: inherit; }
 .update-row p { margin: 7px 0 0; color: var(--text); font-size: 13.5px; line-height: 1.65; }
 .updates-source { display: block; margin: 14px; color: var(--cyan); font-size: 13px; text-decoration: none; }
 .updates-source:hover { text-decoration: underline; }
@@ -773,23 +755,27 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .video-icon { display: flex; align-items: center; justify-content: center; }
 .video-play-generic { color: var(--cyan); }
 .video-row strong { display: block; font-size: 13.5px; line-height: 1.45; transition: color .13s; }
-.video-row small { display: block; margin-top: 3px; color: var(--dim); font-size: 11.5px; }
+.video-row small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
 .video-open { color: var(--cyan); font-size: 15px; }
 
 /* ── Section sub-heading ── */
 .section-sub {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--dim);
-  padding: 14px 20px 6px;
+  margin: 12px 20px 4px;
+  padding: 0 0 6px;
+  font-size: 15px; font-weight: 700; line-height: 1.4;
+  color: var(--color-text-strong);
+  border-bottom: 1px solid var(--line);
 }
+.section-sub:first-child { margin-top: 4px; }
 
 /* ── Time plan cards ── */
 .time-plan-header {
   display: flex; align-items: center; gap: 7px;
   padding: 14px 20px 8px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--cyan); opacity: 0.9;
+  font-size: 0.9375rem; font-weight: 700;
+  color: var(--color-text-strong);
 }
+.time-plan-header svg { color: var(--color-text-muted); }
 .time-plan {
   padding: 0 14px 14px;
   display: flex; flex-direction: column; gap: 5px;
@@ -803,8 +789,6 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 }
 .time-row.total {
   background: var(--bg3);
-  border-color: var(--cyan);
-  border-left-width: 3px;
 }
 .time-icon {
   width: 24px; display: flex; align-items: center; justify-content: center;
@@ -836,11 +820,11 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .struct-badge--access {
-  background: rgba(72, 187, 120, 0.15); color: #48bb78;
+  background: var(--color-primary-selected); color: var(--color-primary-hover);
   min-width: 20px; text-align: center;
 }
 .struct-badge--section {
-  background: rgba(108, 142, 245, 0.15); color: var(--cyan);
+  background: var(--color-primary-selected); color: var(--color-primary-hover);
 }
 .struct-text {
   font-size: 14px; color: var(--text); line-height: 1.65; margin: 0;
@@ -852,20 +836,9 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .section-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
 .section-times div { min-width: 0; padding-right: 6px; border-right: 1px solid var(--line); }
 .section-times div:last-child { border-right: 0; }
-.section-times dt { padding: 0; color: var(--dim); font-size: 10px; }
+.section-times dt { padding: 0; color: var(--muted); font-size: 10px; }
 .section-times dd { color: var(--text); font: 600 11px var(--mono); white-space: nowrap; }
 .struct-row--timed { display: grid; grid-template-columns: minmax(64px, auto) minmax(0, 1fr); align-items: start; }
-
-.section-list { padding: 0 20px 16px; }
-.section-card { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.section-card > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
-.section-card b { color: var(--cyan2); white-space: nowrap; }
-.section-card p { margin: 5px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-
-.approach-list { list-style: none; margin: 0; padding: 12px 20px 4px; }
-.approach-list li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.approach-list span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--cdim); color: var(--cyan2); font: 700 10px var(--mono); }
-.approach-list p { margin: 0; color: var(--text); font-size: 13.5px; line-height: 1.55; }
 
 /* ── Waypoints ── */
 .wpt-section { padding: 0 20px 16px; }
@@ -879,12 +852,12 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .wpt-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .wpt-name   { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .wpt-detail { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.wpt-coord  { font-size: 11.5px; font-family: var(--mono); color: var(--green); text-decoration: none; }
+.wpt-coord  { font-size: 11.5px; font-family: var(--mono); color: var(--color-primary-hover); text-decoration: none; }
 .wpt-coord:hover { text-decoration: underline; }
 
 /* ── Topo images ── */
 .topo-wrap { display: flex; flex-direction: column; height: 100%; padding-bottom: 20px; }
-.topo-note { font-size: 12.5px; color: var(--dim); padding: 0 20px 10px; margin: 0; }
+.topo-note { font-size: 12.5px; color: var(--muted); padding: 0 20px 10px; margin: 0; }
 .topo-stack { display: flex; flex-direction: column; }
 .topo-figure { margin: 0; background: #fff; display: block; cursor: default; }
 .topo-figure + .topo-figure { border-top: 8px solid var(--bg); }
@@ -909,24 +882,25 @@ dd.mono      { font-family: var(--mono); font-size: 12.5px; color: var(--green);
 .photo-thumb { display: block; aspect-ratio: 3/4; overflow: hidden; border-radius: 4px; background: var(--bg3); }
 .photo-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
 .photo-thumb:hover img { transform: scale(1.04); }
-.photo-credit { font-size: 11.5px; color: var(--dim); text-align: center; padding: 10px; margin: 0; }
+.photo-credit { font-size: 11.5px; color: var(--muted); text-align: center; padding: 10px; margin: 0; }
 
 /* ── Risk block ── */
 .risk-block {
   margin: 14px 20px 8px;
   padding: 14px 16px;
   background: var(--risk-bg);
-  border: 1px solid rgba(255,127,80,.3);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
   border-radius: 8px;
 }
 .risk-label { font-size: 12px; font-weight: 700; color: var(--risk); margin-bottom: 8px; letter-spacing: 0.05em; }
-.risk-text  { font-size: 14px; color: #ffb09a; line-height: 1.65; white-space: pre-line; }
-.flood-card { display: flex; justify-content: space-between; align-items: center; margin: 14px 20px 0; padding: 12px 14px; border: 1px solid rgba(255,127,80,.3); border-radius: 7px; background: var(--risk-bg); }
-.flood-card small { color: var(--risk); font-size: 11px; font-weight: 700; }
-.flood-card strong { color: #ffb09a; font-size: 14px; }
+.risk-text  { font-size: 0.875rem; color: var(--color-text); line-height: 1.65; white-space: pre-line; }
+.flood-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 14px 20px 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent); border-radius: 8px; background: var(--risk-bg); }
+.flood-card small { color: var(--risk); font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+.flood-card strong { color: var(--color-text); font-size: 0.875rem; }
+.risk-gear { margin-top: 8px; }
 
 /* ── Empty ── */
-.dos-empty { padding: 32px 20px; text-align: center; color: var(--dim); font-size: 13px; }
+.dos-empty { padding: 32px 20px; text-align: center; color: var(--muted); font-size: 13px; }
 
 /* ── Mobile ── */
 @media (max-width: 640px), (max-width: 900px) and (orientation: portrait) {

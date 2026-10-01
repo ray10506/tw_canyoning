@@ -83,6 +83,7 @@ api/
 | 變數 | 用途 | 預設值 |
 |---|---|---|
 | `VITE_PB_URL` | PocketBase 伺服器 URL | `http://localhost:8090` |
+| `VITE_CARTO_KEY` | CARTO 底圖 key（清晰模式；未設定時圖磚顯示 API KEY REQUIRED） | — |
 
 ### Serverless / 後端（Vercel env，`process.env`）
 

@@ -75,3 +75,45 @@ export async function fetchRainfallHistory(stationId: string, days: 7 | 14, sour
   if (res.status === 404) throw new Error(t(`此站最近 ${days} 日沒有可用的歷史雨量。`, `No rainfall history for this station in the last ${days} days.`))
   return jsonResponse(res, '歷史雨量')
 }
+
+export type RainfallTone = 'danger' | 'warning' | 'watch' | 'normal' | 'muted'
+
+/** The one rainfall judgment — route status strip and station card must never disagree. */
+export function rainfallStatus(rainfall: RainfallData): { tone: RainfallTone; title: string; note: string } {
+  // An old reading must not produce a "low rainfall" verdict; offline gauges keep their last totals.
+  if (rainfall.observedAt && Date.now() - Date.parse(rainfall.observedAt) > 3 * 3600000) return {
+    tone: 'muted',
+    title: t('觀測已超過 3 小時', 'Reading is over 3 hours old'),
+    note: t('測站可能延遲或離線，請至官方來源確認。', 'The gauge may be delayed or offline. Check the official source.'),
+  }
+  if (rainfall.source === 'wcrc') return {
+    tone: 'muted',
+    title: t('官方雨量觀測', 'Official rainfall observation'),
+    note: t('資料來自 West Coast Regional Council，進入溪谷前仍需比對路線預報。', 'West Coast Regional Council data. Compare with the route forecast before entering.'),
+  }
+  if (rainfall.past24hr == null || rainfall.past3hr == null || rainfall.past1hr == null || rainfall.past3days == null) return {
+    tone: 'muted',
+    title: t('暫無法評估雨量', 'Rainfall assessment unavailable'),
+    note: t('雨量資料不足，請查閱官方觀測與預報。', 'Insufficient rainfall data. Check official observations and forecasts.'),
+  }
+  if (rainfall.past24hr >= 200 || rainfall.past3hr >= 100) return {
+    tone: 'danger',
+    title: t('已達豪雨雨量標準', 'Extremely heavy rain threshold reached'),
+    note: t('請避免進入溪流，並查看官方警特報。', 'Avoid entering streams and monitor official warnings.'),
+  }
+  if (rainfall.past24hr >= 80 || rainfall.past1hr >= 40) return {
+    tone: 'warning',
+    title: t('已達大雨雨量標準', 'Heavy rain threshold reached'),
+    note: t('溪流水位可能快速上升。', 'Stream levels may rise rapidly.'),
+  }
+  if (rainfall.past3days >= 40) return {
+    tone: 'watch',
+    title: t('近三日有累積降雨', 'Recent accumulated rainfall'),
+    note: t('請搭配上游雨量、水位與預報判斷。', 'Check upstream rainfall, water levels and forecasts.'),
+  }
+  return {
+    tone: 'normal',
+    title: t('近期累積雨量較低', 'Lower recent rainfall'),
+    note: t('集水區各處狀況仍可能不同。', 'Conditions can still differ across the catchment.'),
+  }
+}

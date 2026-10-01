@@ -58,6 +58,35 @@
             </span>
           </label>
         </div>
+        <div v-if="!nzCountry" class="layer-row layer-row--stack">
+          <div class="layer-row-head">
+            <svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 14H6a4 4 0 1 1 .8-7.9A5.5 5.5 0 0 1 17.5 7H18a3.5 3.5 0 0 1 0 7h-1" />
+              <path d="m8 17-1 3m6-3-1 3m6-3-1 3" />
+            </svg>
+            <span class="layer-label">
+              {{ t('雨量圖', 'Rainfall map') }}
+              <small v-if="rainMode !== 'off'" class="layer-sub" :class="{ warn: rainLayerError }">{{ rainSummary }}</small>
+            </span>
+          </div>
+          <div class="rain-mode" role="radiogroup" :aria-label="t('雨量圖', 'Rainfall map')">
+            <button
+              v-for="m in rainModes"
+              :key="m.value"
+              type="button"
+              role="radio"
+              :aria-checked="rainMode === m.value"
+              :disabled="m.forecast && !qpfActive && rainMode !== m.value"
+              @click="rainMode = m.value"
+            >{{ m.label }}</button>
+          </div>
+          <p v-if="!qpfActive" class="layer-sub">{{
+            qpfStatus === 'error' ? t('無法確認預報格點資料', 'Could not check forecast grid')
+            : qpfStatus === 'loading' ? t('確認預報資料中…', 'Checking forecast…')
+            : t('預報圖層僅於陸上颱風警報期間提供', 'Forecast layers are only issued during land typhoon warnings')
+          }}</p>
+          <button type="button" class="rain-link" @click="openQpfCard">{{ t('氣象署 6／12 小時預報圖', 'CWA 6 / 12 h forecast charts') }} ›</button>
+        </div>
         <div class="layer-divider"></div>
         <div class="layer-row">
           <svg class="layer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -76,6 +105,64 @@
         </div>
       </div>
     </div>
+
+    <section v-if="rainfallMapVisible" class="rain-legend" :aria-label="`${rainTitle} ${t('圖例', 'legend')}`">
+      <div class="rain-legend-title">{{ rainTitle }} <span>mm</span></div>
+      <p v-if="rainLayerError" class="rain-legend-status" role="alert">
+        {{ t('無法取得中央氣象署雨量圖。', 'Could not load the CWA rainfall map.') }}
+        <button type="button" class="rain-legend-retry" @click="loadRainLayer">{{ t('重試', 'Retry') }}</button>
+      </p>
+      <p v-else-if="!rainLayer" class="rain-legend-status">{{ t('載入中…', 'Loading…') }}</p>
+      <template v-else>
+        <p class="rain-legend-time">{{ rainRange }}</p>
+        <p class="rain-legend-summary">{{ rainSummary }}</p>
+        <p v-if="rainStale" class="rain-legend-status">{{ t('資料超過 3 小時未更新，可能延遲。', 'Over 3 hours old; data may be delayed.') }}</p>
+        <div class="rain-legend-bar">
+          <span
+            v-for="(step, i) in rainLayer.scale"
+            :key="step.min"
+            :class="{ 'is-max': i === rainLayer.maxIndex }"
+            :style="{ background: step.color }"
+            :title="rainLayer.scale[i + 1] ? `${step.min}–${rainLayer.scale[i + 1].min} mm` : `≥ ${step.min} mm`"
+          ></span>
+        </div>
+        <div class="rain-legend-labels" aria-hidden="true">
+          <span v-for="i in [1, 4, 7, 9, 11, 14, 16]" :key="i" :style="{ left: `${(i / rainLayer.scale.length) * 100}%` }">{{ rainLayer.scale[i].min }}</span>
+        </div>
+      </template>
+      <p class="rain-legend-source">{{ rainSource }}</p>
+      <button type="button" class="rain-link" @click="openQpfCard">{{ t('氣象署 6／12 小時預報圖', 'CWA 6 / 12 h forecast charts') }} ›</button>
+    </section>
+
+    <Teleport to="body">
+      <div v-if="qpfCardOpen" class="qpf-backdrop" @click.self="qpfCardOpen = false" @keydown.esc="qpfCardOpen = false">
+        <section class="qpf-card" role="dialog" aria-modal="true" :aria-label="t('氣象署降雨預報圖', 'CWA rainfall forecast chart')">
+          <header class="qpf-head">
+            <h2>{{ t('氣象署降雨預報圖', 'CWA rainfall forecast') }}</h2>
+            <button ref="qpfCloseBtn" type="button" class="layers-close" :aria-label="t('關閉', 'Close')" @click="qpfCardOpen = false">✕</button>
+          </header>
+          <div class="rain-mode" role="radiogroup" :aria-label="t('累積時距', 'Accumulation period')">
+            <button v-for="h in [6, 12] as const" :key="h" type="button" role="radio" :aria-checked="qpfHours === h" @click="qpfHours = h">{{ t(`${h} 小時`, `${h} h`) }}</button>
+          </div>
+          <div class="rain-mode" role="radiogroup" :aria-label="t('預報時段', 'Forecast window')">
+            <button v-for="p in [1, 2] as const" :key="p" type="button" role="radio" :aria-checked="qpfPart === p" @click="qpfPart = p">{{ t(`第 ${p} 時段`, `Window ${p}`) }}</button>
+          </div>
+          <img
+            :key="qpfImage"
+            class="qpf-img"
+            :src="qpfImage"
+            :alt="t(`中央氣象署 ${qpfHours} 小時定量降水預報圖，第 ${qpfPart} 時段`, `CWA ${qpfHours} h quantitative precipitation forecast, window ${qpfPart}`)"
+            @error="qpfImgError = true"
+            @load="qpfImgError = false"
+          />
+          <p v-if="qpfImgError" class="rain-legend-status" role="alert">{{ t('無法載入氣象署預報圖。', 'Could not load the CWA chart.') }}</p>
+          <p class="qpf-note">
+            {{ t('發布與有效時間標示於圖上方。', 'Issue and valid times are printed at the top of the chart.') }}
+            <a href="https://www.cwa.gov.tw/V8/C/P/QPF.html" target="_blank" rel="noopener">{{ t('在氣象署網站查看', 'View on CWA') }}</a>
+          </p>
+        </section>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="selectedWp" class="wp-card" @click.stop>
@@ -144,8 +231,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref, computed } from "vue";
-import { locale } from "../lib/locale";
+import { onMounted, onBeforeUnmount, watch, ref, computed, nextTick } from "vue";
+import { separateClusters } from "../lib/clusterLayout";
+import { locale, t } from "../lib/locale";
+import {
+  QPF_SCALE, RAINFALL_SCALE, bandIndex, fetchQpfGrid, fetchRainfallMap, gridToImage, toMercatorImage,
+  type QpfGrid, type RainScale, type RainfallMap,
+} from "../lib/rainfallMap";
 import L from "leaflet";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -210,6 +302,7 @@ const props = withDefaults(
     stationSearch: { water: WaterStation[]; rainfall: RainfallStation[] } | null;
     searchPoints: [number, number][] | null;
     searchPanelOpen: boolean;
+    pinnedStation?: { kind: "water" | "rainfall"; lat: number; lon: number } | null;
   }>(),
   { canyons: () => [], nearbyAnchor: null },
 );
@@ -234,13 +327,34 @@ let waterStationLayer: L.LayerGroup | null = null;
 let rainfallStationLayer: L.LayerGroup | null = null;
 let canyonCluster: L.MarkerClusterGroup | null = null;
 let routeCluster: L.MarkerClusterGroup | null = null;
+let clusterFrame = 0;
+function layoutClusters() {
+  cancelAnimationFrame(clusterFrame);
+  clusterFrame = requestAnimationFrame(() => {
+    if (!map) return;
+    const badges = [...map.getContainer().querySelectorAll<HTMLElement>('.water-cluster, .rainfall-cluster, .route-cluster, .canyon-cluster')];
+    const icons = badges.map(badge => badge.parentElement!);
+    icons.forEach(icon => { icon.style.translate = ''; });
+    const offsets = separateClusters(badges.map(badge => {
+      const rect = badge.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, size: Math.max(rect.width, rect.height) };
+    }));
+    icons.forEach((icon, i) => { icon.style.translate = `${offsets[i].x}px ${offsets[i].y}px`; });
+  });
+}
+onBeforeUnmount(() => {
+  map?.remove();
+  map = null;
+  cancelAnimationFrame(clusterFrame);
+  clearInterval(rainfallMapTimer);
+});
 
 const tileOptions = [
   {
     key: "carto",
     label: "清晰模式",
     labelEn: "Clear",
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    url: `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${import.meta.env.VITE_CARTO_KEY ?? ""}`,
     attribution: "© OpenStreetMap contributors © CARTO",
     maxZoom: 19,
   },
@@ -315,6 +429,157 @@ const showWaterStations = stationLayer('water');
 const showRainfallStations = stationLayer('rainfall');
 const routeWaterStations = computed(() => nzCountry.value ? nzWaterStations : waterStations as WaterStation[]);
 const showLayersPanel = ref(false);
+
+type RainMode = 'off' | 'today' | 'qpf6' | 'qpf12';
+const RAIN_MAP_KEY = 'rainfall-map-tw';
+const rainMode = ref<RainMode>('off');
+try {
+  const saved = localStorage.getItem(RAIN_MAP_KEY);
+  // 'true' is the stored value from the earlier on/off toggle.
+  rainMode.value = saved === 'true' || saved === 'today' ? 'today' : saved === 'qpf6' || saved === 'qpf12' ? saved : 'off';
+} catch { /* Storage may be blocked. */ }
+watch(rainMode, (value) => {
+  try { localStorage.setItem(RAIN_MAP_KEY, value); } catch { /* Keep the choice for this session. */ }
+});
+const rainModes = computed<{ value: RainMode; label: string; forecast?: boolean }[]>(() => [
+  { value: 'off', label: t('關', 'Off') },
+  { value: 'today', label: t('今日累積', 'Today') },
+  { value: 'qpf6', label: t('預報 6h', '6 h fcst'), forecast: true },
+  { value: 'qpf12', label: t('預報 12h', '12 h fcst'), forecast: true },
+]);
+const rainfallMapVisible = computed(() => rainMode.value !== 'off' && !nzCountry.value);
+
+const qpfGrid = ref<QpfGrid | null>(null);
+const qpfStatus = ref<'loading' | 'ready' | 'error'>('loading');
+const qpfActive = computed(() => qpfGrid.value?.active === true);
+async function checkQpf() {
+  try {
+    qpfGrid.value = await fetchQpfGrid();
+    qpfStatus.value = 'ready';
+  } catch {
+    qpfStatus.value = 'error';
+  }
+}
+watch(showLayersPanel, (open) => { if (open && !nzCountry.value) checkQpf(); });
+
+interface RainLayer { from: string; to: string; maxIndex: number; scale: RainScale }
+const rainLayer = ref<RainLayer | null>(null);
+const rainLayerError = ref(false);
+// At 00:00 CWA's "today" file is still yesterday's full-day total.
+const rainIsYesterday = computed(() => !!rainLayer.value && rainLayer.value.from.slice(0, 10) !== rainLayer.value.to.slice(0, 10));
+const rainTitle = computed(() => ({
+  off: '',
+  today: rainIsYesterday.value ? t('昨日累積雨量', "Yesterday's rainfall") : t('今日累積雨量', "Today's rainfall"),
+  qpf6: t('未來 6 小時降雨預報', 'Next 6 h rainfall forecast'),
+  qpf12: t('未來 12 小時降雨預報', 'Next 12 h rainfall forecast'),
+})[rainMode.value]);
+const rainSource = computed(() => rainMode.value === 'today'
+  ? t('來源：中央氣象署 O-A0040-003', 'Source: CWA O-A0040-003')
+  : t('來源：中央氣象署 F-C0041（颱風警報期間）', 'Source: CWA F-C0041 (typhoon warnings)'));
+const rainRange = computed(() => {
+  if (!rainLayer.value) return '';
+  const { from, to } = rainLayer.value;
+  const day = (iso: string) => iso.slice(0, 10).replace(/-/g, '/');
+  const end = day(from) === day(to) ? to.slice(11, 16) : `${day(to).slice(5)} ${to.slice(11, 16)}`;
+  return `${day(from)} ${from.slice(11, 16)}–${end} ${t('（台灣時間）', '(Taiwan time)')}`;
+});
+const rainSummary = computed(() => {
+  if (rainLayerError.value) return t('無法取得雨量圖', 'Could not load rainfall map');
+  if (!rainLayer.value) return t('載入中…', 'Loading…');
+  const { maxIndex: i, scale } = rainLayer.value;
+  const today = rainMode.value === 'today';
+  const [dayZh, dayEn] = rainIsYesterday.value ? ['昨日', 'yesterday'] : ['今日', 'today'];
+  if (i < 0) return today
+    ? t(`${dayZh}尚未測得降雨，地圖上不會出現色塊`, `No rain recorded ${dayEn}, so the map stays clear`)
+    : t(`預報時段內無明顯降雨（< ${scale[0].min} mm）`, `No notable rain forecast (< ${scale[0].min} mm)`);
+  const next = scale[i + 1]?.min;
+  const range = i === 0 && today ? `< ${next}` : next == null ? `≥ ${scale[i].min}` : `${scale[i].min}–${next}`;
+  return today ? t(`${dayZh}最大累積 ${range} mm`, `Highest ${dayEn}: ${range} mm`) : t(`預報最大 ${range} mm`, `Forecast highest: ${range} mm`);
+});
+const rainStale = computed(() => rainMode.value === 'today' && !!rainLayer.value
+  && Date.now() - Date.parse(rainLayer.value.to) > 3 * 3600_000);
+let rainfallOverlay: L.ImageOverlay | null = null;
+let rainfallMapTimer = 0;
+
+async function loadRainLayer() {
+  const mode = rainMode.value;
+  rainLayerError.value = false;
+  try {
+    let bounds: RainfallMap['bounds'];
+    let url: string;
+    let layer: RainLayer;
+    if (mode === 'today') {
+      const data = await fetchRainfallMap();
+      const img = await toMercatorImage(data);
+      ({ bounds } = data);
+      url = img.url;
+      layer = { from: data.from, to: data.observedAt, maxIndex: img.maxIndex, scale: RAINFALL_SCALE };
+    } else {
+      const grid = await fetchQpfGrid();
+      qpfGrid.value = grid;
+      qpfStatus.value = 'ready';
+      if (!grid.active) {
+        if (rainMode.value === mode) rainMode.value = 'off';
+        return;
+      }
+      const [first, second] = grid.windows;
+      const values = mode === 'qpf6' ? first.values
+        : first.values.map((v, i) => v == null || second.values[i] == null ? null : v + second.values[i]!);
+      const max = values.reduce<number>((m, v) => (v != null && v > m ? v : m), -1);
+      // ponytail: grid is TWD67 (~0.8 km from WGS84), under the 5 km cell size; add a datum shift if cells shrink.
+      url = (await toMercatorImage({ image: gridToImage(values, grid.rows, grid.cols, QPF_SCALE), bounds: grid.bounds })).url;
+      bounds = grid.bounds;
+      layer = { from: first.start, to: mode === 'qpf6' ? first.end : second.end, maxIndex: bandIndex(max, QPF_SCALE), scale: QPF_SCALE };
+    }
+    if (rainMode.value !== mode) return;
+    const overlay = L.imageOverlay(url, [[bounds.south, bounds.west], [bounds.north, bounds.east]], {
+      opacity: 0.9,
+      interactive: false,
+      attribution: '雨量圖 © 中央氣象署',
+    });
+    rainfallOverlay?.remove();
+    rainfallOverlay = overlay;
+    rainLayer.value = layer;
+    if (map && rainfallMapVisible.value) overlay.addTo(map);
+  } catch {
+    if (rainMode.value !== mode) return;
+    // Never leave an old map on screen looking current.
+    rainfallOverlay?.remove();
+    rainfallOverlay = null;
+    rainLayer.value = null;
+    rainLayerError.value = true;
+  }
+}
+
+function syncRainfallMap() {
+  clearInterval(rainfallMapTimer);
+  rainfallOverlay?.remove();
+  rainfallOverlay = null;
+  rainLayer.value = null;
+  rainLayerError.value = false;
+  map?.getContainer().classList.toggle("rain-dim", rainfallMapVisible.value);
+  if (!map || !rainfallMapVisible.value) return;
+  loadRainLayer();
+  rainfallMapTimer = window.setInterval(loadRainLayer, 10 * 60_000);
+}
+watch([rainMode, rainfallMapVisible], syncRainfallMap);
+
+const qpfCardOpen = ref(false);
+const qpfHours = ref<6 | 12>(6);
+const qpfPart = ref<1 | 2>(1);
+const qpfStamp = ref(0);
+const qpfImgError = ref(false);
+const qpfCloseBtn = ref<HTMLButtonElement | null>(null);
+// Official QPF charts: QPF_ChFcstPrecip_6_06 / 6_12 / 12_12 / 12_24.
+const qpfImage = computed(() =>
+  `https://www.cwa.gov.tw/Data/fcst_img/QPF_ChFcstPrecip_${qpfHours.value}_${String(qpfHours.value * qpfPart.value).padStart(2, '0')}.png?t=${qpfStamp.value}`);
+async function openQpfCard() {
+  qpfStamp.value = Math.floor(Date.now() / 600_000);
+  qpfImgError.value = false;
+  qpfCardOpen.value = true;
+  await nextTick();
+  qpfCloseBtn.value?.focus();
+}
 
 const selectedWpIndex = ref<number | null>(null);
 const currentWaypoints = ref<WaypointData[]>([]);
@@ -533,6 +798,20 @@ watch(showRainfallStations, (show) => {
   }
 });
 
+// The station whose card is open stays on the map even with its layer switched off,
+// so the card's arrow always points at a real icon.
+let pinnedMarker: L.Marker | null = null;
+watch(() => props.pinnedStation, (pin) => {
+  pinnedMarker?.remove();
+  pinnedMarker = null;
+  if (!map || !pin) return;
+  pinnedMarker = L.marker([pin.lat, pin.lon], {
+    icon: pin.kind === "water" ? waterStationIcon : rainfallStationIcon,
+    interactive: false,
+    zIndexOffset: 1000,
+  }).addTo(map);
+}, { flush: "post" });
+
 // Rebuild visible layers when the country, route, or station scope changes.
 function syncNearbyAnchor() {
   if (!map) return;
@@ -579,7 +858,23 @@ function stationScreenPosition(lat: number, lon: number) {
   const point = map.latLngToContainerPoint([lat, lon]);
   return { x: rect.left + point.x, y: rect.top + point.y };
 }
-defineExpose({ focusSearchResults, focusCountry, stationScreenPosition });
+// Pans (instantly) so the point lands at the given screen position; returns where it ended up.
+function revealAt(lat: number, lon: number, screenX: number, screenY: number) {
+  const current = stationScreenPosition(lat, lon);
+  if (!map || !current) return current;
+  map.stop();
+  map.panBy([current.x - screenX, current.y - screenY], { animate: false });
+  return stationScreenPosition(lat, lon);
+}
+function getView() {
+  return map ? { center: map.getCenter(), zoom: map.getZoom() } : null;
+}
+function setView(view: { center: L.LatLng; zoom: number } | null) {
+  if (!map || !view) return;
+  map.stop();
+  map.setView(view.center, view.zoom, { animate: false });
+}
+defineExpose({ focusSearchResults, focusCountry, stationScreenPosition, revealAt, getView, setView });
 
 function onTileChange(e: Event) {
   if (!map) return;
@@ -652,11 +947,17 @@ onMounted(() => {
   map.on("click", () => {
     selectedWpIndex.value = null;
   });
+  map.on('layeradd layerremove zoomend moveend', layoutClusters);
+  map.on('layeradd', (event: L.LayerEvent) => {
+    if (event.layer instanceof L.MarkerClusterGroup)
+      event.layer.off('animationend', layoutClusters).on('animationend', layoutClusters);
+  });
 
   renderMarkers();
   renderRouteMarkers(props.canyonRouteMarkers, props.selectedRouteId);
   // Handle routes restored from URL (?route=...) — watcher fires before map exists
   syncNearbyAnchor();
+  syncRainfallMap();
   focusSearchResults();
 });
 
@@ -725,6 +1026,9 @@ watch(
   },
 );
 
+// routeTrack is recomputed (new object) on panel resize, sidebar toggles, search open/close…
+// Only a different track should move the map; otherwise the view — and any card anchored to it — stays put.
+let lastTrackKey = "";
 watch(
   () => props.routeTrack,
   (data) => {
@@ -734,7 +1038,10 @@ watch(
     waypointMarkers = [];
     selectedWpIndex.value = null;
     currentWaypoints.value = [];
-    if (!data || !map) return;
+    if (!data || !map) {
+      lastTrackKey = "";
+      return;
+    }
     currentWaypoints.value = data.waypoints;
 
     // Support both flat [lat,lon][] and segmented [lat,lon][][] formats
@@ -754,11 +1061,14 @@ watch(
         weight: 3,
         opacity: 0.85,
       }).addTo(map);
-      map.flyToBounds(trackLayer.getBounds(), {
-        ...(data.pad ?? { padding: [40, 40] }),
-        maxZoom: 15,
-        duration: 1.2,
-      });
+      const trackKey = trackLayer.getBounds().toBBoxString();
+      if (trackKey !== lastTrackKey)
+        map.flyToBounds(trackLayer.getBounds(), {
+          ...(data.pad ?? { padding: [40, 40] }),
+          maxZoom: 15,
+          duration: 1.2,
+        });
+      lastTrackKey = trackKey;
     }
 
     waypointMarkers = data.waypoints.map((wp, i) => {
@@ -833,6 +1143,14 @@ watch(
 .map-wrapper {
   position: relative;
   flex: 1;
+}
+
+/* Gray out only the basemap so rainfall colours (incl. the gray <1 mm band) stand out. */
+:global(#map .leaflet-tile-pane) {
+  transition: filter 0.2s;
+}
+:global(#map.rain-dim .leaflet-tile-pane) {
+  filter: grayscale(1) brightness(0.6);
 }
 
 :global(#map) {
@@ -981,6 +1299,209 @@ watch(
   flex: 1;
   font-size: 0.875rem;
   color: #ccc;
+}
+
+.rain-legend {
+  /* Bottom-right, above the bottom toolbar, so it never sits under the layers panel. */
+  position: absolute;
+  bottom: 96px;
+  right: 12px;
+  z-index: 1000;
+  width: min(248px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: rgba(26, 26, 46, 0.94);
+  border: 1px solid #2a2a4a;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  color: #ccc;
+  font-size: 0.75rem;
+  display: grid;
+  gap: 6px;
+}
+.rain-legend p {
+  margin: 0;
+}
+.rain-legend-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+}
+.rain-legend-title span {
+  font-weight: 400;
+  color: #999;
+}
+.rain-legend-time {
+  font-variant-numeric: tabular-nums;
+}
+.rain-legend-status {
+  color: #f4c56a;
+}
+.rain-legend-summary {
+  color: #fff;
+  font-weight: 600;
+}
+.rain-legend-bar span.is-max {
+  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px #1a1a2e;
+}
+.layer-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: #999;
+}
+.layer-sub.warn {
+  color: #f4c56a;
+}
+.layer-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.layer-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.layer-row--stack > .layer-sub {
+  margin: 0;
+}
+.rain-mode {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: #11112a;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+}
+.rain-mode button {
+  padding: 5px 4px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #aaa;
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rain-mode button[aria-checked="true"] {
+  background: #6c8ef5;
+  color: #fff;
+  font-weight: 600;
+}
+.rain-mode button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.rain-mode button:focus-visible,
+.rain-link:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 1px;
+}
+.rain-link {
+  justify-self: start;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8ea8ff;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.rain-link:hover {
+  text-decoration: underline;
+}
+.qpf-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2200; /* above detail panels, station cards (2000), and settings (2100) */
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.qpf-card {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 24px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  color: #ccc;
+  font-size: 0.8125rem;
+}
+.qpf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.qpf-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #fff;
+}
+.qpf-img {
+  width: 100%;
+  max-height: calc(100dvh - 230px);
+  object-fit: contain;
+  border-radius: 6px;
+  background: #eef8ff;
+}
+.qpf-note {
+  margin: 0;
+  color: #999;
+  font-size: 0.75rem;
+}
+.qpf-note a {
+  color: #8ea8ff;
+}
+.rain-legend-retry {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid #6c8ef5;
+  border-radius: 6px;
+  background: none;
+  color: #6c8ef5;
+  font: inherit;
+  cursor: pointer;
+}
+.rain-legend-retry:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 2px;
+}
+.rain-legend-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.rain-legend-bar span {
+  flex: 1;
+}
+.rain-legend-labels {
+  position: relative;
+  height: 12px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: #aaa;
+}
+.rain-legend-labels span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.rain-legend-source {
+  color: #888;
+  font-size: 0.6875rem;
 }
 
 .layer-divider {

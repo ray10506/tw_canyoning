@@ -1,12 +1,15 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import rainfallHistoryHandler from './api/cwa/rainfall-history/[stationId].js'
+import rainfallMapHandler from './api/cwa/rainfall-map.js'
+import qpfGridHandler from './api/cwa/qpf-grid.js'
 import nzRainfallHandler from './api/nz/rainfall/[stationId].js'
 import nzRainfallHistoryHandler from './api/nz/rainfall-history/[stationId].js'
 import nzWaterLevelHandler from './api/nz/water-level/[stationId].js'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  process.env.CWA_API_KEY ??= env.CWA_API_KEY
 
   return {
     plugins: [
@@ -28,6 +31,8 @@ export default defineConfig(({ mode }) => {
           })
 
           mount('/api/cwa/rainfall-history/', rainfallHistoryHandler)
+          mount('/api/cwa/rainfall-map', rainfallMapHandler)
+          mount('/api/cwa/qpf-grid', qpfGridHandler)
           mount('/api/nz/rainfall/', nzRainfallHandler)
           mount('/api/nz/rainfall-history/', nzRainfallHistoryHandler)
           mount('/api/nz/water-level/', nzWaterLevelHandler)

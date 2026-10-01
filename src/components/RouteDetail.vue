@@ -64,6 +64,12 @@
               >{{ kindLabel }}</span
             >
           </div>
+          <ForecastGlance
+            v-if="d.gps"
+            :gps="String(d.gps)"
+            @open="activeTab = 'weather'"
+            @days="forecastDays = $event"
+          />
           <!-- status strip: water level + rainfall at a glance, no tab switch needed.
                Always rendered — silence here reads as "conditions fine", so an explicit
                no-coverage message replaces the old no-op when there's simply no nearby station. -->
@@ -93,6 +99,8 @@
                 : "範圍內沒有水文資料"
             }}</span>
           </button>
+          <p v-if="rainNote" class="strip-note">{{ rainNote }}</p>
+          <p v-if="glanceMeta" class="strip-meta">{{ glanceMeta }}</p>
           <!-- hazard banner: hazards live in the Hydrology tab body, but must stay
                visible from whichever tab is open — a "should I go" read must never
                close without seeing documented hazards. -->
@@ -143,22 +151,19 @@
       <div class="panel-body">
         <!-- TAB: 快速資訊 -->
         <template v-if="activeTab === 'info'">
-          <div class="section-label">
-            {{ locale === "en" ? "QUICK INFO" : "快速資訊 QUICK INFO" }}
-          </div>
+          <h3 class="section-label">
+            {{ locale === "en" ? "Quick info" : "快速資訊" }}
+          </h3>
 
-          <div
-            v-if="d.location_zh || d.location || d.region"
-            class="info-block"
-          >
+          <div v-if="d.location_zh || d.location" class="info-block">
             <div class="info-key">
               {{ locale === "en" ? "Location" : "地點" }}
             </div>
             <div class="info-val">
               {{
                 locale === "en"
-                  ? d.location || d.region
-                  : d.location_zh || d.region
+                  ? d.location || d.location_zh
+                  : d.location_zh || d.location
               }}
             </div>
             <div
@@ -250,12 +255,6 @@
                 >{{ locale === "en" ? "Elevation" : "海拔高度" }}
                 {{ maxEle }}m</span
               >
-            </div>
-            <div v-if="d.region" class="row">
-              <span class="row-label">{{
-                locale === "en" ? "Region" : "地區"
-              }}</span>
-              <span class="row-value">{{ d.region }}</span>
             </div>
             <div v-if="d.max_drop" class="row">
               <span class="row-label">{{
@@ -397,9 +396,9 @@
         <!-- TAB: 行程規畫 -->
         <template v-else-if="activeTab === 'itinerary'">
           <!-- 時間規劃 section -->
-          <div class="section-label">
-            {{ locale === "en" ? "TIMING" : "時間規劃 TIMING" }}
-          </div>
+          <h3 class="section-label">
+            {{ locale === "en" ? "Timing" : "時間規劃" }}
+          </h3>
           <div v-if="d.approach_time" class="info-block">
             <div class="info-key">
               {{ locale === "en" ? "Approach" : "進場時間" }}
@@ -425,9 +424,9 @@
             <div class="info-val">{{ d.first_descent }}</div>
           </div>
           <!-- 進場路線 section -->
-          <div class="section-label" style="padding-top: 14px">
-            {{ locale === "en" ? "APPROACH" : "進場路線 APPROACH" }}
-          </div>
+          <h3 class="section-label">
+            {{ locale === "en" ? "Approach" : "進場路線" }}
+          </h3>
           <div v-if="d.approach" class="info-block">
             <div class="info-key">
               {{ locale === "en" ? "Route" : "主要進場" }}
@@ -465,9 +464,9 @@
           </div>
           <!-- GPX waypoints -->
           <template v-if="waypoints.length">
-            <div class="section-label" style="padding-top: 14px">
-              {{ locale === "en" ? "WAYPOINTS" : "路線航點 WAYPOINTS" }}
-            </div>
+            <h3 class="section-label">
+              {{ locale === "en" ? "Waypoints" : "路線航點" }}
+            </h3>
             <div class="wpt-list">
               <div v-for="(w, i) in waypoints" :key="i" class="wpt-item">
                 <button
@@ -557,17 +556,21 @@
 
         <!-- TAB: 鄰近水文 -->
         <template v-else-if="activeTab === 'hydrology'">
-          <div class="section-label">
-            {{ locale === "en" ? "HYDROLOGY" : "鄰近水文 HYDROLOGY" }}
-          </div>
+          <h3 class="section-label">
+            {{ locale === "en" ? "Nearby hydrology" : "鄰近水文" }}
+          </h3>
           <div v-if="nearbyWater || nearbyRainfall" class="hydrology-section">
-            <div class="hydrology-title">
-              {{ locale === "en" ? "Nearby hydrology" : "鄰近水文" }}
-            </div>
+            <p class="hydrology-help">
+              {{
+                locale === "en"
+                  ? "The closest water-level station within 5 km and rain gauge within 20 km. Distance is a straight line to the nearest point of the route track."
+                  : "取 5 公里內最近的水位站、20 公里內最近的雨量站；距離為測站到路線軌跡最近點的直線距離。"
+              }}
+            </p>
             <div class="hydrology-columns">
               <span>{{ locale === "en" ? "Station" : "測站" }}</span>
               <span>{{
-                locale === "en" ? "Distance from route" : "距離路線"
+                locale === "en" ? "Distance from route" : "距路線"
               }}</span>
             </div>
             <button
@@ -659,12 +662,19 @@ import { vGradeClass } from "../lib/grade";
 import { locale } from "../lib/locale";
 import {
   fetchWaterLevel,
+  taipeiParts,
   waterTone,
   type WaterStation,
 } from "../lib/waterLevel";
-import { fetchRainfallData } from "../lib/rainfallData";
+import {
+  fetchRainfallData,
+  rainfallStatus,
+  type RainfallData,
+} from "../lib/rainfallData";
 import type { RainfallStation } from "../lib/rainfall";
 import FiveDayForecast from "./FiveDayForecast.vue";
+import ForecastGlance from "./ForecastGlance.vue";
+import { forecastRainNote, type ForecastDay } from "../lib/forecast";
 import { useResizableWidth } from "../lib/useResizableWidth";
 
 type NearbyStation<T> = { station: T; distance: number };
@@ -700,6 +710,7 @@ function updatePanelBounds() {
 const panelObserver = new ResizeObserver(updatePanelBounds);
 onMounted(() => {
   if (panelRef.value) panelObserver.observe(panelRef.value);
+  updatePanelBounds(); // don't wait on the observer: it never fires while the tab is in the background
   window.addEventListener("resize", updatePanelBounds);
 });
 onUnmounted(() => {
@@ -736,17 +747,21 @@ watch(
 const d = computed(() => props.item.data);
 
 const waterReading = ref<number | null | undefined>(undefined);
-const rainfall24hr = ref<number | null | undefined>(undefined);
+const rainfallReading = ref<RainfallData | null | undefined>(undefined);
 const waterFetchFailed = ref(false);
 const rainfallFetchFailed = ref(false);
+const waterObservedAt = ref<string | null>(null);
+const rainfallObservedAt = ref<string | null>(null);
 let hydrologyRequestId = 0;
 
 async function loadNearbyHydrology() {
   const requestId = ++hydrologyRequestId;
   waterReading.value = props.nearbyWater ? undefined : null;
-  rainfall24hr.value = props.nearbyRainfall ? undefined : null;
+  rainfallReading.value = props.nearbyRainfall ? undefined : null;
   waterFetchFailed.value = false;
   rainfallFetchFailed.value = false;
+  waterObservedAt.value = null;
+  rainfallObservedAt.value = null;
   const [water, rain] = await Promise.allSettled([
     props.nearbyWater
       ? fetchWaterLevel(props.nearbyWater.station.id)
@@ -762,8 +777,12 @@ async function loadNearbyHydrology() {
   waterReading.value = waterPoints?.length
     ? (waterPoints[waterPoints.length - 1].value ?? null)
     : null;
-  rainfall24hr.value =
-    rain.status === "fulfilled" ? (rain.value?.past24hr ?? null) : null;
+  rainfallReading.value = rain.status === "fulfilled" ? (rain.value ?? null) : null;
+  waterObservedAt.value = waterPoints?.length
+    ? waterPoints[waterPoints.length - 1].time
+    : null;
+  rainfallObservedAt.value =
+    rain.status === "fulfilled" ? (rain.value?.observedAt ?? null) : null;
 }
 
 watch(
@@ -803,19 +822,29 @@ const waterSummary = computed(() => {
       failed: false,
     };
   const s = props.nearbyWater.station;
+  // Mirrors the station card: a stale reading never earns a "below alert" verdict.
+  if (
+    waterObservedAt.value &&
+    Date.now() - Date.parse(waterObservedAt.value) > 3 * 3600000
+  )
+    return {
+      tone: "muted",
+      text: `${en ? "Reading is over 3 hours old" : "觀測已超過 3 小時"} · ${value} m`,
+      failed: false,
+    };
   const label =
     s.alert1 != null && value >= s.alert1
       ? en
-        ? "Alert Lv.1"
-        : "一級警戒"
+        ? "Above Alert Lv.1"
+        : "已達一級警戒"
       : s.alert2 != null && value >= s.alert2
         ? en
-          ? "Alert Lv.2"
-          : "二級警戒"
+          ? "Above Alert Lv.2"
+          : "已達二級警戒"
         : s.alert3 != null && value >= s.alert3
           ? en
-            ? "Alert Lv.3"
-            : "三級警戒"
+            ? "Above Alert Lv.3"
+            : "已達三級警戒"
           : [s.alert1, s.alert2, s.alert3].some((level) => level != null)
             ? en
               ? "Below alert level"
@@ -828,6 +857,37 @@ const waterSummary = computed(() => {
     text: `${label} · ${value} m`,
     failed: false,
   };
+});
+
+const forecastDays = ref<ForecastDay[]>([]);
+// Connects the green-by-observation strip to heavy forecast rain, without recolouring it.
+const rainNote = computed(() => forecastRainNote(forecastDays.value));
+
+// Dates the glance so a screenshot shared the night before can't pass for "now".
+// Uses the oldest observation — the strip is only as fresh as its stalest reading.
+const glanceMeta = computed(() => {
+  const en = locale.value === "en";
+  const times = [waterObservedAt.value, rainfallObservedAt.value]
+    .filter((t): t is string => !!t)
+    .map((t) => new Date(t))
+    .filter((t) => !Number.isNaN(t.getTime()));
+  const parts: string[] = [];
+  if (times.length) {
+    const oldest = new Date(Math.min(...times.map((t) => t.getTime())));
+    // Taiwan time, same format as the station cards — never the viewer's own timezone,
+    // or a screenshot and a teammate's card disagree by hours.
+    const p = taipeiParts(oldest.toISOString());
+    const stamp = `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
+    // The strip colour comes from observations only; say so, since the forecast sits right above it.
+    parts.push(
+      en
+        ? `Observed ${stamp} (colour reflects observations only)`
+        : `水文觀測 ${stamp}（顏色僅依觀測判讀）`,
+    );
+  }
+  if (d.value.gps)
+    parts.push(en ? "Forecast: Open-Meteo" : "預報：Open-Meteo");
+  return parts.join(" · ");
 });
 
 const TONE_RANK: Record<string, number> = {
@@ -849,12 +909,12 @@ const statusStripTone = computed(() => {
 });
 
 const rainfallSummary = computed(() => {
-  const value = rainfall24hr.value;
+  const reading = rainfallReading.value;
   const en = locale.value === "en";
-  if (value === undefined)
+  if (reading === undefined)
     return {
       tone: "muted",
-      text: en ? "Loading 24-hour rainfall…" : "正在取得 24 小時雨量…",
+      text: en ? "Loading rainfall…" : "正在取得即時雨量…",
       failed: false,
     };
   if (rainfallFetchFailed.value)
@@ -865,7 +925,7 @@ const rainfallSummary = computed(() => {
         : "無法連線氣象署雨量資料",
       failed: true,
     };
-  if (value == null)
+  if (reading?.past24hr == null)
     return {
       tone: "muted",
       text: en
@@ -873,31 +933,13 @@ const rainfallSummary = computed(() => {
         : "此測站近期沒有讀數",
       failed: false,
     };
-  const tone =
-    value >= 200
-      ? "danger"
-      : value >= 80
-        ? "warning"
-        : value > 0
-          ? "watch"
-          : "normal";
-  const label =
-    value >= 200
-      ? en
-        ? "Extremely heavy rain"
-        : "累積雨量偏高"
-      : value >= 80
-        ? en
-          ? "Heavy rain"
-          : "請留意累積雨量"
-        : value > 0
-          ? en
-            ? "Recent rainfall"
-            : "近期有降雨"
-          : en
-            ? "Lower recent rainfall"
-            : "近期降雨較少";
-  return { tone, text: `${label} · 24hr ${value} mm`, failed: false };
+  // Same verdict as the station card; the strip adds the 24 hr figure for the glance.
+  const status = rainfallStatus(reading);
+  return {
+    tone: status.tone,
+    text: `${status.title} · 24hr ${reading.past24hr} mm`,
+    failed: false,
+  };
 });
 
 const title = computed(() => d.value.name);
@@ -1526,10 +1568,11 @@ ${trksegs}
   border-bottom: 1px solid var(--color-line);
 }
 
-.hydrology-title {
+.hydrology-help {
+  margin: 0 0 8px;
   color: var(--color-text-muted);
-  font-size: 0.75rem;
-  margin-bottom: 4px;
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 .hydrology-columns {
   display: grid;
@@ -1843,14 +1886,24 @@ ${trksegs}
 .status-sep {
   color: var(--color-text-muted);
 }
+.strip-note {
+  margin: 6px 2px 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+.strip-meta {
+  margin: 4px 2px 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
 .hazard-strip {
   margin-top: 6px;
 }
+/* Safety text is never truncated. */
 .hazard-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: pre-line;
 }
 
 /* ── Tab bar ── */
@@ -1891,13 +1944,15 @@ ${trksegs}
 
 /* ── Tab content blocks ── */
 .section-label {
-  font-size: 0.7rem;
+  margin: 12px 20px 4px;
+  font-size: 0.9375rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  padding: 10px 20px 4px;
-  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--color-text-strong);
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--color-line);
 }
+.section-label:first-child { margin-top: 4px; }
 
 .info-block {
   padding: 8px 20px;

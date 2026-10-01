@@ -1,17 +1,17 @@
 <template>
-  <div class="settings-backdrop" @click="$emit('close')" />
-
-  <div class="settings-panel">
+  <div ref="panelRef" class="settings-panel" @keydown.esc="$emit('close')">
     <!-- Header -->
     <div class="panel-header">
       <div class="header-left">
         <button v-if="view !== 'main'" class="back-btn" :aria-label="t('返回', 'Back')" @click="view = 'main'">
           ←
         </button>
-        <span class="panel-title">
+        <span ref="panelTitle" class="panel-title" tabindex="-1">
           {{
             view === "main"
               ? t("設定", "Settings")
+              : view === "features"
+                ? t("網站功能", "Website features")
               : view === "feedback"
                 ? t("問題回報", "Report an Issue")
                 : t("路線回報", "Submit a Route")
@@ -64,6 +64,13 @@
       <div class="divider" />
 
       <div class="menu-btns">
+        <button class="menu-btn" @click="openFeatures">
+          <div class="menu-text">
+            <strong>{{ t('網站功能', 'Website features') }}</strong>
+            <small>{{ t('有哪些功能、去哪裡看', 'What you can find and where') }}</small>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
         <button class="menu-btn" @click="view = 'feedback'">
           <div class="menu-text">
             <strong>{{ t("問題回報", "Report an Issue") }}</strong>
@@ -80,6 +87,18 @@
         </button>
       </div>
     </template>
+
+    <dl v-else-if="view === 'features'" class="feature-list">
+      <div v-for="feature in features" :key="feature.zh" class="feature-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path :d="feature.icon" />
+        </svg>
+        <div>
+          <dt>{{ t(feature.zh, feature.en) }}</dt>
+          <dd>{{ t(feature.whereZh, feature.whereEn) }}</dd>
+        </div>
+      </div>
+    </dl>
 
     <!-- ── Feedback view ── -->
     <template v-else-if="view === 'feedback'">
@@ -253,13 +272,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from "vue";
+import { ref, computed, reactive, nextTick, onMounted, onUnmounted } from "vue";
 import { locale, t } from "../lib/locale";
 import { theme } from "../lib/theme";
 
-defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; featuresOpened: [] }>();
+const props = defineProps<{ initialView?: 'main' | 'features' }>();
+const panelTitle = ref<HTMLElement | null>(null);
 
-const view = ref<"main" | "feedback" | "route">("main");
+const view = ref<"main" | "feedback" | "route" | "features">(props.initialView ?? 'main');
+async function openFeatures() {
+  view.value = 'features';
+  emit('featuresOpened');
+  await nextTick();
+  panelTitle.value?.focus();
+}
+onMounted(() => { if (view.value === 'features') openFeatures(); });
+
+// No backdrop: the map stays pannable while settings is open (Map Stays Present).
+// A tap outside closes it; a drag (panning the map) doesn't. The toolbar toggles it itself.
+const panelRef = ref<HTMLElement | null>(null);
+let down: { x: number; y: number } | null = null;
+function onPointerDown(e: PointerEvent) { down = { x: e.clientX, y: e.clientY }; }
+function onPointerUp(e: PointerEvent) {
+  const start = down;
+  down = null;
+  if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return;
+  const target = e.target as Element | null;
+  if (panelRef.value?.contains(target) || target?.closest('.bottom-bar')) return;
+  emit('close');
+}
+onMounted(() => {
+  document.addEventListener('pointerdown', onPointerDown, true);
+  document.addEventListener('pointerup', onPointerUp, true);
+});
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onPointerDown, true);
+  document.removeEventListener('pointerup', onPointerUp, true);
+});
+
+const features = [
+  { zh: '台灣與紐西蘭路線', en: 'Routes in Taiwan & New Zealand', whereZh: '左側 TW／NZ：瀏覽路線清單，也能從地圖選取路線。', whereEn: 'TW / NZ in the sidebar: browse the list or select a route on the map.', icon: 'M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Zm0-15v15m6-12v15' },
+  { zh: '路線詳情', en: 'Route details', whereZh: '點選路線：各分頁整理路線資訊、氣象預報、行程規劃與風險注意。', whereEn: 'Select a route: explore its information, weather, itinerary and risk notes in the detail tabs.', icon: 'M8 3H5v18h14V3h-3M8 2h8v4H8V2Zm0 8h8m-8 4h8m-8 4h5' },
+  { zh: '水位與雨量', en: 'Water levels & rainfall', whereZh: '左側「水文」：切換台灣／紐西蘭，點選測站查看觀測值與可用的歷史資料。', whereEn: 'Hydrology in the sidebar: choose a country and select a station for readings and available history.', icon: 'M2 7c3-3 5 3 8 0s5 3 8 0 4 0 4 0M2 12c3-3 5 3 8 0s5 3 8 0 4 0 4 0M2 17c3-3 5 3 8 0s5 3 8 0 4 0 4 0' },
+  { zh: '今日累積雨量（台灣）', en: "Today's rainfall · Taiwan", whereZh: '右側「圖層 → 今日累積雨量」：在地圖上查看當日雨量分布。', whereEn: "Layers → Today's rainfall on the right: view the daily rainfall distribution on the map.", icon: 'M7 14H6a4 4 0 1 1 .8-7.9A5.5 5.5 0 0 1 17.5 7H18a3.5 3.5 0 0 1 0 7h-1m-9 3-1 3m6-3-1 3m6-3-1 3' },
+  { zh: '搜尋與篩選', en: 'Search & filters', whereZh: '下方「搜尋」：搜尋路線與測站，依地區、難度等條件篩選。', whereEn: 'Search at the bottom: find routes and stations, with filters for region, difficulty and more.', icon: 'M21 21l-6-6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0' },
+  { zh: '底圖與圖層', en: 'Base maps & layers', whereZh: '右上角底圖選單／圖層：切換地形、衛星等底圖，控制路線與測站顯示。', whereEn: 'Top-right map menu / Layers: change terrain, satellite and other base maps, and show or hide routes and stations.', icon: 'm12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5' },
+];
 
 // ── Feedback ──
 const fbTypes = [
@@ -393,18 +452,12 @@ async function submitRoute() {
 </script>
 
 <style scoped>
-.settings-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-}
-
 .settings-panel {
   position: fixed;
   bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1201;
+  z-index: 2100; /* above station cards (2000): the tool the user just opened wins */
   width: min(340px, calc(100vw - 32px));
   max-height: calc(100dvh - 140px);
   overflow-y: auto;
@@ -506,6 +559,14 @@ async function submitRoute() {
 }
 
 /* ── Main menu ── */
+.feature-list { margin: 0; }
+.feature-row { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--color-line); }
+.feature-row:first-child { padding-top: 0; }
+.feature-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.feature-row svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--color-primary); margin-top: 1px; }
+.feature-row dt { color: var(--color-text-strong); font-size: 0.875rem; font-weight: 600; }
+.feature-row dd { margin: 5px 0 0; color: var(--color-text); font-size: 0.8125rem; line-height: 1.6; }
+.menu-btn:focus-visible, .back-btn:focus-visible, .close-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .menu-btns {
   display: flex;
   flex-direction: column;

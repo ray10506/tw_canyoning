@@ -53,58 +53,21 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { locale } from '../lib/locale'
+import { fetchForecast, weatherLabel, type ForecastDay } from '../lib/forecast'
 
 const props = defineProps<{ gps?: string; detailUrl?: string; detailLabel?: string }>()
-
-type ForecastDay = {
-  date: string
-  code: number | null
-  max: number | null
-  min: number | null
-  rain: number | null
-  gust: number | null
-}
 
 const days = ref<ForecastDay[]>([])
 const loading = ref(false)
 const failed = ref(false)
 
-function finiteNumber(value: unknown) {
-  return Number.isFinite(value) ? Number(value) : null
-}
-
 async function load() {
   const requestedGps = String(props.gps ?? '')
-  const [latitude, longitude] = requestedGps.split(',').map(Number)
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    failed.value = true
-    return
-  }
-
   loading.value = true
   failed.value = false
   try {
-    const params = new URLSearchParams({
-      latitude: String(latitude),
-      longitude: String(longitude),
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max',
-      forecast_days: '5',
-      timezone: 'auto',
-    })
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
-    if (!response.ok) throw new Error()
-    const { daily } = await response.json()
-    if (!Array.isArray(daily?.time)) throw new Error()
-    if (String(props.gps ?? '') !== requestedGps) return
-
-    days.value = daily.time.slice(0, 5).map((date: string, index: number) => ({
-      date,
-      code: finiteNumber(daily.weather_code?.[index]),
-      max: finiteNumber(daily.temperature_2m_max?.[index]),
-      min: finiteNumber(daily.temperature_2m_min?.[index]),
-      rain: finiteNumber(daily.precipitation_sum?.[index]),
-      gust: finiteNumber(daily.wind_gusts_10m_max?.[index]),
-    }))
+    const result = await fetchForecast(requestedGps)
+    if (String(props.gps ?? '') === requestedGps) days.value = result
   } catch {
     if (String(props.gps ?? '') === requestedGps) failed.value = true
   } finally {
@@ -113,24 +76,6 @@ async function load() {
 }
 
 watch(() => props.gps, load, { immediate: true })
-
-// WMO weather codes, grouped by upper bound of each range (Open-Meteo `weather_code`).
-const WEATHER_LABELS: [max: number, en: string, zh: string][] = [
-  [0, 'Clear', '晴朗'],
-  [3, 'Cloudy', '多雲'],
-  [48, 'Fog', '有霧'],
-  [57, 'Drizzle', '毛毛雨'],
-  [67, 'Rain', '下雨'],
-  [77, 'Snow', '下雪'],
-  [82, 'Showers', '陣雨'],
-  [86, 'Snow showers', '陣雪'],
-  [Infinity, 'Thunderstorms', '雷雨'],
-]
-function weatherLabel(code: number | null) {
-  if (code == null) return '—'
-  const [, en, zh] = WEATHER_LABELS.find(([max]) => code <= max) ?? WEATHER_LABELS[WEATHER_LABELS.length - 1]
-  return locale.value === 'en' ? en : zh
-}
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat(locale.value === 'en' ? 'en-NZ' : 'zh-TW', {

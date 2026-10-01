@@ -15,9 +15,9 @@
       <div
         :class="[
           'sidebar-wrap',
-          { closed: !sidebarOpen || activePanel === 'search', resizing: isResizing },
+          { closed: !sidebarOpen || searchCoversSidebar, resizing: isResizing },
         ]"
-        :inert="!sidebarOpen || activePanel === 'search'"
+        :inert="!sidebarOpen || searchCoversSidebar"
         :style="{ width: sidebarWidth + 'px', minWidth: sidebarWidth + 'px' }"
       >
         <CanyonList
@@ -85,13 +85,15 @@
           :station-search="mapStationScope"
           :search-points="searchPoints"
           :search-panel-open="activePanel === 'search'"
+          :pinned-station="pinnedStation"
           @select-route="onSelectRoute"
           @select-water-station="openWaterStation"
           @select-rainfall-station="openRainfallStation"
         />
       </div>
       <NzRouteDetail
-        v-if="detailItem && detailItem.kind === 'nz'"
+        ref="nzDetailRef"
+        v-if="detailItem && detailItem.kind === 'nz' && activePanel !== 'search'"
         :item="detailItem"
         :nearby-water="nearbyWater"
         @select-water-station="openNearbyWaterStation"
@@ -100,7 +102,7 @@
       />
       <RouteDetail
         ref="routeDetailRef"
-        v-if="twDetailItem"
+        v-if="twDetailItem && activePanel !== 'search'"
         :item="twDetailItem"
         :nearby-water="nearbyWater"
         :nearby-rainfall="nearbyRainfall"
@@ -110,7 +112,7 @@
         @focus-waypoint="focusedWaypointIndex = $event"
       />
       <WaterStationDetail
-        v-if="waterStationDetail"
+        v-if="waterStationDetail && activePanel !== 'search'"
         :station="waterStationDetail.station"
         :pos="waterStationDetail.pos"
         :days="waterStationDetail.days"
@@ -118,7 +120,7 @@
         @close="waterStationDetail = null"
       />
       <RainfallStationDetail
-        v-if="rainfallStationDetail"
+        v-if="rainfallStationDetail && activePanel !== 'search'"
         :station="rainfallStationDetail.station"
         :pos="rainfallStationDetail.pos"
         :distance="rainfallStationDetail.distance"
@@ -149,8 +151,17 @@
       <!-- Settings panel -->
       <SettingsPanel
         v-if="activePanel === 'settings'"
+        :initial-view="settingsInitialView"
+        @features-opened="dismissFeatureInvite"
         @close="activePanel = null"
       />
+      <aside v-if="showFeatureInvite && !activePanel && !detailItem && !waterStationDetail && !rainfallStationDetail && !activeFilters.length" class="feature-invite" :aria-label="t('網站功能提示', 'Website features hint')">
+        <div>
+          <p>{{ t('路線、水文、雨量圖，去哪裡看？', 'Where to find routes, water levels and rainfall?') }}</p>
+          <button class="feature-invite-link" @click="openWebsiteFeatures">{{ t('認識網站功能', 'Explore website features') }}</button>
+        </div>
+        <button class="feature-invite-close" :aria-label="t('關閉功能提示', 'Dismiss feature hint')" @click="dismissFeatureInvite">✕</button>
+      </aside>
 
       <!-- Active filter chips — visible when card is closed and filters are on -->
       <transition name="chips">
@@ -243,7 +254,7 @@
 
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, onMounted, watch, nextTick } from "vue";
-import { locale, localeRegion } from "./lib/locale";
+import { locale, localeRegion, t } from "./lib/locale";
 import Map from "./components/Map.vue";
 import CanyonList from "./components/CanyonList.vue";
 import SearchCard from "./components/SearchCard.vue";
@@ -265,15 +276,62 @@ const RainfallStationDetail = defineAsyncComponent(() => import("./components/Ra
 
 const sidebarOpen = ref(window.innerWidth > 640);
 const activePanel = ref<"search" | "settings" | null>(null);
+const settingsInitialView = ref<'main' | 'features'>('main');
+const showFeatureInvite = ref(true);
+try { showFeatureInvite.value = localStorage.getItem('website-features-seen') !== 'true'; } catch { /* Keep this session usable without storage. */ }
+function dismissFeatureInvite() {
+  showFeatureInvite.value = false;
+  try { localStorage.setItem('website-features-seen', 'true'); } catch { /* Remember for this session only. */ }
+}
+function openWebsiteFeatures() {
+  dismissFeatureInvite();
+  settingsInitialView.value = 'features';
+  activePanel.value = 'settings';
+}
 const mapRef = ref<InstanceType<typeof Map> | null>(null);
 const routeDetailRef = ref<{ panelBounds: DOMRect | null } | null>(null);
+const nzDetailRef = ref<{ panelWidth: number } | null>(null);
+const pinnedStation = computed(() => {
+  if (activePanel.value === "search") return null;
+  const water = waterStationDetail.value?.station;
+  if (water) return { kind: "water" as const, lat: water.lat, lon: water.lon };
+  const rain = rainfallStationDetail.value?.station;
+  return rain ? { kind: "rainfall" as const, lat: rain.lat, lon: rain.lon } : null;
+});
 
+// Search edits filters live, so opening it snapshots them and cancelling restores them.
+// Open details are only hidden while the card is up — cancelling brings them back.
+let searchSnapshot: {
+  browseMode: typeof browseMode.value;
+  hydrologyCountry: 'tw' | 'nz';
+  searchQuery: string;
+  routeFilter: typeof routeFilter.value;
+  filterGpx: boolean;
+  searchTypes: SearchType[];
+  selectedRegion: string[];
+  selectedId: string | null;
+  // Live filtering re-fits the map; cancelling puts the view back so restored cards still point at their icons.
+  view: ReturnType<NonNullable<typeof mapRef.value>['getView']> | null;
+} | null = null;
 function openSearch() {
+  searchSnapshot = {
+    browseMode: browseMode.value,
+    hydrologyCountry: hydrologyCountry.value,
+    searchQuery: searchQuery.value,
+    routeFilter: { ...routeFilter.value },
+    filterGpx: filterGpx.value,
+    searchTypes: [...searchTypes.value],
+    selectedRegion: [...selectedRegion.value],
+    selectedId: selectedId.value,
+    view: mapRef.value?.getView() ?? null,
+  };
   activePanel.value = "search";
-  detailItem.value = null;
-  waterStationDetail.value = null;
-  rainfallStationDetail.value = null;
 }
+
+// On phones the sidebar is full-width, so it must give way to the search card.
+const searchCoversSidebar = computed(
+  () => activePanel.value === "search" && window.innerWidth <= 640,
+);
 
 function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
   const country = mode === 'hydrology' ? hydrologyCountry.value : mode === 'nz' ? 'nz' : 'tw';
@@ -293,12 +351,45 @@ function changeHydrologyCountry(country: 'tw' | 'nz') {
   nextTick(() => mapRef.value?.focusCountry(country === 'nz' ? 'nz' : 'route'));
 }
 
-function closeSearch() {
-  clearAllFilters();
+// Picking a result from the live list or map while editing keeps those filters.
+function acceptSearchSelection() {
+  if (activePanel.value !== "search") return;
+  searchSnapshot = null;
   activePanel.value = null;
 }
 
+function onEscape(e: KeyboardEvent) {
+  if (e.key !== "Escape") return;
+  if (activePanel.value === "search") closeSearch();
+  else if (activePanel.value === "settings") activePanel.value = null;
+}
+onMounted(() => window.addEventListener("keydown", onEscape));
+
+function closeSearch() {
+  const saved = searchSnapshot;
+  searchSnapshot = null;
+  activePanel.value = null;
+  if (!saved) return;
+  browseMode.value = saved.browseMode;
+  hydrologyCountry.value = saved.hydrologyCountry;
+  searchQuery.value = saved.searchQuery;
+  routeFilter.value = saved.routeFilter;
+  filterGpx.value = saved.filterGpx;
+  searchTypes.value = saved.searchTypes;
+  selectedRegion.value = saved.selectedRegion;
+  // After the flush, so neither the searchQuery watcher nor a live re-fit undoes these.
+  nextTick(() => {
+    selectedId.value = saved.selectedId;
+    mapRef.value?.setView(saved.view);
+  });
+}
+
 async function confirmSearch() {
+  searchSnapshot = null;
+  // New result set: details from before the search no longer belong to it.
+  detailItem.value = null;
+  waterStationDetail.value = null;
+  rainfallStationDetail.value = null;
   browseMode.value = "search";
   activePanel.value = null;
   sidebarOpen.value = true;
@@ -307,6 +398,7 @@ async function confirmSearch() {
 }
 
 function toggleSettings() {
+  settingsInitialView.value = 'main';
   if (activePanel.value === "search") closeSearch();
   activePanel.value = activePanel.value === "settings" ? null : "settings";
 }
@@ -383,16 +475,21 @@ const selectedId = ref<string | null>(null);
 const searchQuery = ref("");
 const selectedRegion = ref<string[]>([]);
 
+let lastPanelBounds: DOMRect | null = null;
 const routeTrack = computed(() => {
   if (detailItem.value?.kind !== "route" && detailItem.value?.kind !== "nz") return null;
   const d = detailItem.value.data;
 
-  const mapLeft = sidebarOpen.value && activePanel.value !== 'search' ? sidebarWidth.value : 0;
+  const mapLeft = sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0;
   const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
   const cardW = 380;
   const gap = 24;
   const cardOnRight = mapCenterX + gap + cardW <= window.innerWidth;
-  const panel = detailItem.value.kind === 'route' ? routeDetailRef.value?.panelBounds : null;
+  // While the panel is hidden (search) or remounting, reuse its last measured bounds:
+  // a momentary null would drop the track and re-fly the map, detaching any open station card.
+  const livePanel = detailItem.value.kind === 'route' ? routeDetailRef.value?.panelBounds : null;
+  if (livePanel) lastPanelBounds = livePanel;
+  const panel = detailItem.value.kind === 'route' ? (livePanel ?? lastPanelBounds) : null;
   if (detailItem.value.kind === 'route' && !panel) return null;
   const pad = panel
     ? {
@@ -519,6 +616,7 @@ function onSelectRoute(id: string) {
 }
 
 function openRouteDetail(item: { kind: "canyon" | "route" | "nz"; data: any }) {
+  acceptSearchSelection();
   hydrologyCountry.value = item.kind === 'nz' ? 'nz' : 'tw';
   searchStationPoint.value = null;
   waterStationDetail.value = null;
@@ -542,12 +640,14 @@ function selectRainfallStationFromSearch(station: RainfallStation) {
 }
 
 function openWaterStation(station: WaterStation, pos: { x: number; y: number }, distance?: number) {
+  acceptSearchSelection();
   if (distance == null) detailItem.value = null;
   rainfallStationDetail.value = null;
   waterStationDetail.value = { station, pos, days: 7, distance };
 }
 
 function openRainfallStation(station: RainfallStation, pos: { x: number; y: number }, distance?: number) {
+  acceptSearchSelection();
   if (distance == null) detailItem.value = null;
   waterStationDetail.value = null;
   rainfallStationDetail.value = {
@@ -562,12 +662,30 @@ function stationScreenPosition(station: { lat: number; lon: number }) {
     ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 }
 
+// Cards opened from a route open to the LEFT of their icon (the route panel is on the right).
+// If the station sits off-screen or too close to the sidebar, the card detaches from its icon —
+// so first pan the station to where the card fits between the sidebar and the route panel.
+function revealNearbyStation(station: { lat: number; lon: number }, cardWidth: number) {
+  const pos = stationScreenPosition(station);
+  if (window.innerWidth <= 640) return pos; // phone cards are fixed, not anchored
+  const freeLeft = sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0;
+  const panel = routeDetailRef.value?.panelBounds;
+  const freeRight = panel && panel.left > 0
+    ? panel.left
+    : window.innerWidth - (nzDetailRef.value?.panelWidth ?? 0);
+  const minX = freeLeft + 28 + cardWidth + 16; // CARD_OFFSET + card + MARGIN, as in the cards
+  const maxX = freeRight - 40;
+  const fits = pos.x >= minX && pos.x <= maxX && pos.y >= 80 && pos.y <= window.innerHeight - 80;
+  if (fits) return pos;
+  return mapRef.value?.revealAt(station.lat, station.lon, Math.min(minX, maxX), window.innerHeight / 2) ?? pos;
+}
+
 function openNearbyWaterStation(station: WaterStation, distance: number) {
-  openWaterStation(station, stationScreenPosition(station), distance);
+  openWaterStation(station, revealNearbyStation(station, 480), distance);
 }
 
 function openNearbyRainfallStation(station: RainfallStation, distance: number) {
-  openRainfallStation(station, stationScreenPosition(station), distance);
+  openRainfallStation(station, revealNearbyStation(station, 240), distance);
 }
 
 const REGION_KEYWORDS: Record<string, string[]> = {
@@ -1254,6 +1372,21 @@ const activeFilters = computed(() => {
 }
 
 /* ── Bottom toolbar ─────────────────────────────────────────────────── */
+.feature-invite {
+  position: fixed; bottom: 108px; left: 50%; transform: translateX(-50%);
+  z-index: 1050; width: min(320px, calc(100vw - 32px)); box-sizing: border-box;
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+  background: var(--color-panel); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 12px;
+}
+.feature-invite p { margin: 0 0 8px; font-size: 0.8125rem; line-height: 1.5; }
+.feature-invite button { font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.feature-invite-link { padding: 0; border: 0; background: none; color: var(--color-primary-hover); text-decoration: underline; text-underline-offset: 3px; }
+.feature-invite-link:hover { color: var(--color-text-strong); }
+.feature-invite-close { margin-left: auto; padding: 4px; border: 0; background: none; color: var(--color-text); }
+.feature-invite button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .sidebar-wrap:not(.closed) ~ .feature-invite { display: none; }
+}
 .bottom-bar {
   position: fixed;
   bottom: 24px;

@@ -19,7 +19,7 @@
       </div>
 
       <div class="popup-body" aria-live="polite" :aria-busy="loading">
-        <div v-if="loading" class="state" role="status">{{ locale === 'en' ? 'Loading...' : '載入中...' }}</div>
+        <div v-if="loading" class="state" role="status">{{ locale === 'en' ? 'Loading rainfall data…' : '正在取得雨量資料…' }}</div>
         <template v-else-if="error">
           <div class="state error">{{ error }}</div>
           <button class="retry-btn" @click="fetchData">{{ locale === 'en' ? 'Retry' : '重試' }}</button>
@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import type { RainfallStation } from '../lib/rainfall'
-import { fetchRainfallData, fetchRainfallHistory, type RainfallData, type RainfallHistoryData } from '../lib/rainfallData'
+import { fetchRainfallData, fetchRainfallHistory, rainfallStatus, type RainfallData, type RainfallHistoryData } from '../lib/rainfallData'
 import { clamp } from '../lib/clamp'
 import { locale, t, loadErrorText } from '../lib/locale'
 import { taipeiParts } from '../lib/waterLevel'
@@ -166,46 +166,7 @@ const rainItems = computed(() => {
   ]
 })
 
-const rainStatus = computed(() => {
-  const rainfall = data.value!
-  const en = locale.value === 'en'
-  // An old reading must not produce a "low rainfall" verdict; offline gauges keep their last totals.
-  if (rainfall.observedAt && Date.now() - Date.parse(rainfall.observedAt) > 3 * 3600000) return {
-    tone: 'muted',
-    title: en ? 'Reading is over 3 hours old' : '觀測已超過 3 小時',
-    note: en ? 'The gauge may be delayed or offline. Check the official source.' : '測站可能延遲或離線，請至官方來源確認。',
-  }
-  if (rainfall.source === 'wcrc') return {
-    tone: 'muted',
-    title: en ? 'Official rainfall observation' : '官方雨量觀測',
-    note: en ? 'West Coast Regional Council data. Compare with the route forecast before entering.' : '資料來自 West Coast Regional Council，進入溪谷前仍需比對路線預報。',
-  }
-  if (rainfall.past24hr == null || rainfall.past3hr == null || rainfall.past1hr == null || rainfall.past3days == null) return {
-    tone: 'muted',
-    title: en ? 'Rainfall assessment unavailable' : '暫無法評估雨量',
-    note: en ? 'Insufficient rainfall data. Check official observations and forecasts.' : '雨量資料不足，請查閱官方觀測與預報。',
-  }
-  if (rainfall.past24hr >= 200 || rainfall.past3hr >= 100) return {
-    tone: 'danger',
-    title: en ? 'Extremely heavy rain threshold reached' : '已達豪雨雨量標準',
-    note: en ? 'Avoid entering streams and monitor official warnings.' : '請避免進入溪流，並查看官方警特報。',
-  }
-  if (rainfall.past24hr >= 80 || rainfall.past1hr >= 40) return {
-    tone: 'warning',
-    title: en ? 'Heavy rain threshold reached' : '已達大雨雨量標準',
-    note: en ? 'Stream levels may rise rapidly.' : '溪流水位可能快速上升。',
-  }
-  if (rainfall.past3days >= 40) return {
-    tone: 'watch',
-    title: en ? 'Recent accumulated rainfall' : '近三日有累積降雨',
-    note: en ? 'Check upstream rainfall, water levels and forecasts.' : '請搭配上游雨量、水位與預報判斷。',
-  }
-  return {
-    tone: 'normal',
-    title: en ? 'Lower recent rainfall' : '近期累積雨量較低',
-    note: en ? 'Conditions can still differ across the catchment.' : '集水區各處狀況仍可能不同。',
-  }
-})
+const rainStatus = computed(() => rainfallStatus(data.value!))
 
 const observedText = computed(() => {
   const iso = data.value?.observedAt
