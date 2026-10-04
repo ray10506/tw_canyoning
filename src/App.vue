@@ -137,6 +137,8 @@
         v-model:drop="routeFilter.drop"
         v-model:gpx="filterGpx"
         v-model:search-types="searchTypes"
+        :country="hydrologyCountry"
+        @change-country="changeSearchCountry"
         :selected-region="selectedRegion"
         :suggestions="searchSuggestions"
         :result-count="searchResultCount"
@@ -266,7 +268,6 @@ import { haversineKm } from "./lib/geo";
 import { useResizableWidth } from "./lib/useResizableWidth";
 import { rainfallStations, nzRainfallStations, type RainfallStation } from "./lib/rainfall";
 import waterStations from "./data/water-stations.json";
-const allWaterStations = [...waterStations as WaterStation[], ...nzWaterStations];
 import { theme } from "./lib/theme";
 
 const RouteDetail = defineAsyncComponent(() => import("./components/RouteDetail.vue"));
@@ -326,6 +327,19 @@ function openSearch() {
     view: mapRef.value?.getView() ?? null,
   };
   activePanel.value = "search";
+  browseMode.value = "search";
+}
+
+function changeSearchCountry(country: 'tw' | 'nz') {
+  if (country === hydrologyCountry.value) return;
+  hydrologyCountry.value = country;
+  selectedRegion.value = [];
+  routeFilter.value = { v: '', a: '', t: '', drop: '' };
+  filterGpx.value = false;
+  nextTick(() => {
+    if (searchResultCount.value) mapRef.value?.focusSearchResults();
+    else mapRef.value?.focusCountry(country === 'nz' ? 'nz' : 'route');
+  });
 }
 
 // On phones the sidebar is full-width, so it must give way to the search card.
@@ -602,6 +616,7 @@ const filteredRouteMarkers = computed(() =>
 );
 
 const canyonRouteMarkers = computed(() => {
+  if (activePanel.value === 'search' || browseMode.value === 'search') return filteredRouteMarkers.value;
   return [
     ...filteredRouteMarkers.value,
     ...nzRoutes.value.map(routeToMarker),
@@ -744,11 +759,11 @@ const stationSearch = computed(() => {
   const hasRainfall = searchTypes.value.includes('rainfall');
   if (!hasWater && !hasRainfall) return null;
   const matches = (fields: string[], region: string) =>
-    matchRegion(region, selectedRegion.value) && fields.some(value => normalize(value).includes(q));
+    (hydrologyCountry.value === 'nz' || matchRegion(region, selectedRegion.value)) && fields.some(value => normalize(value).includes(q));
   return {
-    water: hasWater ? allWaterStations.filter(s =>
+    water: hasWater ? allHydrologyStations.value.water.filter(s =>
       matches([s.id, s.name, s.river, s.address], s.address)) : [],
-    rainfall: hasRainfall ? rainfallStations.filter(s =>
+    rainfall: hasRainfall ? allHydrologyStations.value.rainfall.filter(s =>
       matches([s.station_id, s.name, s.county, s.town], s.county)) : [],
   };
 });
@@ -813,7 +828,7 @@ watch(
     const url = new URL(location.href);
     if (browseMode.value === "route") url.searchParams.delete("view");
     else url.searchParams.set("view", browseMode.value);
-    if (browseMode.value === 'hydrology') url.searchParams.set('country', hydrologyCountry.value);
+    if (browseMode.value === 'hydrology' || browseMode.value === 'search') url.searchParams.set('country', hydrologyCountry.value);
     else url.searchParams.delete('country');
     if (item?.kind === "route" || item?.kind === "nz") url.searchParams.set("route", item.data.id);
     else url.searchParams.delete("route");
@@ -877,11 +892,7 @@ watch(detailItem, async (item) => {
   const ele = await fetchElevation(lat, lon);
   if (ele == null) return;
   const isNz = item.kind === "nz";
-  try {
-    await pb.collection(isNz ? "nz_routes" : "canyon_routes").update(route.id, { elevation: ele });
-  } catch {
-    /* silent — still apply locally */
-  }
+  // Display only. Persisting is admin work (scripts/backfill-elevation.mjs); the browser never writes to PocketBase.
   // Patch in-memory record so it survives card close/reopen within the session
   const routes = isNz ? nzRoutes.value : canyonRoutes.value;
   const idx = routes.findIndex((r) => r.id === route.id);
@@ -962,7 +973,7 @@ onMounted(async () => {
   if (view === "nz" || view === "hydrology" || view === "search") {
     browseMode.value = view;
   }
-  hydrologyCountry.value = view === 'nz' || (view === 'hydrology' && sp.get('country') === 'nz') ? 'nz' : 'tw';
+  hydrologyCountry.value = view === 'nz' || ((view === 'hydrology' || view === 'search') && sp.get('country') === 'nz') ? 'nz' : 'tw';
   if (sp.get("q")) searchQuery.value = sp.get("q")!;
   if (sp.get("type")) {
     const valid: SearchType[] = ["route", "water", "rainfall"];
@@ -985,7 +996,7 @@ onMounted(async () => {
     const nzRoute = nzRoutes.value.find((r) => r.id === routeId);
     if (route) detailItem.value = { kind: "route", data: route };
     else if (nzRoute) {
-      browseMode.value = "nz";
+      if (browseMode.value !== 'search') browseMode.value = "nz";
       hydrologyCountry.value = 'nz';
       detailItem.value = { kind: "nz", data: nzRoute };
     }
@@ -1008,14 +1019,15 @@ const filteredRoutes = computed(() => {
   const direction = routeSortDescending.value ? -1 : 1;
   const compareGrade = (a: number, b: number) =>
     a === 999 ? (b === 999 ? 0 : 1) : b === 999 ? -1 : (a - b) * direction;
-  return canyonRoutes.value
+  const isNz = browseMode.value === 'search' && hydrologyCountry.value === 'nz';
+  return (isNz ? nzRoutes.value : canyonRoutes.value)
     .filter((r) => {
       const hasGps = r["gps"]?.trim();
       if (!hasGps) return false;
-      if (!matchRegion(r["region_zh"] || r["region"] || "", selectedRegion.value)) return false;
+      if (!isNz && !matchRegion(r["region_zh"] || r["region"] || "", selectedRegion.value)) return false;
       const matchSearch =
         !q ||
-        [r.name, r.name_zh, r.name_en, r.region, r.region_zh, r.region_en].some(value => normalize(value).includes(q));
+        [r.name, r.name_zh, r.name_en, r.region, r.region_zh, r.region_en, r.river, r.location].some(value => normalize(value).includes(q));
       const grading = (r["grading"] ?? "").split(/\s+/);
       const matchV = !v || grading.some((p: string) => p === v);
       const matchA = !a || grading.some((p: string) => p === a);
@@ -1023,7 +1035,7 @@ const filteredRoutes = computed(() => {
       const d = parseMeters(r["max_drop"]);
       const matchDrop =
         !drop ||
-        (drop === "≤20" && d <= 20) ||
+        (drop === "≤20" && d > 0 && d <= 20) ||
         (drop === "21-40" && d > 20 && d <= 40) ||
         (drop === "41-60" && d > 40 && d <= 60) ||
         (drop === ">60" && d > 60);
@@ -1093,15 +1105,15 @@ const searchResultCount = computed(() =>
 );
 
 function selectSearchSuggestion(suggestion: SearchSuggestion) {
-  activePanel.value = null;
+  acceptSearchSelection();
   sidebarOpen.value = true;
   if (suggestion.kind === "route") return onSelectRoute(suggestion.id);
   if (suggestion.kind === "water") {
-    const station = allWaterStations.find(item => item.id === suggestion.id);
+    const station = allHydrologyStations.value.water.find(item => item.id === suggestion.id);
     if (station) selectWaterStationFromSearch(station);
     return;
   }
-  const station = rainfallStations.find(item => item.station_id === suggestion.id);
+  const station = allHydrologyStations.value.rainfall.find(item => item.station_id === suggestion.id);
   if (station) selectRainfallStationFromSearch(station);
 }
 
@@ -1110,8 +1122,7 @@ watch(searchQuery, () => {
 });
 
 function clearAllFilters() {
-  browseMode.value = "route";
-  hydrologyCountry.value = 'tw';
+  browseMode.value = activePanel.value === 'search' ? 'search' : hydrologyCountry.value === 'nz' ? 'nz' : 'route';
   searchQuery.value = "";
   routeFilter.value = { v: "", a: "", t: "", drop: "" };
   filterGpx.value = false;

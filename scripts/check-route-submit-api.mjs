@@ -30,4 +30,17 @@ assert.equal(valid.statusCode, 202)
 assert.equal(valid.body.status, 'pending_review')
 assert.equal(request.body.route.admin, undefined)
 
+const { default: report } = await import('../api/report.js')
+const tooLong = response()
+await report({ method: 'POST', headers: { 'x-forwarded-for': '10.0.0.1' }, body: { message: 'x'.repeat(4001) } }, tooLong)
+assert.equal(tooLong.statusCode, 400)
+
+const statuses = []
+for (let i = 0; i < 7; i++) {
+  const r = response()
+  await report({ method: 'POST', headers: { 'x-forwarded-for': '10.0.0.2' }, body: { message: 'hi' } }, r)
+  statuses.push(r.statusCode)
+}
+assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429])
+
 console.log('route submission API checks passed')

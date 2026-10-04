@@ -616,21 +616,19 @@ function wpIcon(label: string, focused: boolean) {
   });
 }
 
-function labelIcon(name: string, selected = false) {
-  const escapedName = name.replace(
+// Leaflet treats string tooltips/popups/divIcon html as HTML; route and station text comes from data.
+function escapeHtml(text: unknown) {
+  return String(text ?? "").replace(
     /[&<>"']/g,
-    (ch) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[ch]!,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!,
   );
+}
+const textNode = (text: string) => Object.assign(document.createElement("span"), { textContent: text });
+
+function labelIcon(name: string, selected = false) {
   return L.divIcon({
     className: "",
-    html: `<div class="route-label${selected ? " route-label--selected" : ""}">${escapedName}</div>`,
+    html: `<div class="route-label${selected ? " route-label--selected" : ""}">${escapeHtml(name)}</div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
@@ -735,7 +733,7 @@ function renderWaterStations() {
     const label = dist != null ? `${s.name}（${s.river}） · ${dist.toFixed(1)} km` : `${s.name}（${s.river}）`;
     L.marker([s.lat, s.lon], { icon: waterStationIcon })
       .bindTooltip(
-        Object.assign(document.createElement("span"), { textContent: label }),
+        textNode(label),
         { direction: "top", offset: [0, -6] },
       )
       .on("click", (e: L.LeafletMouseEvent) => {
@@ -778,7 +776,7 @@ function renderRainfallStations() {
   filterByAnchor(props.stationSearch?.rainfall ?? routeStations, props.stationSearch ? null : props.nearbyAnchor).forEach(({ item: s, dist }) => {
     const label = dist != null ? `${s.name}（${s.county}${s.town}） · ${dist.toFixed(1)} km` : `${s.name}（${s.county}${s.town}）`;
     L.marker([s.lat, s.lon], { icon: rainfallStationIcon })
-      .bindTooltip(label, { direction: "top", offset: [0, -6] })
+      .bindTooltip(textNode(label), { direction: "top", offset: [0, -6] })
       .on("click", (e: L.LeafletMouseEvent) => {
         const rect = document.getElementById("map")!.getBoundingClientRect();
         const pt = map!.latLngToContainerPoint(e.latlng);
@@ -912,11 +910,11 @@ function renderMarkers() {
       icon: labelIcon(canyon.name, canyon.id === props.selectedId),
     }).bindPopup(`
         <div>
-          <h3><strong>${canyon.name}</strong></h3>
-          <p>地點：${canyon.location}</p>
+          <h3><strong>${escapeHtml(canyon.name)}</strong></h3>
+          <p>地點：${escapeHtml(canyon.location)}</p>
           <p>難度：${"★".repeat(canyon.difficulty)}${"☆".repeat(5 - canyon.difficulty)}</p>
-          <p>適合季節：${canyon.season.join("、")}</p>
-          <p>${canyon.description}</p>
+          <p>適合季節：${escapeHtml(canyon.season.join("、"))}</p>
+          <p>${escapeHtml(canyon.description)}</p>
         </div>
       `),
   );
@@ -1078,7 +1076,7 @@ watch(
           : (wp.name.match(/^\d+/)?.[0] ?? "·");
       return L.marker([wp.lat, wp.lon], { icon: wpIcon(label, false) })
         .addTo(map!)
-        .bindTooltip(wp.name, {
+        .bindTooltip(textNode(wp.name), {
           permanent: false,
           direction: "top",
           offset: [0, -12],

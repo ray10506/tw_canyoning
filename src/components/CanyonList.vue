@@ -143,6 +143,7 @@
           {{ locale === 'en' ? 'Filters' : '調整篩選' }}
         </button>
       </div>
+      <div v-if="browseMode === 'search'" class="list-count">{{ hydrologyCountry === 'nz' ? (locale === 'en' ? 'New Zealand' : '紐西蘭') : (locale === 'en' ? 'Taiwan' : '台灣') }}</div>
       <div v-if="!routesLoading" class="list-count">
         <span>{{ canyonRoutes.length + waterStations.length + rainfallStations.length }} {{ locale === 'en' ? 'results' : '筆結果' }}</span>
       </div>
@@ -154,7 +155,7 @@
             :key="route.id"
             :class="['canyon-item', { active: props.selectedRouteId === route.id }]"
           >
-            <button class="route-item" type="button" @click.stop="emit('showDetail', { kind: 'route', data: route })">
+            <button class="route-item" type="button" @click.stop="emit('showDetail', { kind: hydrologyCountry === 'nz' ? 'nz' : 'route', data: route })">
               <div class="canyon-item-inner"><div class="canyon-right">
               <div class="canyon-name-row">
                 <span class="canyon-name-wrap">

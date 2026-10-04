@@ -119,6 +119,7 @@
         <textarea
           class="field-input"
           v-model="fbMsg"
+          maxlength="4000"
           rows="4"
           :placeholder="t('描述問題或建議…', 'Describe the issue or suggestion…')"
         />

@@ -15,10 +15,28 @@ function row(label, value) {
 
 export const config = { api: { bodyParser: { sizeLimit: '7mb' } } }
 
+// ponytail: per-instance memory, so it only slows a single abuser hitting a warm instance.
+// The real limit belongs in a Vercel Firewall rate-limit rule on /api/report and /api/routes/submit.
+const RATE_WINDOW_MS = 10 * 60 * 1000
+const RATE_MAX = 5
+const recent = new Map()
+function rateLimited(req) {
+  const ip = String(req.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim() || 'unknown'
+  const now = Date.now()
+  const hits = (recent.get(ip) ?? []).filter(time => now - time < RATE_WINDOW_MS)
+  hits.push(now)
+  recent.set(ip, hits)
+  if (recent.size > 5000) recent.clear()
+  return hits.length > RATE_MAX
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
+  if (rateLimited(req)) return res.status(429).json({ error: '回報太頻繁，請稍後再試' })
 
   const { reportKind, contactEmail } = req.body ?? {}
+  if (contactEmail && (typeof contactEmail !== 'string' || contactEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)))
+    return res.status(400).json({ error: '聯絡信箱格式錯誤' })
   const gpxFile = reportKind === 'route' ? (req.body.gpxFile ?? null) : null
   let subject, html
 
@@ -35,8 +53,6 @@ export default async function handler(req, res) {
     const coords = r.gps.trim().split(/[,\s]+/).map(Number)
     if (coords.length !== 2 || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1]) || Math.abs(coords[0]) > 90 || Math.abs(coords[1]) > 180)
       return res.status(400).json({ error: 'GPS 格式須為有效的 latitude, longitude' })
-    if (contactEmail && (typeof contactEmail !== 'string' || contactEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)))
-      return res.status(400).json({ error: '聯絡信箱格式錯誤' })
     if (gpxFile && (typeof gpxFile.name !== 'string' || !gpxFile.name.toLowerCase().endsWith('.gpx') || typeof gpxFile.content !== 'string' || Buffer.byteLength(gpxFile.content, 'base64') > 5 * 1024 * 1024))
       return res.status(400).json({ error: 'GPX 必須是 5 MB 以下的 .gpx 檔案' })
 
@@ -62,7 +78,8 @@ export default async function handler(req, res) {
 
   } else {
     const { type, message } = req.body ?? {}
-    if (!String(message ?? '').trim()) return res.status(400).json({ error: 'Message required' })
+    if (typeof message !== 'string' || !message.trim()) return res.status(400).json({ error: 'Message required' })
+    if (message.length > 4000) return res.status(400).json({ error: '內容超過 4000 字' })
 
     const typeLabel = type === 'bug' ? '🐛 Bug 回報' : type === 'suggestion' ? '💡 功能建議' : '📝 一般回報'
     subject = `[台灣溪降] ${typeLabel}`
@@ -86,10 +103,8 @@ export default async function handler(req, res) {
     body: JSON.stringify(emailPayload),
   })
 
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}))
-    return res.status(502).json({ error: err.message || 'Send failed' })
-  }
+  // Resend's error text can describe our account setup; keep it server-side.
+  if (!r.ok) return res.status(502).json({ error: 'Send failed' })
 
   res.status(reportKind === 'route' ? 202 : 200).json(
     reportKind === 'route' ? { ok: true, status: 'pending_review' } : { ok: true },

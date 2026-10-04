@@ -5,6 +5,10 @@
       <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
     </div>
 
+    <div class="scope-row country-row" role="group" :aria-label="tr('搜尋國家', 'Search country')">
+      <button class="scope-btn" :class="{ active: country === 'tw' }" :aria-pressed="country === 'tw'" @click="emit('changeCountry', 'tw')">{{ tr('台灣', 'Taiwan') }}</button>
+      <button class="scope-btn" :class="{ active: country === 'nz' }" :aria-pressed="country === 'nz'" @click="emit('changeCountry', 'nz')">{{ tr('紐西蘭', 'New Zealand') }}</button>
+    </div>
     <div class="search-label">{{ locale === 'en' ? 'Search in' : '搜尋範圍' }}</div>
     <div class="scope-row">
       <button
@@ -19,8 +23,8 @@
     </div>
 
     <!-- Region filter -->
-    <div class="search-label">{{ locale === 'en' ? 'Region' : '區域' }}</div>
-    <div class="region-row">
+    <div v-if="country === 'tw'" class="search-label">{{ locale === 'en' ? 'Region' : '區域' }}</div>
+    <div v-if="country === 'tw'" class="region-row">
       <button :class="['region-btn', { active: selectedRegion.length === 0 }]" @click="emit('clearRegion')">{{ locale === 'en' ? 'All' : '全部' }}</button>
       <button
         v-for="r in regions"
@@ -37,11 +41,11 @@
         v-model="search"
         class="search-input"
         :placeholder="searchPlaceholder"
+        :aria-label="searchPlaceholder"
         @keydown.enter.prevent="emit('confirm')"
       />
       <button v-if="search" class="search-clear" :aria-label="locale === 'en' ? 'Clear search' : '清除搜尋'" @click="search = ''">✕</button>
     </div>
-    <p class="search-hint">{{ locale === 'en' ? 'NZ routes are not included in this search.' : 'NZ 路線不在搜尋範圍內。' }}</p>
 
     <div v-if="suggestions.length" class="quick-suggestions">
       <button
@@ -67,21 +71,22 @@
       <span v-if="suggestions.length">{{ locale === 'en' ? ' · Quick suggestions' : ' · 快速建議' }}</span>
     </div>
 
-    <!-- Grade filters -->
-    <div v-if="hasRouteScope" class="filter-grid">
-      <select v-model="v" class="filter-select">
+    <details v-if="hasRouteScope" class="advanced-search">
+      <summary>{{ tr('進階搜尋', 'Advanced search') }}<span v-if="advancedCount"> · {{ tr(`已套用 ${advancedCount} 項`, `${advancedCount} applied`) }}</span></summary>
+    <div class="filter-grid">
+      <select v-model="v" class="filter-select" :aria-label="tr('垂降難度 V', 'Vertical difficulty V')">
         <option value="">{{ locale === 'en' ? 'V All' : 'V 全部' }}</option>
         <option v-for="opt in vOptions" :key="opt" :value="opt">{{ opt }}</option>
       </select>
-      <select v-model="a" class="filter-select">
+      <select v-model="a" class="filter-select" :aria-label="tr('水域難度 A', 'Aquatic difficulty A')">
         <option value="">{{ locale === 'en' ? 'A All' : 'A 全部' }}</option>
         <option v-for="opt in aOptions" :key="opt" :value="opt">{{ opt }}</option>
       </select>
-      <select v-model="t" class="filter-select">
+      <select v-model="t" class="filter-select" :aria-label="tr('整體等級 T', 'Commitment grade T')">
         <option value="">{{ locale === 'en' ? 'T All' : 'T 全部' }}</option>
         <option v-for="opt in tOptions" :key="opt" :value="opt">{{ opt }}</option>
       </select>
-      <select v-model="drop" class="filter-select">
+      <select v-model="drop" class="filter-select" :aria-label="tr('最高落差', 'Maximum drop')">
         <option value="">{{ locale === 'en' ? 'Drop All' : '落差 全部' }}</option>
         <option value="≤20">≤ 20m</option>
         <option value="21-40">21–40m</option>
@@ -95,6 +100,7 @@
       <input type="checkbox" v-model="gpx" />
       <span class="gpx-label">{{ locale === 'en' ? 'Has GPX track' : '有完整 GPX 路線' }}</span>
     </label>
+    </details>
 
     <div class="search-actions">
     <button class="clear-btn" @click="emit('clearAll')">
@@ -109,7 +115,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted, computed } from 'vue'
-import { locale, localeRegion } from '../lib/locale'
+import { locale, localeRegion, t as tr } from '../lib/locale'
 
 type SearchType = 'route' | 'water' | 'rainfall'
 type SearchSuggestion = {
@@ -120,12 +126,14 @@ type SearchSuggestion = {
 }
 
 defineProps<{
+  country: 'tw' | 'nz'
   selectedRegion: string[]
   suggestions: SearchSuggestion[]
   resultCount: number
 }>()
 
 const emit = defineEmits<{
+  changeCountry: [country: 'tw' | 'nz']
   close: []
   confirm: []
   filterRegion: [region: string]
@@ -148,6 +156,7 @@ const a = defineModel<string>('a', { required: true })
 const t = defineModel<string>('t', { required: true })
 const drop = defineModel<string>('drop', { required: true })
 const gpx = defineModel<boolean>('gpx', { required: true })
+const advancedCount = computed(() => [v.value, a.value, t.value, drop.value, gpx.value].filter(Boolean).length)
 type SearchScope = 'all' | SearchType
 const searchTypes = defineModel<SearchType[]>('searchTypes', { required: true })
 
@@ -334,6 +343,14 @@ const searchPlaceholder = computed(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
 }
+.country-row { grid-template-columns: 1fr 1fr; }
+.country-row .scope-btn { min-height: 44px; }
+.advanced-search { color: var(--color-text); }
+.advanced-search summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 0.875rem; }
+.advanced-search summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.advanced-search .filter-grid { margin: 8px 0; }
+.advanced-search .filter-select { min-height: 44px; min-width: 0; }
+.advanced-search .gpx-toggle { min-height: 44px; }
 
 .scope-btn {
   min-height: 34px;

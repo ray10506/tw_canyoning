@@ -296,7 +296,7 @@
               {{ locale === "en" ? "Source" : "資料來源" }}
             </div>
             <a
-              :href="d.source_url"
+              :href="safeUrl(d.source_url)"
               target="_blank"
               rel="noopener"
               class="info-link"
@@ -676,6 +676,7 @@ import FiveDayForecast from "./FiveDayForecast.vue";
 import ForecastGlance from "./ForecastGlance.vue";
 import { forecastRainNote, type ForecastDay } from "../lib/forecast";
 import { useResizableWidth } from "../lib/useResizableWidth";
+import { safeUrl } from "../lib/safeUrl";
 
 type NearbyStation<T> = { station: T; distance: number };
 

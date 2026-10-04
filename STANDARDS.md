@@ -136,7 +136,7 @@ api/
 | URL 參數 | 值 | 說明 |
 |---|---|---|
 | `view` | `route`, `nz`, `hydrology`, `search` | 目前的瀏覽模式；TW 預設可省略 |
-| `country` | `tw`, `nz` | 水文 tab 的國家；從 TW／NZ 進入時沿用該國家 |
+| `country` | `tw`, `nz` | 水文及搜尋的國家；從 TW／NZ 進入時沿用該國家 |
 | `q` | 搜尋字串 | 目前的搜尋 query |
 | `type` | `route,water,rainfall` 的組合 | 搜尋類型（預設 `route` 時省略） |
 | `route` | route id | 目前展開的路線 |

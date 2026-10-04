@@ -46,11 +46,6 @@ export default defineConfig(({ mode }) => {
         usePolling: true
       },
       proxy: {
-        '/api/wra': {
-          target: 'https://gweb.wra.gov.tw',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/wra/, '/HydroInfoMobile'),
-        },
         '/api/cwa/rainfall/': {
           target: 'https://opendata.cwa.gov.tw',
           changeOrigin: true,

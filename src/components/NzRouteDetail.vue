@@ -94,7 +94,7 @@
             </div>
             <div v-if="d.gpx_url" class="row">
               <dt>GPX</dt>
-              <dd><a :href="d.gpx_url" download class="ir-link">{{ locale === 'en' ? 'Download GPX' : '下載 GPX' }} ↓</a></dd>
+              <dd><a :href="safeUrl(d.gpx_url)" download class="ir-link">{{ locale === 'en' ? 'Download GPX' : '下載 GPX' }} ↓</a></dd>
             </div>
             <div v-if="details.map_sheet" class="row">
               <dt>{{ locale === 'en' ? 'Map' : '圖幅' }}</dt>
@@ -120,11 +120,11 @@
             </div>
             <div v-if="d.topo_url" class="row">
               <dt>{{ locale === 'en' ? 'Topo' : 'Topo 下載' }}</dt>
-              <dd><a :href="d.topo_url" target="_blank" rel="noopener" class="ir-link">{{ locale === 'en' ? 'Download PDF ↗' : '下載 PDF ↗' }}</a></dd>
+              <dd><a :href="safeUrl(d.topo_url)" target="_blank" rel="noopener" class="ir-link">{{ locale === 'en' ? 'Download PDF ↗' : '下載 PDF ↗' }}</a></dd>
             </div>
             <div v-if="d.source_url" class="row">
               <dt>{{ locale === 'en' ? 'Source' : '來源' }}</dt>
-              <dd><a :href="d.source_url" target="_blank" rel="noopener" class="ir-link">KiwiCanyons ↗</a></dd>
+              <dd><a :href="safeUrl(d.source_url)" target="_blank" rel="noopener" class="ir-link">KiwiCanyons ↗</a></dd>
             </div>
           </dl>
         </template>
@@ -151,11 +151,11 @@
               <span>{{ item.author }}</span>
             </div>
             <p>{{ locale === 'en' ? item.en : (item.zh || item.en) }}</p>
-            <a v-if="item.url" :href="item.url" target="_blank" rel="noopener" class="updates-source">
+            <a v-if="item.url" :href="safeUrl(item.url)" target="_blank" rel="noopener" class="updates-source">
               {{ locale === 'en' ? 'Read full report ↗' : '閱讀完整紀錄 ↗' }}
             </a>
           </article>
-          <a v-if="d.source_url" :href="`${d.source_url}#comments`" target="_blank" rel="noopener" class="updates-source">
+          <a v-if="safeUrl(d.source_url)" :href="`${d.source_url}#comments`" target="_blank" rel="noopener" class="updates-source">
             {{ locale === 'en' ? 'Read original trip reports' : '查看原始探訪回報' }} ↗
           </a>
         </div>
@@ -286,19 +286,19 @@
           <p v-if="topoPages.length || d.topo_url" class="topo-note">{{ locale === 'en' ? 'Official KiwiCanyons maps and hand-drawn topo.' : 'KiwiCanyons 官方地圖與手繪路線圖。' }}</p>
           <div v-if="topoPages.length" class="topo-stack">
             <a v-for="item in topoPages" :key="item.page"
-              :href="item.asset" target="_blank" rel="noopener"
+              :href="safeUrl(item.asset)" target="_blank" rel="noopener"
               class="topo-figure"
             >
               <span class="topo-caption">{{ locale === 'en' ? item.en : (item.zh || item.en) }}</span>
               <img :src="item.asset" :alt="`${d.name_en || d.name} ${item.en || 'topo'}`" class="topo-image" loading="lazy" />
             </a>
           </div>
-          <a v-if="d.topo_url" :href="d.topo_url" target="_blank" rel="noopener" class="topo-dl-btn">
+          <a v-if="d.topo_url" :href="safeUrl(d.topo_url)" target="_blank" rel="noopener" class="topo-dl-btn">
             {{ locale === 'en' ? 'Download Topo PDF' : '下載路線圖 PDF' }}
           </a>
           <template v-if="!d.topo_url && topoPages.length">
             <a v-for="item in topoPages" :key="`dl-${item.page}`"
-              :href="item.asset" :download="`${d.name_en || d.name} - ${item.en}.jpg`"
+              :href="safeUrl(item.asset)" :download="`${d.name_en || d.name} - ${item.en}.jpg`"
               class="topo-dl-btn"
             >
               {{ locale === 'en' ? `Download ${item.en} (JPG)` : `下載 ${item.zh || item.en}（JPG）` }}
@@ -309,7 +309,7 @@
         <h3 v-if="photos.length" class="section-sub">{{ locale === 'en' ? 'Photos' : '代表照片' }}</h3>
         <div v-if="photos.length" class="photo-grid">
           <a v-for="(url, i) in photos" :key="i"
-            :href="url" target="_blank" rel="noopener"
+            :href="safeUrl(url)" target="_blank" rel="noopener"
             class="photo-thumb"
           >
             <img :src="url" :alt="`${d.name} photo ${i + 1}`" loading="lazy" />
@@ -321,7 +321,7 @@
         <template v-if="videos.length">
           <h3 class="section-sub">{{ locale === 'en' ? 'Videos' : '影片' }}</h3>
           <div class="video-list">
-            <a v-for="item in videos" :key="item.url" :href="item.url" target="_blank" rel="noopener" class="video-row">
+            <a v-for="item in videos" :key="item.url" :href="safeUrl(item.url)" target="_blank" rel="noopener" class="video-row">
               <span class="video-icon" aria-hidden="true">
                 <svg v-if="item.provider === 'YouTube'" viewBox="0 0 24 24" width="22" height="22" fill="#FF0000"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
                 <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="currentColor" class="video-play-generic"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 8l6 4-6 4V8z"/></svg>
@@ -375,6 +375,7 @@ import FiveDayForecast from './FiveDayForecast.vue'
 import ForecastGlance from './ForecastGlance.vue'
 import { forecastRainNote, type ForecastDay } from '../lib/forecast'
 import { useResizableWidth } from '../lib/useResizableWidth'
+import { safeUrl } from '../lib/safeUrl'
 
 const props = defineProps<{ item: { kind: string; data: any }; nearbyWater?: { station: WaterStation; distance: number } | null }>()
 defineEmits<{ close: []; 'focus-waypoint': [index: number | null]; 'select-water-station': [station: WaterStation, distance: number] }>()
