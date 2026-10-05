@@ -60,6 +60,7 @@
 
           <p v-if="isNz" class="source-note">{{ t('WCRC 原始觀測，尚未完整檢核；時間以紐西蘭當地時間顯示。', 'WCRC raw observations, not fully verified. Times are local to New Zealand.') }}</p>
           <a v-if="isNz" class="source-link" :href="sourceUrl" target="_blank" rel="noopener">{{ t('WCRC 官方水文資料', 'WCRC official river data') }} ↗</a>
+          <p v-else class="source-note">{{ t('資料來源：經濟部水利署', 'Source: Water Resources Agency') }}</p>
 
           <!-- Station metadata: collapsed by default, out of the critical decision path -->
           <details class="station-details">
@@ -84,7 +85,7 @@ import type { ChartSeries } from '../lib/chart'
 import { locale, t, loadErrorText } from '../lib/locale'
 import { clamp } from '../lib/clamp'
 
-const props = withDefaults(defineProps<{ station: WaterStation; pos: { x: number; y: number }; days?: number; distance?: number }>(), {
+const props = withDefaults(defineProps<{ station: WaterStation; pos: { x: number; y: number }; days?: number; distance?: number; leftInset?: number }>(), {
   days: 7,
 })
 defineEmits<{ close: [] }>()
@@ -115,7 +116,9 @@ const popupLayout = computed(() => {
   const onRight = openOnRight.value
   let left = onRight ? props.pos.x + CARD_OFFSET : props.pos.x - CARD_OFFSET - width
   let top = props.pos.y - 13 - 44
-  left = clamp(left, MARGIN, window.innerWidth - width - MARGIN)
+  // Keep clear of the open sidebar so the route list stays readable; overlap it only when the map is too narrow.
+  const maxLeft = window.innerWidth - width - MARGIN
+  left = clamp(left, Math.min((props.leftInset ?? 0) + MARGIN, maxLeft), maxLeft)
   top = clamp(top, MARGIN, window.innerHeight - height - MARGIN)
   const arrowTop = clamp(props.pos.y - 13 - top - ARROW_HALF_H, ARROW_SAFE_PAD, height - ARROW_SAFE_PAD)
   return { left, top, width, height, arrowTop }
@@ -379,15 +382,6 @@ const chartSeries = computed<ChartSeries[]>(() => {
   color: #fff;
 }
 
-.river-badge {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 600;
-  background: #1e2d6b;
-  color: #6c8ef5;
-}
-
 .period-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
@@ -551,51 +545,5 @@ const chartSeries = computed<ChartSeries[]>(() => {
   background: #222244;
 }
 
-.status-normal  { border-color: #2f8f5b; }
-.status-watch   { border-color: #b59b2a; }
-.status-warning { border-color: #c86a35; }
-.status-danger  { border-color: #e05c5c; }
 .status-unknown { border-color: #44445f; }
-
-/* ── Station metadata disclosure ── */
-.station-details {
-  margin-top: 8px;
-  border-top: 1px solid #222240;
-  padding-top: 12px;
-}
-.station-details-summary {
-  font-size: 0.75rem;
-  color: #555;
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: color 0.12s;
-}
-.station-details-summary::-webkit-details-marker { display: none; }
-.station-details-summary::before {
-  content: '›';
-  display: inline-block;
-  font-size: 0.9rem;
-  transition: transform 0.15s;
-  line-height: 1;
-}
-details[open] .station-details-summary::before { transform: rotate(90deg); }
-.station-details-summary:hover { color: #888; }
-.station-details-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 0 2px;
-}
-.detail-item {
-  font-size: 0.8rem;
-  color: #777;
-}
-.meta-label {
-  color: #555;
-  margin-right: 4px;
-}
 </style>

@@ -69,14 +69,22 @@ export function weatherLabel(code: number | null) {
   return locale.value === 'en' ? en : zh
 }
 
-// Heavy forecast rain soon, as a plain fact under the observation strip (which stays observation-only).
-export function forecastRainNote(days: ForecastDay[]): string {
+// Forecast rain in the next 3 days, shown above the observation strip (which stays observation-only).
+// `watch` marks rain heavy enough that a green observation reading must not lead: ≥50 mm, or thunderstorms with ≥10 mm.
+// `belowObservations`: the caller renders an observation strip under the note, so the watch text says it isn't the forecast.
+export function forecastRainNote(days: ForecastDay[], belowObservations = false): { text: string; watch: boolean } {
   const wet = days.slice(0, 3).filter(day => (day.rain ?? 0) >= 10)
-  if (!wet.length) return ''
+  if (!wet.length) return { text: '', watch: false }
   const en = locale.value === 'en'
   const items = wet.map(day => {
     const [, m, d] = day.date.split('-').map(Number)
     return `${m}/${d} ${weatherLabel(day.code)} ${Number(day.rain!.toFixed(1))} mm`
   })
-  return en ? `Forecast, next 3 days: ${items.join(', ')}` : `三日內預報：${items.join('、')}`
+  const watch = wet.some(day => day.rain! >= 50 || (day.code ?? 0) >= 95)
+  const text = en ? `Forecast, next 3 days: ${items.join(', ')}` : `三日內預報：${items.join('、')}`
+  if (!watch || !belowObservations) return { text, watch }
+  return {
+    text: en ? `${text} · Readings below are current, not the forecast` : `${text} · 下方為目前觀測，不代表預報日水況`,
+    watch,
+  }
 }

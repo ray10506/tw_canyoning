@@ -86,6 +86,7 @@
           :search-points="searchPoints"
           :search-panel-open="activePanel === 'search'"
           :pinned-station="pinnedStation"
+          :left-inset="mapLeftInset"
           @select-route="onSelectRoute"
           @select-water-station="openWaterStation"
           @select-rainfall-station="openRainfallStation"
@@ -111,19 +112,23 @@
         @select-rainfall-station="openNearbyRainfallStation"
         @focus-waypoint="focusedWaypointIndex = $event"
       />
+      <!-- One floating card at a time: search or settings hides (not closes) the station card,
+           so it comes back where it was when that tool closes. -->
       <WaterStationDetail
-        v-if="waterStationDetail && activePanel !== 'search'"
+        v-if="waterStationDetail && !activePanel"
         :station="waterStationDetail.station"
         :pos="waterStationDetail.pos"
         :days="waterStationDetail.days"
         :distance="waterStationDetail.distance"
+        :left-inset="mapLeftInset"
         @close="waterStationDetail = null"
       />
       <RainfallStationDetail
-        v-if="rainfallStationDetail && activePanel !== 'search'"
+        v-if="rainfallStationDetail && !activePanel"
         :station="rainfallStationDetail.station"
         :pos="rainfallStationDetail.pos"
         :distance="rainfallStationDetail.distance"
+        :left-inset="mapLeftInset"
         @close="rainfallStationDetail = null"
       />
 
@@ -342,6 +347,9 @@ function changeSearchCountry(country: 'tw' | 'nz') {
   });
 }
 
+// Where the visible map starts: the open sidebar overlays its left edge.
+const mapLeftInset = computed(() => (sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0));
+
 // On phones the sidebar is full-width, so it must give way to the search card.
 const searchCoversSidebar = computed(
   () => activePanel.value === "search" && window.innerWidth <= 640,
@@ -494,7 +502,7 @@ const routeTrack = computed(() => {
   if (detailItem.value?.kind !== "route" && detailItem.value?.kind !== "nz") return null;
   const d = detailItem.value.data;
 
-  const mapLeft = sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0;
+  const mapLeft = mapLeftInset.value;
   const mapCenterX = mapLeft + (window.innerWidth - mapLeft) / 2;
   const cardW = 380;
   const gap = 24;
@@ -683,7 +691,7 @@ function stationScreenPosition(station: { lat: number; lon: number }) {
 function revealNearbyStation(station: { lat: number; lon: number }, cardWidth: number) {
   const pos = stationScreenPosition(station);
   if (window.innerWidth <= 640) return pos; // phone cards are fixed, not anchored
-  const freeLeft = sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0;
+  const freeLeft = mapLeftInset.value;
   const panel = routeDetailRef.value?.panelBounds;
   const freeRight = panel && panel.left > 0
     ? panel.left
@@ -700,7 +708,7 @@ function openNearbyWaterStation(station: WaterStation, distance: number) {
 }
 
 function openNearbyRainfallStation(station: RainfallStation, distance: number) {
-  openRainfallStation(station, revealNearbyStation(station, 240), distance);
+  openRainfallStation(station, revealNearbyStation(station, 480), distance);
 }
 
 const REGION_KEYWORDS: Record<string, string[]> = {

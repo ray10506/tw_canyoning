@@ -47,6 +47,22 @@ export function gridToImage(values: (number | null)[], rows: number, cols: numbe
   return canvas.toDataURL('image/png')
 }
 
+/** Rolling 48 / 72 h totals interpolated from every gauge onto CWA's 0.03° grid (sea = null). */
+export interface RainfallStations {
+  observedAt: string
+  rows: number
+  cols: number
+  bounds: RainfallMap['bounds']
+  past48: { max: number | null; values: (number | null)[] }
+  past72: { max: number | null; values: (number | null)[] }
+}
+
+export async function fetchRainfallStations(): Promise<RainfallStations> {
+  const res = await fetch('/api/cwa/rainfall-map?kind=stations')
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 export async function fetchQpfGrid(): Promise<QpfGrid> {
   const res = await fetch('/api/cwa/qpf-grid')
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

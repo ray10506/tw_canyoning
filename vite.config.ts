@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
           const mount = (prefix: string, handler: any) => server.middlewares.use(prefix, async (req: any, res: any) => {
             const url = new URL(req.url ?? '', 'http://localhost')
             const stationId = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() ?? '')
-            await handler({ method: req.method, query: { stationId, days: url.searchParams.get('days'), metric: url.searchParams.get('metric') ?? undefined } }, {
+            await handler({ method: req.method, query: { stationId, days: url.searchParams.get('days'), metric: url.searchParams.get('metric') ?? undefined, kind: url.searchParams.get('kind') ?? undefined } }, {
               status(code: number) { res.statusCode = code; return this },
               setHeader(name: string, value: string) { res.setHeader(name, value); return this },
               json(body: unknown) {

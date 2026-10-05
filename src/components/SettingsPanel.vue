@@ -273,7 +273,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, reactive, nextTick, onMounted } from "vue";
+import { useTapOutside } from "../lib/useTapOutside";
 import { locale, t } from "../lib/locale";
 import { theme } from "../lib/theme";
 
@@ -290,27 +291,9 @@ async function openFeatures() {
 }
 onMounted(() => { if (view.value === 'features') openFeatures(); });
 
-// No backdrop: the map stays pannable while settings is open (Map Stays Present).
-// A tap outside closes it; a drag (panning the map) doesn't. The toolbar toggles it itself.
+// No backdrop: the map stays usable while settings is open. The toolbar toggles it itself.
 const panelRef = ref<HTMLElement | null>(null);
-let down: { x: number; y: number } | null = null;
-function onPointerDown(e: PointerEvent) { down = { x: e.clientX, y: e.clientY }; }
-function onPointerUp(e: PointerEvent) {
-  const start = down;
-  down = null;
-  if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) return;
-  const target = e.target as Element | null;
-  if (panelRef.value?.contains(target) || target?.closest('.bottom-bar')) return;
-  emit('close');
-}
-onMounted(() => {
-  document.addEventListener('pointerdown', onPointerDown, true);
-  document.addEventListener('pointerup', onPointerUp, true);
-});
-onUnmounted(() => {
-  document.removeEventListener('pointerdown', onPointerDown, true);
-  document.removeEventListener('pointerup', onPointerUp, true);
-});
+useTapOutside(panelRef, '.bottom-bar', () => emit('close'));
 
 const features = [
   { zh: '台灣與紐西蘭路線', en: 'Routes in Taiwan & New Zealand', whereZh: '左側 TW／NZ：瀏覽路線清單，也能從地圖選取路線。', whereEn: 'TW / NZ in the sidebar: browse the list or select a route on the map.', icon: 'M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Zm0-15v15m6-12v15' },
@@ -539,7 +522,7 @@ async function submitRoute() {
   padding: 6px 14px;
   background: transparent;
   border: none;
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
@@ -549,7 +532,7 @@ async function submitRoute() {
 }
 .lang-opt.active {
   background: #6c8ef5;
-  color: #fff;
+  color: #12122a; /* white on primary is 3.1:1 */
   font-weight: 600;
 }
 
@@ -604,7 +587,7 @@ async function submitRoute() {
 }
 .menu-text small {
   font-size: 0.72rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .menu-arrow {
@@ -747,7 +730,7 @@ select.field-input {
 
 .file-name {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-muted);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

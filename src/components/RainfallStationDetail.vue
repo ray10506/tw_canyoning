@@ -6,7 +6,7 @@
       <div class="popup-header">
         <div class="header-left">
           <span class="name">{{ station.name }}</span>
-          <span class="station-id">({{ station.station_id }})</span>
+          <span v-if="station.town || station.county" class="river-badge">{{ station.town || station.county }}</span>
           <span v-if="distance != null" class="dist-badge">{{ locale === 'en' ? 'From route' : '距路線' }} {{ distance.toFixed(1) }} km</span>
         </div>
         <button class="close-btn" :aria-label="locale === 'en' ? 'Close' : '關閉'" @click="$emit('close')">✕</button>
@@ -66,6 +66,16 @@
         <a v-if="station.source === 'wcrc'" :href="wcrcSourceUrl" target="_blank" rel="noopener" class="source-link">
           {{ locale === 'en' ? 'WCRC official data' : 'WCRC 官方資料' }} ↗
         </a>
+        <p v-else class="source-note">{{ t('資料來源：中央氣象署', 'Source: Central Weather Administration') }}</p>
+        <!-- Same disclosure as the water card: metadata stays out of the decision path. -->
+        <details class="station-details">
+          <summary class="station-details-summary">{{ t('測站資訊', 'Station info') }}</summary>
+          <div class="station-details-body">
+            <span class="detail-item">{{ t('站號', 'ID') }} {{ station.station_id }}</span>
+            <span v-if="station.county || station.town" class="detail-item">{{ t('位置', 'Location') }} {{ [station.county, station.town].filter(Boolean).join(' ') }}</span>
+            <span v-if="station.altitude != null" class="detail-item">{{ t('海拔', 'Altitude') }} {{ station.altitude }} m</span>
+          </div>
+        </details>
       </div>
     </div>
   </Teleport>
@@ -81,8 +91,8 @@ import { taipeiParts } from '../lib/waterLevel'
 import WaterLevelChart from './WaterLevelChart.vue'
 import type { ChartSeries } from '../lib/chart'
 
-const LIVE_CARD_W = 240
-const HISTORY_CARD_W = 420
+// One width for every mode, matching the water card, so switching tabs never reflows the card.
+const CARD_W = 480
 const CARD_OFFSET = 28
 const MARGIN = 16
 const ICON_CENTER_OFFSET_Y = 13
@@ -93,6 +103,7 @@ const props = defineProps<{
   station: RainfallStation
   pos: { x: number; y: number }
   distance?: number
+  leftInset?: number
 }>()
 defineEmits<{ close: [] }>()
 
@@ -102,10 +113,7 @@ const data = ref<RainfallData | null>(null)
 const mode = ref<'live' | '7' | '14'>('live')
 const historyCache = ref<Record<'7' | '14', RainfallHistoryData | null>>({ '7': null, '14': null })
 
-const popupWidth = computed(() => {
-  const wanted = mode.value === 'live' ? LIVE_CARD_W : HISTORY_CARD_W
-  return Math.min(wanted, window.innerWidth - MARGIN * 2)
-})
+const popupWidth = computed(() => Math.min(CARD_W, window.innerWidth - MARGIN * 2))
 
 const estimatedHeight = computed(() => {
   if (loading.value || error.value) return 160
@@ -122,7 +130,9 @@ const popupLayout = computed(() => {
   let left = onRight ? props.pos.x + CARD_OFFSET : props.pos.x - CARD_OFFSET - width
   let top = props.pos.y - ICON_CENTER_OFFSET_Y - 44
 
-  left = clamp(left, MARGIN, window.innerWidth - width - MARGIN)
+  // Keep clear of the open sidebar so the route list stays readable; overlap it only when the map is too narrow.
+  const maxLeft = window.innerWidth - width - MARGIN
+  left = clamp(left, Math.min((props.leftInset ?? 0) + MARGIN, maxLeft), maxLeft)
   top = clamp(top, MARGIN, window.innerHeight - height - MARGIN)
 
   const targetY = props.pos.y - ICON_CENTER_OFFSET_Y
@@ -304,15 +314,10 @@ watch(() => props.station.station_id, () => {
 
 .name {
   overflow-wrap: anywhere;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
   line-height: 1.2;
-}
-
-.station-id {
-  font-size: 0.75rem;
-  color: #888;
 }
 
 .dist-badge {
@@ -377,15 +382,6 @@ watch(() => props.station.station_id, () => {
 
 .status-title { color: #fff; font-size: 0.82rem; font-weight: 700; }
 .status-note { color: #bbb; font-size: 0.7rem; margin-top: 6px; }
-.status-normal { border-color: #2f8f5b; }
-.status-watch { border-color: #b59b2a; }
-.status-warning { border-color: #c86a35; }
-.status-danger { border-color: #e05c5c; }
-
-:global(html[data-theme='light']) .status-normal { border-color: #2f8f5b; }
-:global(html[data-theme='light']) .status-watch { border-color: #9a821f; }
-:global(html[data-theme='light']) .status-warning { border-color: #b65d2d; }
-:global(html[data-theme='light']) .status-danger { border-color: #c84646; }
 
 .rain-summary {
   display: grid;
@@ -403,7 +399,7 @@ watch(() => props.station.station_id, () => {
   font-size: 0.68rem;
 }
 
-.rain-summary strong { color: #5b9cf6; font-size: 1.15rem; }
+.rain-summary strong { color: var(--color-water); font-size: 1.15rem; }
 .rain-summary small { width: 100%; color: #888; font-size: 0.64rem; }
 .safety-note { color: #777; font-size: 0.64rem; margin-top: 6px; }
 
@@ -506,6 +502,11 @@ watch(() => props.station.station_id, () => {
   text-decoration: none;
 }
 .source-link:hover { text-decoration: underline; }
+.source-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
 .source-link:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 @keyframes sheet-up {

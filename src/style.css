@@ -224,3 +224,61 @@ html {
     box-sizing: border-box;
   }
 }
+
+/* Station cards (water + rainfall) share one severity scale, from the semantic tokens.
+   `html` outranks both the scoped card border and the light-theme neutral border above. */
+html .status-card.status-normal  { border-color: var(--color-normal); }
+html .status-card.status-watch   { border-color: var(--color-watch); }
+html .status-card.status-warning { border-color: var(--color-warning); }
+html .status-card.status-danger  { border-color: var(--color-danger); }
+
+/* Station cards (water + rainfall): place chip and the collapsed metadata disclosure. */
+.river-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  background: var(--color-hover); /* a place label, not a selection: blue is reserved for state */
+  color: #c0c0d8;
+}
+.station-details {
+  margin-top: 8px;
+  border-top: 1px solid #222240;
+  padding-top: 12px;
+}
+.station-details-summary {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.12s;
+}
+.station-details-summary::-webkit-details-marker { display: none; }
+.station-details-summary::before {
+  content: '›';
+  display: inline-block;
+  font-size: 0.9rem;
+  transition: transform 0.15s;
+  line-height: 1;
+}
+details[open] .station-details-summary::before { transform: rotate(90deg); }
+.station-details-summary:hover { color: var(--color-text); }
+.station-details-summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.station-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 2px;
+}
+.detail-item {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+.meta-label {
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}

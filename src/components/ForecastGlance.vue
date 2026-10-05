@@ -46,8 +46,9 @@ watch(() => props.gps, async (gps) => {
 // Open-Meteo (timezone=auto) starts at today in the route's own timezone, not the viewer's.
 function dayLabel(date: string, index: number) {
   const en = locale.value === 'en'
-  if (index === 0) return en ? 'Today' : '今天'
   const day = new Date(`${date}T00:00:00Z`)
+  // Today carries its date too, so a screenshot shared tomorrow still says which day it was.
+  if (index === 0) return en ? `Today ${day.getUTCDate()}` : `${day.getUTCMonth() + 1}/${day.getUTCDate()} 今天`
   const weekday = new Intl.DateTimeFormat(en ? 'en-NZ' : 'zh-TW', { weekday: en ? 'short' : 'narrow', timeZone: 'UTC' }).format(day)
   return en ? `${weekday} ${day.getUTCDate()}` : `${day.getUTCMonth() + 1}/${day.getUTCDate()} ${weekday}`
 }

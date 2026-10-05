@@ -16,7 +16,7 @@
           <span v-if="gradingStars" class="g-stars">{{ gradingStars }}</span>
         </div>
         <ForecastGlance v-if="d.gps" :gps="String(d.gps)" @open="activeTab = 'weather'" @days="forecastDays = $event" />
-        <p v-if="rainNote" class="strip-note">{{ rainNote }}</p>
+        <p v-if="rainNote.text" :class="['strip-note', { 'strip-note-watch': rainNote.watch }]">{{ rainNote.text }}</p>
         <!-- Hazard banner, full text: a go/no-go read must never see a truncated safety note. -->
         <button v-if="hasRiskSignal" type="button" class="hazard-strip" @click="activeTab = 'risk'">
           <span v-if="details.flood"><strong>{{ t('暴洪風險', 'Flash-flood risk') }}：</strong>{{ localDetail('flood') }}</span>
@@ -660,6 +660,7 @@ function mapsUrl(lat: number | string, lon?: number) {
 .g-tag.roman { background: color-mix(in srgb, var(--color-rating) 20%, var(--color-panel)); color: var(--color-rating); }
 .g-stars { font-size: 0.75rem; color: var(--gold); letter-spacing: 1px; }
 .strip-note { margin: 6px 2px 0; font-size: 0.75rem; line-height: 1.45; color: var(--color-text-muted); }
+.strip-note-watch { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: rgba(214, 189, 85, 0.1); font-weight: 600; color: var(--color-watch); }
 .hazard-strip {
   display: flex; flex-direction: column; gap: 2px;
   width: 100%; margin-top: 6px; padding: 6px 10px;

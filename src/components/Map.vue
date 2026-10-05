@@ -20,12 +20,7 @@
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
       </svg>
     </button>
-    <div
-      v-if="showLayersPanel"
-      class="panel-overlay"
-      @click="showLayersPanel = false"
-    ></div>
-    <div v-if="showLayersPanel" class="layers-panel">
+    <div v-if="showLayersPanel" ref="layersPanelRef" class="layers-panel">
       <div class="layers-header">
         <span class="layers-title">{{
           isStationSearch ? (locale === 'en' ? 'Search layers' : '搜尋圖層') : nzCountry ? (locale === 'en' ? 'New Zealand hydrology' : '紐西蘭水文') : (locale === 'en' ? 'Taiwan hydrology' : '台灣水文')
@@ -68,24 +63,36 @@
               {{ t('雨量圖', 'Rainfall map') }}
               <small v-if="rainMode !== 'off'" class="layer-sub" :class="{ warn: rainLayerError }">{{ rainSummary }}</small>
             </span>
+            <label class="toggle-switch">
+              <input type="checkbox" :checked="rainMode !== 'off'" :aria-label="t('雨量圖', 'Rainfall map')" @change="toggleRainMap" />
+              <span class="toggle-track" :class="{ on: rainMode !== 'off' }">
+                <span class="toggle-thumb"></span>
+              </span>
+            </label>
           </div>
-          <div class="rain-mode" role="radiogroup" :aria-label="t('雨量圖', 'Rainfall map')">
-            <button
-              v-for="m in rainModes"
-              :key="m.value"
-              type="button"
-              role="radio"
-              :aria-checked="rainMode === m.value"
-              :disabled="m.forecast && !qpfActive && rainMode !== m.value"
-              @click="rainMode = m.value"
-            >{{ m.label }}</button>
-          </div>
-          <p v-if="!qpfActive" class="layer-sub">{{
-            qpfStatus === 'error' ? t('無法確認預報格點資料', 'Could not check forecast grid')
-            : qpfStatus === 'loading' ? t('確認預報資料中…', 'Checking forecast…')
-            : t('預報圖層僅於陸上颱風警報期間提供', 'Forecast layers are only issued during land typhoon warnings')
-          }}</p>
-          <button type="button" class="rain-link" @click="openQpfCard">{{ t('氣象署 6／12 小時預報圖', 'CWA 6 / 12 h forecast charts') }} ›</button>
+          <!-- Off lives on the toggle; the segments only choose what the map shows: observed, then (typhoon only) forecast. -->
+          <template v-if="rainMode !== 'off'">
+            <div v-for="group in rainGroups" :key="group.label" class="rain-mode" role="radiogroup" :aria-label="group.label" @keydown="radioKeys">
+              <button
+                v-for="(m, i) in group.modes"
+                :key="m.value"
+                type="button"
+                role="radio"
+                :aria-checked="shownRainMode === m.value"
+                :tabindex="rovingTab(group.modes, i)"
+                @click="rainMode = m.value"
+              >{{ m.label }}</button>
+            </div>
+          </template>
+          <!-- Outside typhoon warnings CWA publishes no forecast grid, so the forecast is its chart, not a map mode. -->
+          <button v-if="!qpfActive" type="button" class="rain-chart-link" aria-haspopup="dialog" @click="openQpfCard(6)">
+            {{ t('查看氣象署降雨預報圖', 'View CWA rainfall forecast chart') }}
+            <small class="layer-sub" :class="{ warn: qpfStatus === 'error' }">{{
+              qpfStatus === 'error'
+                ? t('無法確認颱風預報格點', 'Could not check the typhoon forecast grid')
+                : t('非颱風警報期間沒有預報格點，無法畫在地圖上', 'No forecast grid outside typhoon warnings, so it can\'t be drawn on the map')
+            }}</small>
+          </button>
         </div>
         <div class="layer-divider"></div>
         <div class="layer-row">
@@ -106,16 +113,30 @@
       </div>
     </div>
 
-    <section v-if="rainfallMapVisible" class="rain-legend" :aria-label="`${rainTitle} ${t('圖例', 'legend')}`">
-      <div class="rain-legend-title">{{ rainTitle }} <span>mm</span></div>
+    <!-- Top-left of the visible map: the layers panel and route panel both live on the right.
+         On phones the legend sits above the toolbar, under the layers panel, so it yields while that is open. -->
+    <section
+      v-if="rainfallMapVisible && !(showLayersPanel && isPhone())"
+      class="rain-legend"
+      :style="{ left: `${(leftInset ?? 0) + 12}px` }"
+      :aria-label="`${rainTitle} ${t('圖例', 'legend')}`"
+    >
+      <div class="rain-legend-head">
+        <div class="rain-legend-title">{{ rainTitle }} <span>mm</span></div>
+        <button type="button" class="rain-legend-close" :aria-label="t('關閉雨量圖', 'Turn off rainfall map')" @click="rainMode = 'off'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
       <p v-if="rainLayerError" class="rain-legend-status" role="alert">
         {{ t('無法取得中央氣象署雨量圖。', 'Could not load the CWA rainfall map.') }}
         <button type="button" class="rain-legend-retry" @click="loadRainLayer">{{ t('重試', 'Retry') }}</button>
       </p>
-      <p v-else-if="!rainLayer" class="rain-legend-status">{{ t('載入中…', 'Loading…') }}</p>
+      <p v-else-if="!rainLayer" class="rain-legend-loading" role="status">{{ t('正在取得雨量圖…', 'Loading rainfall map…') }}</p>
       <template v-else>
         <p class="rain-legend-time">{{ rainRange }}</p>
         <p class="rain-legend-summary">{{ rainSummary }}</p>
+        <!-- The raster can show rain where the nearest gauge reads 0 mm; say which to trust at the point of contradiction. -->
+        <p v-if="rainInterpolated" class="rain-legend-caveat">{{ t('色塊為測站之間的內插估計，與雨量站不同時以測站讀數為準', 'Colours between gauges are estimates; where they differ, trust the gauge reading') }}</p>
         <p v-if="rainStale" class="rain-legend-status">{{ t('資料超過 3 小時未更新，可能延遲。', 'Over 3 hours old; data may be delayed.') }}</p>
         <div class="rain-legend-bar">
           <span
@@ -131,7 +152,6 @@
         </div>
       </template>
       <p class="rain-legend-source">{{ rainSource }}</p>
-      <button type="button" class="rain-link" @click="openQpfCard">{{ t('氣象署 6／12 小時預報圖', 'CWA 6 / 12 h forecast charts') }} ›</button>
     </section>
 
     <Teleport to="body">
@@ -141,11 +161,11 @@
             <h2>{{ t('氣象署降雨預報圖', 'CWA rainfall forecast') }}</h2>
             <button ref="qpfCloseBtn" type="button" class="layers-close" :aria-label="t('關閉', 'Close')" @click="qpfCardOpen = false">✕</button>
           </header>
-          <div class="rain-mode" role="radiogroup" :aria-label="t('累積時距', 'Accumulation period')">
-            <button v-for="h in [6, 12] as const" :key="h" type="button" role="radio" :aria-checked="qpfHours === h" @click="qpfHours = h">{{ t(`${h} 小時`, `${h} h`) }}</button>
+          <div class="rain-mode" role="radiogroup" :aria-label="t('累積時距', 'Accumulation period')" @keydown="radioKeys">
+            <button v-for="h in [6, 12] as const" :key="h" type="button" role="radio" :aria-checked="qpfHours === h" :tabindex="qpfHours === h ? 0 : -1" @click="qpfHours = h">{{ t(`${h} 小時`, `${h} h`) }}</button>
           </div>
-          <div class="rain-mode" role="radiogroup" :aria-label="t('預報時段', 'Forecast window')">
-            <button v-for="p in [1, 2] as const" :key="p" type="button" role="radio" :aria-checked="qpfPart === p" @click="qpfPart = p">{{ t(`第 ${p} 時段`, `Window ${p}`) }}</button>
+          <div class="rain-mode" role="radiogroup" :aria-label="t('預報時段', 'Forecast window')" @keydown="radioKeys">
+            <button v-for="p in [1, 2] as const" :key="p" type="button" role="radio" :aria-checked="qpfPart === p" :tabindex="qpfPart === p ? 0 : -1" @click="qpfPart = p">{{ t(`第 ${p} 時段`, `Window ${p}`) }}</button>
           </div>
           <img
             :key="qpfImage"
@@ -232,10 +252,11 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed, nextTick } from "vue";
+import { useTapOutside } from "../lib/useTapOutside";
 import { separateClusters } from "../lib/clusterLayout";
 import { locale, t } from "../lib/locale";
 import {
-  QPF_SCALE, RAINFALL_SCALE, bandIndex, fetchQpfGrid, fetchRainfallMap, gridToImage, toMercatorImage,
+  QPF_SCALE, RAINFALL_SCALE, bandIndex, fetchQpfGrid, fetchRainfallMap, fetchRainfallStations, gridToImage, toMercatorImage,
   type QpfGrid, type RainScale, type RainfallMap,
 } from "../lib/rainfallMap";
 import L from "leaflet";
@@ -303,6 +324,8 @@ const props = withDefaults(
     searchPoints: [number, number][] | null;
     searchPanelOpen: boolean;
     pinnedStation?: { kind: "water" | "rainfall"; lat: number; lon: number } | null;
+    /** px of map covered by the sidebar on the left. */
+    leftInset?: number;
   }>(),
   { canyons: () => [], nearbyAnchor: null },
 );
@@ -429,24 +452,65 @@ const showWaterStations = stationLayer('water');
 const showRainfallStations = stationLayer('rainfall');
 const routeWaterStations = computed(() => nzCountry.value ? nzWaterStations : waterStations as WaterStation[]);
 const showLayersPanel = ref(false);
+// No full-screen overlay: it swallowed pinch, wheel and drag, so the map froze while picking a rain layer.
+const layersPanelRef = ref<HTMLElement | null>(null);
+useTapOutside(layersPanelRef, '.layers-fab', () => { showLayersPanel.value = false; });
 
-type RainMode = 'off' | 'today' | 'qpf6' | 'qpf12';
+type RainMode = 'off' | 'today' | 'past48' | 'past72' | 'qpf6' | 'qpf12';
+// Observed modes. 'today' is CWA's own map; 48/72 h are the same gauge interpolation, rebuilt server-side.
+const PAST_HOURS: Partial<Record<RainMode, 48 | 72>> = { past48: 48, past72: 72 };
 const RAIN_MAP_KEY = 'rainfall-map-tw';
+const RAIN_MODES: RainMode[] = ['off', 'today', 'past48', 'past72', 'qpf6', 'qpf12'];
 const rainMode = ref<RainMode>('off');
 try {
   const saved = localStorage.getItem(RAIN_MAP_KEY);
   // 'true' is the stored value from the earlier on/off toggle.
-  rainMode.value = saved === 'true' || saved === 'today' ? 'today' : saved === 'qpf6' || saved === 'qpf12' ? saved : 'off';
+  rainMode.value = saved === 'true' ? 'today' : RAIN_MODES.includes(saved as RainMode) ? saved as RainMode : 'off';
 } catch { /* Storage may be blocked. */ }
+// A shared link (?rain=…) wins over the stored preference.
+const urlRain = new URLSearchParams(location.search).get('rain') as RainMode | null;
+if (urlRain && RAIN_MODES.includes(urlRain)) rainMode.value = urlRain;
+// Only a shared ?rain=qpf6/12 link falls back to CWA's chart when no typhoon grid exists;
+// a stored preference or a refresh never pops the chart open unasked.
+let chartIfNoGrid = urlRain === 'qpf6' || urlRain === 'qpf12';
+type RainOption = { value: RainMode; label: string };
+// Observed first; the forecast group exists only while CWA publishes a typhoon grid.
+const rainGroups = computed<{ label: string; modes: RainOption[] }[]>(() => [
+  { label: t('觀測雨量', 'Observed rainfall'), modes: [
+    { value: 'today', label: t('今日', 'Today') },
+    { value: 'past48', label: t('近 48h', '48 h') },
+    { value: 'past72', label: t('近 72h', '72 h') },
+  ] },
+  ...(qpfActive.value ? [{ label: t('颱風降雨預報', 'Typhoon rainfall forecast'), modes: [
+    { value: 'qpf6' as const, label: t('預報 6h', '6 h forecast') },
+    { value: 'qpf12' as const, label: t('預報 12h', '12 h forecast') },
+  ] }] : []),
+]);
+// The toggle brings back the last map the viewer chose, not always "today".
+let lastRainMode: RainMode = rainMode.value === 'off' ? 'today' : rainMode.value;
 watch(rainMode, (value) => {
+  if (value !== 'off') lastRainMode = value;
   try { localStorage.setItem(RAIN_MAP_KEY, value); } catch { /* Keep the choice for this session. */ }
 });
-const rainModes = computed<{ value: RainMode; label: string; forecast?: boolean }[]>(() => [
-  { value: 'off', label: t('關', 'Off') },
-  { value: 'today', label: t('今日累積', 'Today') },
-  { value: 'qpf6', label: t('預報 6h', '6 h fcst'), forecast: true },
-  { value: 'qpf12', label: t('預報 12h', '12 h fcst'), forecast: true },
-]);
+function toggleRainMap(e: Event) {
+  rainMode.value = (e.target as HTMLInputElement).checked ? lastRainMode : 'off';
+}
+// Radio groups: one tab stop (the checked option, else the first), arrows move and select.
+function rovingTab(modes: RainOption[], i: number) {
+  const checked = modes.findIndex(m => shownRainMode.value === m.value);
+  return i === (checked < 0 ? 0 : checked) ? 0 : -1;
+}
+function radioKeys(e: KeyboardEvent) {
+  const step = ({ ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 } as Record<string, number>)[e.key];
+  if (!step) return;
+  const radios = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  const i = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = radios[(i + step + radios.length) % radios.length];
+  next.focus();
+  next.click();
+}
 const rainfallMapVisible = computed(() => rainMode.value !== 'off' && !nzCountry.value);
 
 const qpfGrid = ref<QpfGrid | null>(null);
@@ -470,12 +534,18 @@ const rainIsYesterday = computed(() => !!rainLayer.value && rainLayer.value.from
 const rainTitle = computed(() => ({
   off: '',
   today: rainIsYesterday.value ? t('昨日累積雨量', "Yesterday's rainfall") : t('今日累積雨量', "Today's rainfall"),
+  past48: t('近 48 小時累積雨量', 'Rainfall, past 48 h'),
+  past72: t('近 72 小時累積雨量', 'Rainfall, past 72 h'),
   qpf6: t('未來 6 小時降雨預報', 'Next 6 h rainfall forecast'),
   qpf12: t('未來 12 小時降雨預報', 'Next 12 h rainfall forecast'),
 })[rainMode.value]);
 const rainSource = computed(() => rainMode.value === 'today'
   ? t('來源：中央氣象署 O-A0040-003', 'Source: CWA O-A0040-003')
+  : PAST_HOURS[rainMode.value]
+  ? t('來源：中央氣象署 O-A0002-001 雨量站，以距離權重內插（同氣象署日累積圖作法）', 'Source: CWA O-A0002-001 gauges, distance-weighted like CWA\'s daily map')
   : t('來源：中央氣象署 F-C0041（颱風警報期間）', 'Source: CWA F-C0041 (typhoon warnings)'));
+// Observed maps are interpolated from gauges (CWA's own daily map included); the typhoon forecast is a model grid.
+const rainInterpolated = computed(() => rainMode.value === 'today' || !!PAST_HOURS[rainMode.value]);
 const rainRange = computed(() => {
   if (!rainLayer.value) return '';
   const { from, to } = rainLayer.value;
@@ -487,6 +557,14 @@ const rainSummary = computed(() => {
   if (rainLayerError.value) return t('無法取得雨量圖', 'Could not load rainfall map');
   if (!rainLayer.value) return t('載入中…', 'Loading…');
   const { maxIndex: i, scale } = rainLayer.value;
+  const hours = PAST_HOURS[rainMode.value];
+  if (hours) {
+    if (i < 0) return t(`近 ${hours} 小時雨量資料暫時無法提供`, `Rainfall data for the past ${hours} h is temporarily unavailable`);
+    if (i < 1) return t(`近 ${hours} 小時各站皆未達 1 mm`, `No station reached 1 mm in the past ${hours} h`);
+    const next = scale[i + 1]?.min;
+    const range = next == null ? `≥ ${scale[i].min}` : `${scale[i].min}–${next}`;
+    return t(`近 ${hours} 小時單站最大 ${range} mm`, `Highest station, past ${hours} h: ${range} mm`);
+  }
   const today = rainMode.value === 'today';
   const [dayZh, dayEn] = rainIsYesterday.value ? ['昨日', 'yesterday'] : ['今日', 'today'];
   if (i < 0) return today
@@ -496,19 +574,36 @@ const rainSummary = computed(() => {
   const range = i === 0 && today ? `< ${next}` : next == null ? `≥ ${scale[i].min}` : `${scale[i].min}–${next}`;
   return today ? t(`${dayZh}最大累積 ${range} mm`, `Highest ${dayEn}: ${range} mm`) : t(`預報最大 ${range} mm`, `Forecast highest: ${range} mm`);
 });
-const rainStale = computed(() => rainMode.value === 'today' && !!rainLayer.value
+const rainStale = computed(() => rainInterpolated.value && !!rainLayer.value
   && Date.now() - Date.parse(rainLayer.value.to) > 3 * 3600_000);
 let rainfallOverlay: L.ImageOverlay | null = null;
+// Island-wide the raster is the message; zoomed in, terrain and rivers must show through.
+// 0.9 up to z8, easing to 0.4 at z13+ (the 5 km cells are coarser than the view by then).
+function rainOpacity(zoom: number) {
+  return 0.9 - 0.5 * Math.min(1, Math.max(0, (zoom - 8) / 5));
+}
 let rainfallMapTimer = 0;
 
 async function loadRainLayer() {
   const mode = rainMode.value;
   rainLayerError.value = false;
   try {
+    const hours = PAST_HOURS[mode];
     let bounds: RainfallMap['bounds'];
     let url: string;
     let layer: RainLayer;
-    if (mode === 'today') {
+    if (hours) {
+      const data = await fetchRainfallStations();
+      const field = hours === 48 ? data.past48 : data.past72;
+      // Under 1 mm stays clear, like CWA's daily map, instead of greying out every dry hillside.
+      const values = field.values.map(v => (v != null && v >= 1 ? v : null));
+      url = (await toMercatorImage({ image: gridToImage(values, data.rows, data.cols, RAINFALL_SCALE), bounds: data.bounds })).url;
+      bounds = data.bounds;
+      const to = data.observedAt;
+      const from = new Date(Date.parse(to) - hours * 3600_000 + 8 * 3600_000).toISOString().slice(0, 19) + '+08:00';
+      // The summary quotes the wettest gauge (measured), not the interpolated peak.
+      layer = { from, to, maxIndex: bandIndex(field.max ?? -1, RAINFALL_SCALE), scale: RAINFALL_SCALE };
+    } else if (mode === 'today') {
       const data = await fetchRainfallMap();
       const img = await toMercatorImage(data);
       ({ bounds } = data);
@@ -518,8 +613,11 @@ async function loadRainLayer() {
       const grid = await fetchQpfGrid();
       qpfGrid.value = grid;
       qpfStatus.value = 'ready';
+      const openChart = chartIfNoGrid;
+      chartIfNoGrid = false;
       if (!grid.active) {
         if (rainMode.value === mode) rainMode.value = 'off';
+        if (openChart) openQpfCard(mode === 'qpf12' ? 12 : 6);
         return;
       }
       const [first, second] = grid.windows;
@@ -533,7 +631,7 @@ async function loadRainLayer() {
     }
     if (rainMode.value !== mode) return;
     const overlay = L.imageOverlay(url, [[bounds.south, bounds.west], [bounds.north, bounds.east]], {
-      opacity: 0.9,
+      opacity: rainOpacity(map?.getZoom() ?? 7),
       interactive: false,
       attribution: '雨量圖 © 中央氣象署',
     });
@@ -573,7 +671,22 @@ const qpfCloseBtn = ref<HTMLButtonElement | null>(null);
 // Official QPF charts: QPF_ChFcstPrecip_6_06 / 6_12 / 12_12 / 12_24.
 const qpfImage = computed(() =>
   `https://www.cwa.gov.tw/Data/fcst_img/QPF_ChFcstPrecip_${qpfHours.value}_${String(qpfHours.value * qpfPart.value).padStart(2, '0')}.png?t=${qpfStamp.value}`);
-async function openQpfCard() {
+const isPhone = () => window.innerWidth <= 640;
+
+// What the viewer actually sees: the open CWA chart, else the visible map layer (TW only).
+const shownRainMode = computed<RainMode>(() =>
+  qpfCardOpen.value ? (qpfHours.value === 12 ? 'qpf12' : 'qpf6') : rainfallMapVisible.value ? rainMode.value : 'off');
+// Shareable: ?rain=today|past48|past72|qpf6|qpf12 (other params are left to App / locale).
+watch(shownRainMode, (mode) => {
+  const url = new URL(location.href);
+  if (mode === 'off') url.searchParams.delete('rain');
+  else url.searchParams.set('rain', mode);
+  history.replaceState(null, '', url);
+}, { immediate: true }); // a layer restored from localStorage must be in the link too
+
+async function openQpfCard(hours: 6 | 12 = qpfHours.value) {
+  qpfHours.value = hours;
+  qpfPart.value = 1;
   qpfStamp.value = Math.floor(Date.now() / 600_000);
   qpfImgError.value = false;
   qpfCardOpen.value = true;
@@ -946,6 +1059,7 @@ onMounted(() => {
     selectedWpIndex.value = null;
   });
   map.on('layeradd layerremove zoomend moveend', layoutClusters);
+  map.on('zoomend', () => rainfallOverlay?.setOpacity(rainOpacity(map!.getZoom())));
   map.on('layeradd', (event: L.LayerEvent) => {
     if (event.layer instanceof L.MarkerClusterGroup)
       event.layer.off('animationend', layoutClusters).on('animationend', layoutClusters);
@@ -1177,12 +1291,6 @@ watch(
   outline-offset: 2px;
 }
 
-.panel-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-}
-
 .layers-fab {
   position: absolute;
   top: 56px;
@@ -1279,7 +1387,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  padding: 8px 14px;
   transition: background 0.12s;
 }
 .layer-row:hover {
@@ -1300,10 +1408,11 @@ watch(
 }
 
 .rain-legend {
-  /* Bottom-right, above the bottom toolbar, so it never sits under the layers panel. */
+  /* Top-left of the visible map: empty, and clear of the right-side panels and the bottom-centre
+     toolbar, filter chips and tips. Left offset follows the sidebar width (inline style). */
   position: absolute;
-  bottom: 96px;
-  right: 12px;
+  top: 12px;
+  transition: left 0.3s; /* follows the sidebar's 300ms slide */
   z-index: 1000;
   width: min(248px, calc(100vw - 24px));
   box-sizing: border-box;
@@ -1320,6 +1429,40 @@ watch(
 .rain-legend p {
   margin: 0;
 }
+.rain-legend-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* Closing the legend turns the layer off: a legend without its layer would be meaningless. */
+.rain-legend-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin: -6px -8px 0 0;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.rain-legend-close:hover {
+  background: var(--color-line);
+  color: var(--color-text-strong);
+}
+.rain-legend-close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  /* Phones: full width above the bottom toolbar; the sidebar is a full-screen overlay here. */
+  .rain-legend { top: auto; bottom: 96px; left: 12px !important; right: 12px; width: auto; }
+}
+@media (pointer: coarse) {
+  .rain-legend-close { padding: 15px; margin: -15px -15px -8px 0; }
+}
 .rain-legend-title {
   font-size: 0.8125rem;
   font-weight: 700;
@@ -1334,6 +1477,14 @@ watch(
 }
 .rain-legend-status {
   color: #f4c56a;
+}
+/* Loading is not a warning: amber stays for errors and stale data. */
+.rain-legend-loading {
+  color: var(--color-text-muted);
+}
+.rain-legend-caveat {
+  color: #c0c0d8;
+  line-height: 1.45;
 }
 .rain-legend-summary {
   color: #fff;
@@ -1354,7 +1505,7 @@ watch(
 .layer-row--stack {
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
 }
 .layer-row-head {
   display: flex;
@@ -1364,6 +1515,7 @@ watch(
 .layer-row--stack > .layer-sub {
   margin: 0;
 }
+/* One segment per question: observed, then (typhoon only) forecast. Off is the row toggle. */
 .rain-mode {
   display: grid;
   grid-auto-flow: column;
@@ -1375,43 +1527,53 @@ watch(
   border-radius: 8px;
 }
 .rain-mode button {
-  padding: 5px 4px;
+  min-height: 36px;
+  padding: 5px 3px;
+  line-height: 1.35;
   border: none;
   border-radius: 6px;
   background: none;
   color: #aaa;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
   cursor: pointer;
 }
 .rain-mode button[aria-checked="true"] {
   background: #6c8ef5;
-  color: #fff;
+  color: #12122a; /* DESIGN button-primary: dark text on primary, white is 3.1:1 */
   font-weight: 600;
 }
-.rain-mode button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.rain-mode button:focus-visible,
-.rain-link:focus-visible {
+.rain-mode button:focus-visible {
   outline: 2px solid #6c8ef5;
   outline-offset: 1px;
 }
-.rain-link {
-  justify-self: start;
-  align-self: flex-start;
-  padding: 0;
-  border: none;
+@media (pointer: coarse) {
+  .rain-mode button { min-height: 44px; }
+}
+.rain-chart-link {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
   background: none;
-  color: #8ea8ff;
+  color: var(--color-primary);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
 }
-.rain-link:hover {
-  text-decoration: underline;
+.rain-chart-link:hover {
+  background: var(--color-hover);
+}
+.rain-chart-link:focus-visible {
+  outline: 2px solid #6c8ef5;
+  outline-offset: 1px;
+}
+.rain-chart-link .layer-sub {
+  font-weight: 400;
 }
 .qpf-backdrop {
   position: fixed;

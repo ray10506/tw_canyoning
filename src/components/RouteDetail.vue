@@ -70,6 +70,10 @@
             @open="activeTab = 'weather'"
             @days="forecastDays = $event"
           />
+          <!-- Forecast leads the observations: heavy rain soon outranks a green reading from now. -->
+          <p v-if="rainNote.text" :class="['strip-note', { 'strip-note-watch': rainNote.watch }]">
+            {{ rainNote.text }}
+          </p>
           <!-- status strip: water level + rainfall at a glance, no tab switch needed.
                Always rendered — silence here reads as "conditions fine", so an explicit
                no-coverage message replaces the old no-op when there's simply no nearby station. -->
@@ -99,7 +103,6 @@
                 : "範圍內沒有水文資料"
             }}</span>
           </button>
-          <p v-if="rainNote" class="strip-note">{{ rainNote }}</p>
           <p v-if="glanceMeta" class="strip-meta">{{ glanceMeta }}</p>
           <!-- hazard banner: hazards live in the Hydrology tab body, but must stay
                visible from whichever tab is open — a "should I go" read must never
@@ -862,7 +865,7 @@ const waterSummary = computed(() => {
 
 const forecastDays = ref<ForecastDay[]>([]);
 // Connects the green-by-observation strip to heavy forecast rain, without recolouring it.
-const rainNote = computed(() => forecastRainNote(forecastDays.value));
+const rainNote = computed(() => forecastRainNote(forecastDays.value, true));
 
 // Dates the glance so a screenshot shared the night before can't pass for "now".
 // Uses the oldest observation — the strip is only as fresh as its stalest reading.
@@ -1892,6 +1895,14 @@ ${trksegs}
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--color-text-muted);
+}
+.strip-note-watch {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(214, 189, 85, 0.1);
+  font-weight: 600;
+  color: var(--color-watch);
 }
 .strip-meta {
   margin: 4px 2px 0;
