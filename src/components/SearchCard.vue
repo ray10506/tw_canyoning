@@ -42,7 +42,7 @@
         class="search-input"
         :placeholder="searchPlaceholder"
         :aria-label="searchPlaceholder"
-        @keydown.enter.prevent="emit('confirm')"
+        @keydown.enter.prevent="resultCount > 0 && emit('confirm')"
       />
       <button v-if="search" class="search-clear" :aria-label="locale === 'en' ? 'Clear search' : '清除搜尋'" @click="search = ''">✕</button>
     </div>
@@ -232,6 +232,8 @@ const searchPlaceholder = computed(() => {
   overflow-y: auto;
 }
 
+.search-card > * { flex-shrink: 0; }
+
 .card-header {
   display: flex;
   align-items: center;
@@ -241,13 +243,15 @@ const searchPlaceholder = computed(() => {
 .card-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #6c8ef5;
+  color: var(--color-text-strong);
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #555;
+  color: var(--color-text-muted);
+  min-width: 44px;
+  min-height: 44px;
   font-size: 0.8rem;
   cursor: pointer;
   padding: 8px;
@@ -264,7 +268,8 @@ const searchPlaceholder = computed(() => {
 
 .search-input {
   width: 100%;
-  padding: 8px 32px 8px 12px;
+  min-height: 44px;
+  padding: 8px 44px 8px 12px;
   border-radius: 8px;
   border: 1px solid #3a3a5a;
   background: #12122a;
@@ -274,7 +279,7 @@ const searchPlaceholder = computed(() => {
   box-sizing: border-box;
   transition: border-color 0.15s;
 }
-.search-input::placeholder { color: #555; }
+.search-input::placeholder { color: var(--color-text-muted); }
 .search-input:focus { border-color: #6c8ef5; }
 
 .search-hint {
@@ -285,10 +290,12 @@ const searchPlaceholder = computed(() => {
 
 .search-clear {
   position: absolute;
-  right: 8px;
+  right: 0;
   background: none;
   border: none;
-  color: #555;
+  color: var(--color-text-muted);
+  min-width: 44px;
+  min-height: 44px;
   font-size: 0.75rem;
   cursor: pointer;
   padding: 2px 4px;
@@ -432,7 +439,7 @@ const searchPlaceholder = computed(() => {
   border-radius: 8px;
   border: 1px solid #3a3a5a;
   background: transparent;
-  color: #888;
+  color: var(--color-text);
   font-size: 0.8rem;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;

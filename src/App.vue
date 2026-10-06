@@ -351,8 +351,11 @@ function changeSearchCountry(country: 'tw' | 'nz') {
 const mapLeftInset = computed(() => (sidebarOpen.value && !searchCoversSidebar.value ? sidebarWidth.value : 0));
 
 // On phones the sidebar is full-width, so it must give way to the search card.
+const phoneViewport = window.matchMedia('(max-width: 640px)');
+const isPhoneViewport = ref(phoneViewport.matches);
+phoneViewport.addEventListener('change', (e) => { isPhoneViewport.value = e.matches; });
 const searchCoversSidebar = computed(
-  () => activePanel.value === "search" && window.innerWidth <= 640,
+  () => activePanel.value === "search" && isPhoneViewport.value,
 );
 
 function changeBrowseMode(mode: "route" | "nz" | "hydrology") {
@@ -1036,7 +1039,7 @@ const filteredRoutes = computed(() => {
       const matchSearch =
         !q ||
         [r.name, r.name_zh, r.name_en, r.region, r.region_zh, r.region_en, r.river, r.location].some(value => normalize(value).includes(q));
-      const grading = (r["grading"] ?? "").split(/\s+/);
+      const grading = (r["grading"] ?? "").toUpperCase().match(/V\d+|A\d+|VI|IV|V|III|II|I/g) ?? [];
       const matchV = !v || grading.some((p: string) => p === v);
       const matchA = !a || grading.some((p: string) => p === a);
       const matchT = !t || grading.some((p: string) => p === t);
@@ -1051,8 +1054,8 @@ const filteredRoutes = computed(() => {
       return matchSearch && matchV && matchA && matchT && matchDrop && matchGpx;
     })
     .sort((a, b) => {
-      const ag = a["grading"] ?? "";
-      const bg = b["grading"] ?? "";
+      const ag = (a["grading"] ?? "").toUpperCase();
+      const bg = (b["grading"] ?? "").toUpperCase();
       const vA = parseInt(ag.match(/V(\d+)/)?.[1] ?? "999");
       const vB = parseInt(bg.match(/V(\d+)/)?.[1] ?? "999");
       if (vA !== vB) return compareGrade(vA, vB);
@@ -1069,7 +1072,7 @@ const filteredRoutes = computed(() => {
       };
       const findT = (g: string) =>
         T_ORDER[
-          g.split(/\s+/).find((p) => /^(I{1,3}|IV|VI?)$/.test(p)) ?? ""
+          g.replace(/V\d+|A\d+/g, '').match(/VI|IV|V|III|II|I/)?.[0] ?? ""
         ] ?? 999;
       return compareGrade(findT(ag), findT(bg));
     });

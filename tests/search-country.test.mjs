@@ -49,6 +49,18 @@ assert.equal(filteredRoutes.value.length, 0)
 assert.equal(stationSearch.value.rainfall.length, 0)
 console.log('Country-scoped route and station search passed.')
 
+// NZ imports use lowercase and compact grades; displayed badges support both.
+context.searchTypes.value = ['route']
+context.filterGpx.value = false
+context.nzRoutes.value = [route('compact', 'Compact', { grading: 'v6a6VI ★★★★★' }), route('spaced', 'Spaced', { grading: 'v4 a3 II ★★★' })]
+context.routeFilter.value = { v: 'V4', a: 'A3', t: 'II', drop: '' }
+assert.deepEqual(Array.from(filteredRoutes.value, r => r.id), ['spaced'])
+context.routeFilter.value = { v: 'V6', a: 'A6', t: 'VI', drop: '' }
+assert.deepEqual(Array.from(filteredRoutes.value, r => r.id), ['compact'])
+context.routeFilter.value = { v: '', a: '', t: '', drop: '' }
+assert.deepEqual(Array.from(filteredRoutes.value, r => r.id), ['spaced', 'compact'])
+console.log('Lowercase and compact NZ grades filter and sort correctly.')
+
 // Exercise the real edit/cancel flow, including the country-specific filters.
 let restoredView
 Object.assign(context, {

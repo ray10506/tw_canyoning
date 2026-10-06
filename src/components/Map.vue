@@ -84,16 +84,17 @@
               >{{ m.label }}</button>
             </div>
           </template>
-          <!-- Outside typhoon warnings CWA publishes no forecast grid, so the forecast is its chart, not a map mode. -->
-          <button v-if="!qpfActive" type="button" class="rain-chart-link" aria-haspopup="dialog" @click="openQpfCard(6)">
-            {{ t('查看氣象署降雨預報圖', 'View CWA rainfall forecast chart') }}
-            <small class="layer-sub" :class="{ warn: qpfStatus === 'error' }">{{
-              qpfStatus === 'error'
-                ? t('無法確認颱風預報格點', 'Could not check the typhoon forecast grid')
-                : t('非颱風警報期間沒有預報格點，無法畫在地圖上', 'No forecast grid outside typhoon warnings, so it can\'t be drawn on the map')
-            }}</small>
-          </button>
         </div>
+        <!-- Outside typhoon warnings CWA publishes no forecast grid, so the forecast is its chart: a link row, not a layer. -->
+        <button v-if="!nzCountry && !qpfActive" type="button" class="layer-row rain-chart-link" aria-haspopup="dialog" @click="openQpfCard(6)">
+          <svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+          </svg>
+          <span class="layer-label">{{ t('氣象署降雨預報圖', 'CWA rainfall forecast') }}</span>
+          <span class="rain-chart-meta">6／12h ›</span>
+        </button>
         <div class="layer-divider"></div>
         <div class="layer-row">
           <svg class="layer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -177,7 +178,8 @@
           />
           <p v-if="qpfImgError" class="rain-legend-status" role="alert">{{ t('無法載入氣象署預報圖。', 'Could not load the CWA chart.') }}</p>
           <p class="qpf-note">
-            {{ t('發布與有效時間標示於圖上方。', 'Issue and valid times are printed at the top of the chart.') }}
+            <span v-if="qpfStatus === 'error'" class="warn">{{ t('無法確認颱風預報格點。', 'Could not check the typhoon forecast grid.') }}</span>
+            {{ t('發布與有效時間標示於圖上方。颱風警報期間，預報會直接畫在地圖上。', 'Issue and valid times are printed at the top of the chart. During typhoon warnings the forecast is drawn on the map.') }}
             <a href="https://www.cwa.gov.tw/V8/C/P/QPF.html" target="_blank" rel="noopener">{{ t('在氣象署網站查看', 'View on CWA') }}</a>
           </p>
         </section>
@@ -1499,7 +1501,8 @@ watch(
   font-size: 0.75rem;
   color: #999;
 }
-.layer-sub.warn {
+.layer-sub.warn,
+.qpf-note .warn {
   color: #f4c56a;
 }
 .layer-row--stack {
@@ -1551,29 +1554,22 @@ watch(
 @media (pointer: coarse) {
   .rain-mode button { min-height: 44px; }
 }
+/* Same row as the layers, but a chevron instead of a toggle: it opens a chart, it doesn't switch a layer. */
 .rain-chart-link {
-  display: block;
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #2a2a4a;
-  border-radius: 8px;
+  border: 0;
   background: none;
-  color: var(--color-primary);
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
-.rain-chart-link:hover {
-  background: var(--color-hover);
-}
 .rain-chart-link:focus-visible {
   outline: 2px solid #6c8ef5;
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
-.rain-chart-link .layer-sub {
-  font-weight: 400;
+.rain-chart-meta {
+  font-size: 0.75rem;
+  color: #888;
 }
 .qpf-backdrop {
   position: fixed;

@@ -116,7 +116,7 @@ const historyCache = ref<Record<'7' | '14', RainfallHistoryData | null>>({ '7': 
 const popupWidth = computed(() => Math.min(CARD_W, window.innerWidth - MARGIN * 2))
 
 const estimatedHeight = computed(() => {
-  if (loading.value || error.value) return 160
+  if (loading.value || error.value) return 320
   return mode.value === 'live' ? 580 : 520
 })
 
@@ -142,13 +142,12 @@ const popupLayout = computed(() => {
 })
 
 const popupStyle = computed(() => {
-  const { left, top, width, height } = popupLayout.value
+  const { left, top, width } = popupLayout.value
   return {
     left: `${left}px`,
     top: `${top}px`,
-    width: window.innerWidth <= 640 ? undefined : `${width}px`,
-    maxHeight: window.innerWidth <= 640 ? undefined : `${height}px`,
-    minHeight: window.innerWidth <= 640 ? undefined : loading.value || error.value ? `${height}px` : undefined,
+    width: `${width}px`,
+    maxHeight: `${window.innerHeight - top - MARGIN}px`,
   }
 })
 
@@ -297,6 +296,7 @@ watch(() => props.station.station_id, () => {
 }
 
 .popup-header {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -344,6 +344,7 @@ watch(() => props.station.station_id, () => {
 .close-btn:focus-visible { outline: 2px solid #6c8ef5; outline-offset: 2px; }
 
 .badge-row {
+  flex-shrink: 0;
   display: flex;
   gap: 4px;
   padding: 0 12px 8px;
@@ -528,13 +529,13 @@ watch(() => props.station.station_id, () => {
 /* ── Mobile: bottom sheet ── */
 @media (max-width: 640px) {
   .popup {
-    width: auto;
+    width: auto !important;
     max-width: none;
     left: 12px !important;
     right: 12px;
     top: auto !important;
     bottom: 12px;
-    max-height: calc(85dvh - 12px);
+    max-height: calc(85dvh - 12px) !important;
     border-radius: 16px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
