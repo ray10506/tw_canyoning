@@ -1,3 +1,4 @@
+import { withApiTiming, timedFetch } from '../../../scripts/lib/api-timing.mjs'
 import stations from '../../../src/data/nz-water-stations.json' with { type: 'json' }
 
 export const nzDate = date => new Intl.DateTimeFormat('en-CA', {
@@ -24,7 +25,7 @@ export function nzTimestamp(value) {
   return new Date(instant).toISOString()
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method && req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
     return res.status(405).json({ error: 'Method not allowed' })
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
   url.searchParams.set('endate', nzDate(new Date(now + 86400000)))
   try {
     if (days === 1) {
-      const upstream = await fetch('https://envirodata.wcrc.govt.nz/dashboards/overview/map_river_level.php', { signal: AbortSignal.timeout(15000) })
+      const upstream = await timedFetch('https://envirodata.wcrc.govt.nz/dashboards/overview/map_river_level.php', { signal: AbortSignal.timeout(15000) })
       if (!upstream.ok) throw new Error(`WCRC upstream ${upstream.status}`)
       const html = await upstream.text()
       const block = [...html.matchAll(/html: "(<h3>[^\n]+)"/g)].map(match => match[1])
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
         points: time ? [{ time, value: value != null && Number.isFinite(value) && (metric === 'level' || value >= 0) ? value : null }] : [],
       })
     }
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    const upstream = await timedFetch(url, { signal: AbortSignal.timeout(15000) })
     if (!upstream.ok) throw new Error(`WCRC upstream ${upstream.status}`)
     const data = await upstream.json()
     if (!Array.isArray(data.riversdata)) throw new Error('Invalid WCRC response')
@@ -91,3 +92,5 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'WCRC river data unavailable' })
   }
 }
+
+export default withApiTiming(handler)

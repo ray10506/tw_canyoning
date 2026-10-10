@@ -1,0 +1,2 @@
+FROM ghcr.io/muchobien/pocketbase@sha256:3afcd5529c18768d4cd2e11d69b022158729f8842b332eb6cc9f851e36cc3441
+COPY pb_hooks /pb_hooks

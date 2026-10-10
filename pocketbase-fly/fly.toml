@@ -2,7 +2,7 @@ app = "raych-pocketbase"
 primary_region = "nrt"
 
 [build]
-  image = "ghcr.io/muchobien/pocketbase:latest"
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8090

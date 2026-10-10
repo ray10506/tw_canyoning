@@ -1,9 +1,5 @@
 import reportHandler from '../report.js'
-
-const ROUTE_FIELDS = [
-  'name', 'name_en', 'region', 'type', 'grading', 'gps', 'max_drop',
-  'approach', 'total_time', 'deep_pool', 'ab_shuttle', 'note',
-]
+import { ROUTE_FIELDS } from '../../scripts/lib/store-report.mjs'
 
 export const config = { api: { bodyParser: { sizeLimit: '7mb' } } }
 

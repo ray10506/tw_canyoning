@@ -1,4 +1,5 @@
-export default async function handler(req, res) {
+import { withApiTiming, timedFetch } from '../../../scripts/lib/api-timing.mjs'
+async function handler(req, res) {
   const stationId = String(req.query.stationId ?? '')
   if (!/^[A-Z0-9]{4,8}$/i.test(stationId)) return res.status(400).json({ error: 'Invalid station id' })
   const apiKey = process.env.CWA_API_KEY
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
   url.searchParams.set('GeoInfo', 'CountyName,TownName,StationLatitude,StationLongitude')
 
   try {
-    const upstream = await fetch(url.toString(), {
+    const upstream = await timedFetch(url.toString(), {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(15000),
     })
@@ -27,3 +28,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'CWA rainfall service unavailable' })
   }
 }
+
+export default withApiTiming(handler)

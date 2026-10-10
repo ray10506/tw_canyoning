@@ -1,3 +1,6 @@
+import { withApiTiming, timedFetch } from '../scripts/lib/api-timing.mjs'
+import { storeReport, ROUTE_LIMITS } from '../scripts/lib/store-report.mjs'
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -30,7 +33,7 @@ function rateLimited(req) {
   return hits.length > RATE_MAX
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
   if (rateLimited(req)) return res.status(429).json({ error: '回報太頻繁，請稍後再試' })
 
@@ -42,11 +45,10 @@ export default async function handler(req, res) {
 
   if (reportKind === 'route') {
     const r = req.body.route ?? {}
-    if (!r.name?.trim() || !r.region || !r.grading?.trim() || !r.gps?.trim())
+    if (['name', 'region', 'grading', 'gps'].some(key => typeof r[key] !== 'string' || !r[key].trim()))
       return res.status(400).json({ error: '名稱、縣市、難度、GPS 為必填' })
 
-    const limits = { name: 120, name_en: 120, region: 80, type: 40, grading: 40, gps: 80, max_drop: 40, approach: 1000, total_time: 100, deep_pool: 40, ab_shuttle: 1000, note: 4000 }
-    for (const [field, max] of Object.entries(limits)) {
+    for (const [field, max] of Object.entries(ROUTE_LIMITS)) {
       if (r[field] != null && (typeof r[field] !== 'string' || r[field].length > max))
         return res.status(400).json({ error: `${field} 格式錯誤或超過長度限制` })
     }
@@ -89,24 +91,34 @@ export default async function handler(req, res) {
       ${contactEmail ? `<p style="font-family:sans-serif"><strong>聯絡信箱：</strong>${escapeHtml(contactEmail)}</p>` : ''}`
   }
 
+  let stored = false
+  try { stored = await storeReport(req.body) }
+  catch { return res.status(502).json({ error: '回報暫時無法保存，請稍後重試。' }) }
   const key = process.env.RESEND_API_KEY
-  if (!key) return res.status(500).json({ error: 'RESEND_API_KEY not set' })
+  if (!key && !stored) return res.status(503).json({ error: '回報服務尚未設定。' })
 
   const emailPayload = { from: 'onboarding@resend.dev', to: 'terry30136@gmail.com', subject, html }
   if (gpxFile?.name && gpxFile?.content) {
     emailPayload.attachments = [{ filename: gpxFile.name, content: gpxFile.content }]
   }
 
-  const r = await fetch('https://api.resend.com/emails', {
+  let emailed = false
+  try {
+    const r = key && await timedFetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(emailPayload),
-  })
+      body: JSON.stringify(emailPayload),
+      signal: AbortSignal.timeout(10000),
+    })
+    emailed = !!r?.ok
+  } catch { /* A stored submission remains accepted if the email provider is down. */ }
 
   // Resend's error text can describe our account setup; keep it server-side.
-  if (!r.ok) return res.status(502).json({ error: 'Send failed' })
+  if (!stored && !emailed) return res.status(502).json({ error: 'Send failed' })
 
   res.status(reportKind === 'route' ? 202 : 200).json(
     reportKind === 'route' ? { ok: true, status: 'pending_review' } : { ok: true },
   )
 }
+
+export default withApiTiming(handler)

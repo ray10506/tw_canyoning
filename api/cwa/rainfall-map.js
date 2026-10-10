@@ -1,3 +1,4 @@
+import { withApiTiming, timedFetch } from '../../scripts/lib/api-timing.mjs'
 import JSZip from 'jszip'
 import landMask from '../../src/data/cwa-grid-land-mask.json' with { type: 'json' }
 
@@ -99,7 +100,7 @@ export function interpolateRainGrid(stations, column) {
 }
 
 async function stationsHandler(res) {
-  const upstream = await fetch(STATIONS_URL, { signal: AbortSignal.timeout(15000) })
+  const upstream = await timedFetch(STATIONS_URL, { signal: AbortSignal.timeout(15000) })
   if (!upstream.ok) return res.status(502).json({ error: 'CWA rainfall stations unavailable' })
   const { observedAt, stations } = parseRainfallStations(await upstream.json())
   // ponytail: grid is TWD67, gauges WGS84 (~0.8 km apart); under the 3 km cell, same as the QPF layer.
@@ -112,7 +113,7 @@ async function stationsHandler(res) {
   res.status(200).json(data)
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method && req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
     return res.status(405).json({ error: 'Method not allowed' })
@@ -120,7 +121,7 @@ export default async function handler(req, res) {
   try {
     // Folded into this function (not a new file): Vercel Hobby caps deployments at 12 functions.
     if (req.query?.kind === 'stations') return await stationsHandler(res)
-    const upstream = await fetch(KMZ_URL, { signal: AbortSignal.timeout(15000) })
+    const upstream = await timedFetch(KMZ_URL, { signal: AbortSignal.timeout(15000) })
     if (!upstream.ok) return res.status(502).json({ error: 'CWA rainfall map unavailable' })
     const data = await parseRainfallKmz(Buffer.from(await upstream.arrayBuffer()))
     res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1200')
@@ -129,3 +130,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'CWA rainfall map unavailable' })
   }
 }
+
+export default withApiTiming(handler)

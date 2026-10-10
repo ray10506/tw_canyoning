@@ -1,9 +1,10 @@
+import { withApiTiming, timedFetch } from '../../../scripts/lib/api-timing.mjs'
 let stationTypes = new Map()
 let stationTypesExpires = 0
 
 async function stationType(stationId) {
   if (Date.now() >= stationTypesExpires) {
-    const response = await fetch('https://codis.cwa.gov.tw/api/station_list', { signal: AbortSignal.timeout(10000) })
+    const response = await timedFetch('https://codis.cwa.gov.tw/api/station_list', { signal: AbortSignal.timeout(10000) })
     if (!response.ok) throw new Error('Station list unavailable')
     const json = await response.json()
     if (json.code !== 200 || !Array.isArray(json.data)) throw new Error('Invalid station list')
@@ -42,7 +43,7 @@ function parseRain(value) {
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const stationId = String(req.query.stationId ?? '').toUpperCase()
   const days = Number(req.query.days)
   if (!/^[A-Z0-9]{4,8}$/.test(stationId)) return res.status(400).json({ error: 'Invalid station id' })
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
     const stnType = await stationType(stationId)
     if (!stnType) return res.status(404).json({ error: 'Station not available in CODiS' })
     body.set('stn_type', stnType)
-    const upstream = await fetch('https://codis.cwa.gov.tw/api/station?', {
+    const upstream = await timedFetch('https://codis.cwa.gov.tw/api/station?', {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/javascript, */*; q=0.01',
@@ -115,3 +116,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'CWA rainfall history unavailable' })
   }
 }
+
+export default withApiTiming(handler)

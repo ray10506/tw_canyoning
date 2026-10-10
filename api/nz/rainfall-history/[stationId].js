@@ -1,9 +1,10 @@
+import { withApiTiming, timedFetch } from '../../../scripts/lib/api-timing.mjs'
 import { nzDate, readingValue } from '../water-level/[stationId].js'
 import stations from '../../../src/data/nz-rainfall-stations.json' with { type: 'json' }
 
 const STATIONS = new Set(stations.map(s => s.station_id))
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const stationId = String(req.query.stationId ?? '')
   const days = Number(req.query.days)
   if (!STATIONS.has(stationId)) return res.status(404).json({ error: 'Unknown NZ rainfall station' })
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
   url.searchParams.set('endate', dates[dates.length - 1])
 
   try {
-    const upstream = await fetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
+    const upstream = await timedFetch(url, { headers: { Accept: 'text/html' }, signal: AbortSignal.timeout(15000) })
     if (!upstream.ok) return res.status(502).json({ error: 'WCRC rainfall history unavailable' })
     const html = await upstream.text()
     const raw = html.match(/var data = (\{"raindata":[\s\S]*?\});/)?.[1]
@@ -50,3 +51,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'WCRC rainfall history unavailable' })
   }
 }
+
+export default withApiTiming(handler)

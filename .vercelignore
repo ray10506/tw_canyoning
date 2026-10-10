@@ -1,0 +1,17 @@
+.env*
+**/.env*
+*.local
+**/*.local
+pb_data/
+.git/
+.agents/
+.claude/
+.codex/
+.venv/
+.tmp*/
+.vs/
+.vscode/
+node_modules/
+dist/
+logs/
+*.log

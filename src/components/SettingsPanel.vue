@@ -85,6 +85,13 @@
           </div>
           <span class="menu-arrow">›</span>
         </button>
+        <a class="menu-btn" href="/admin">
+          <span class="menu-text">
+            <strong>{{ t('管理者登入', 'Admin login') }}</strong>
+            <small>{{ t('管理路線與審核回報', 'Manage routes and review submissions') }}</small>
+          </span>
+          <span class="menu-arrow" aria-hidden="true">›</span>
+        </a>
       </div>
     </template>
 
@@ -568,6 +575,7 @@ async function submitRoute() {
   border-radius: 8px;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
   transition: border-color 0.15s;
 }
 .menu-btn:hover {

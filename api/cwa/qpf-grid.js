@@ -1,3 +1,4 @@
+import { withApiTiming, timedFetch } from '../../scripts/lib/api-timing.mjs'
 // CWA F-C0041-001/002: 6 h QPF grids for Taiwan, only issued during land typhoon warnings.
 const IDS = ['F-C0041-001', 'F-C0041-002']
 const SIZE = 130
@@ -23,13 +24,13 @@ export function parseQpfWindow(json) {
   return { issuedAt: info.IssueTime, start: info.StartTime, end: info.EndTime, values }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const apiKey = process.env.CWA_API_KEY
   if (!apiKey) return res.status(500).json({ error: 'CWA_API_KEY not configured' })
   try {
     const windows = await Promise.all(IDS.map(async id => {
       const url = `https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/${id}?Authorization=${encodeURIComponent(apiKey)}&format=JSON`
-      const upstream = await fetch(url, { signal: AbortSignal.timeout(20000) })
+      const upstream = await timedFetch(url, { signal: AbortSignal.timeout(20000) })
       if (!upstream.ok) throw new Error('upstream')
       return parseQpfWindow(await upstream.json())
     }))
@@ -42,3 +43,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'CWA QPF grid unavailable' })
   }
 }
+
+export default withApiTiming(handler)
