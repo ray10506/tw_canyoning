@@ -69,6 +69,7 @@
 ```powershell
 npx vue-tsc --noEmit
 npm run build
+node scripts/check-page-css.mjs
 git diff --check
 git status --short
 ```
