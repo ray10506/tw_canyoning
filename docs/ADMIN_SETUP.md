@@ -30,6 +30,10 @@
 
 ## 驗收
 
+- 路線編輯分為「基本資料與來源」及預設收合的「補充資訊」。手機底部固定預覽／確認操作；已發布路線儲存後可開啟前台。
+- 「只看資料待補」依目前國家列出缺少名稱、地區、難度、GPS 或來源與授權說明的路線，並沿用搜尋及狀態篩選。僅檢查未填／空白，不驗證內容正確性或路線安全。
+- `node scripts/check-admin-routes.mjs`：缺漏欄位與 TW/NZ 前台連結測試；草稿及下架路線不得產生公開連結。
+
 - `node scripts/check-admin.mjs`：Docker 建立一次性隔離資料庫；實際驗證未登入、不同角色、禁止直接寫入、草稿與下架隔離、版本衝突、原子操作紀錄、回報與受保護 GPX。結束刪除該次測試容器，不碰 `pb_data`。需本機 Docker 與既有 PocketBase 映像。
 - `node scripts/check-route-submit-api.mjs`：原公開投稿 API 相容性與驗證。
 - `npx vue-tsc --noEmit`、`npm run build`。
